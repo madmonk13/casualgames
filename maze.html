@@ -242,6 +242,14 @@ let currentSeed;
 let timerStart, timerID, elapsed;
 let won = false;
 
+// ── ANIMATION STATE ────────────────────────────────────────────────────────
+let animX = 0, animY = 0;       // player visual position in canvas pixels
+let animFromX = 0, animFromY = 0;
+let animQueue = [];              // remaining [cx,cy] cells in current move
+let animSegStart = 0;
+let moving = false;
+const CELL_MS = 45;             // ms to traverse one cell
+
 // ── CANVAS ─────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('maze-canvas');
 const ctx    = canvas.getContext('2d');
@@ -303,16 +311,15 @@ function render() {
       const by = y * gs + wt;
       const bs = gs - 2 * wt;          // cell interior size
 
-      // Cell fill
-      const isPlayer = (x === px && y === py);
-      const isExit   = (x === N - 1 && y === N - 1);
-      const isStart  = (x === 0 && y === 0);
+      // Cell fill — player dot floats via animX/animY so no isPlayer branch needed
+      const isExit  = (x === N - 1 && y === N - 1);
+      const isStart = (x === 0 && y === 0);
 
       if (isExit) {
         ctx.fillStyle = C_EXIT_BG;
-      } else if (isStart && !isPlayer) {
+      } else if (isStart && !visited[0]) {
         ctx.fillStyle = C_START;
-      } else if (visited[y * N + x] && !isPlayer) {
+      } else if (visited[y * N + x]) {
         ctx.fillStyle = C_VISIT;
       } else {
         ctx.fillStyle = C_PATH;
@@ -322,15 +329,13 @@ function render() {
       // East passage
       if (cell & 2) {
         const bothVis = visited[y * N + x] && x + 1 < N && visited[y * N + x + 1];
-        const adjPlayer = isPlayer || (x + 1 === px && y === py);
-        ctx.fillStyle = (bothVis && !adjPlayer) ? C_VISIT : C_PATH;
+        ctx.fillStyle = bothVis ? C_VISIT : C_PATH;
         ctx.fillRect(x * gs + gs - wt, by, 2 * wt, bs);
       }
       // South passage
       if (cell & 4) {
         const bothVis = visited[y * N + x] && y + 1 < N && visited[(y + 1) * N + x];
-        const adjPlayer = isPlayer || (x === px && y + 1 === py);
-        ctx.fillStyle = (bothVis && !adjPlayer) ? C_VISIT : C_PATH;
+        ctx.fillStyle = bothVis ? C_VISIT : C_PATH;
         ctx.fillRect(bx, y * gs + gs - wt, bs, 2 * wt);
       }
     }
@@ -346,10 +351,10 @@ function render() {
     ctx.shadowBlur  = 0;
   }
 
-  // Player (gold circle with glow)
+  // Player (gold circle with glow) — drawn at animated position
   {
-    const cx = px * gs + gs / 2;
-    const cy = py * gs + gs / 2;
+    const cx = animX;
+    const cy = animY;
     const r  = gs * 0.28;
     ctx.shadowColor = C_PLAYER;
     ctx.shadowBlur  = gs * 0.6;
@@ -370,32 +375,70 @@ function dirBit(dx, dy) {
   return 0;
 }
 
-// Run in direction (dx,dy) until hitting a wall or reaching a junction
-// (a cell where the player could turn — i.e. a passage opens perpendicular
-//  to the direction of travel, or the forward path is blocked).
-function tryMove(dx, dy) {
-  if (won) return;
+// Compute the list of cells the player will pass through in direction (dx,dy)
+function getMovePath(dx, dy) {
+  const path    = [];
+  let cx = px, cy = py;
   const fwdBit  = dirBit(dx, dy);
   const backBit = dirBit(-dx, -dy);
+  const popcnt  = n => { let c=0; while(n){c+=n&1;n>>>=1;} return c; };
 
   while (true) {
-    if (!(cells[py * N + px] & fwdBit)) break; // wall ahead — stop
+    if (!(cells[cy * N + cx] & fwdBit)) break;
+    cx += dx; cy += dy;
+    path.push([cx, cy]);
+    if (cx === N-1 && cy === N-1) break;
+    const choices = cells[cy * N + cx] & ~backBit;
+    if (popcnt(choices) > 1) break;
+    if (!(choices & fwdBit))   break;
+  }
+  return path;
+}
 
-    px += dx; py += dy;
+// Kick off an animated move
+function startAnimMove(dx, dy) {
+  if (won || moving) return;
+  const path = getMovePath(dx, dy);
+  if (!path.length) return;
+
+  const gs  = canvas.width / N;
+  animFromX = animX;
+  animFromY = animY;
+  animQueue = path.slice();
+  animSegStart = performance.now();
+  moving = true;
+  requestAnimationFrame(animTick);
+}
+
+// Per-frame animation tick
+function animTick(now) {
+  if (!moving) return;
+  const gs        = canvas.width / N;
+  const [tx, ty]  = animQueue[0];
+  const toX       = tx * gs + gs / 2;
+  const toY       = ty * gs + gs / 2;
+  const t         = Math.min(1, (now - animSegStart) / CELL_MS);
+  // ease-in-out quadratic
+  const e         = t < 0.5 ? 2*t*t : -1 + (4 - 2*t)*t;
+
+  animX = animFromX + (toX - animFromX) * e;
+  animY = animFromY + (toY - animFromY) * e;
+  render();
+
+  if (t >= 1) {
+    // Commit arrival at this cell
+    px = tx; py = ty;
     visited[py * N + px] = 1;
+    animFromX = toX;
+    animFromY = toY;
+    animQueue.shift();
+    animSegStart = now;
 
-    if (px === N - 1 && py === N - 1) { render(); onWin(); return; }
-
-    // Stop if there are open passages besides the one we came from and the
-    // one straight ahead (i.e. the player has a meaningful choice to make).
-    const cell    = cells[py * N + px];
-    const choices = cell & ~backBit;          // everything except going back
-    const popcount = (n) => { let c=0; while(n){c+=n&1;n>>>=1;} return c; };
-    if (popcount(choices) > 1) break;         // junction — let player decide
-    if (!(choices & fwdBit))   break;         // dead end or turn ahead
+    if (px === N-1 && py === N-1) { moving = false; onWin(); return; }
+    if (!animQueue.length)         { moving = false; return; }
   }
 
-  render();
+  requestAnimationFrame(animTick);
 }
 
 // ── TIMER ──────────────────────────────────────────────────────────────────
@@ -455,6 +498,11 @@ function startGame(seed) {
   px = 0; py = 0;
   visited[0]  = 1;
   won         = false;
+  moving      = false;
+  animQueue   = [];
+  const _gs   = canvas.width / N;
+  animX = animFromX = _gs / 2;
+  animY = animFromY = _gs / 2;
   document.getElementById('win-overlay').classList.remove('show');
   document.getElementById('hdr-time').textContent  = '0:00';
   document.getElementById('time-disp').textContent = '0:00';
@@ -492,7 +540,7 @@ document.addEventListener('keydown', e => {
   if (!dir) return;
   e.preventDefault();
   const [dx, dy] = MOVE_VEC[dir];
-  tryMove(dx, dy);
+  startAnimMove(dx, dy);
 });
 
 // ── TOUCH / SWIPE ─────────────────────────────────────────────────────────
@@ -508,8 +556,8 @@ canvas.addEventListener('touchend', e => {
   const dy = e.changedTouches[0].clientY - ty0;
   const threshold = 18;
   if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
-  if (Math.abs(dx) >= Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
-  else                               tryMove(0, dy > 0 ? 1 : -1);
+  if (Math.abs(dx) >= Math.abs(dy)) startAnimMove(dx > 0 ? 1 : -1, 0);
+  else                               startAnimMove(0, dy > 0 ? 1 : -1);
 }, { passive: false });
 
 // ── INIT ──────────────────────────────────────────────────────────────────
