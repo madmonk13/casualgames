@@ -12,7 +12,6 @@ body {
   min-height: 100vh;
   color: #fff;
   padding-bottom: 48px;
-  touch-action: none;
 }
 
 header {
@@ -226,7 +225,7 @@ select.puzzle-select {
     <div class="size-tabs" id="size-tabs"></div>
     <div class="level-nav">
       <button class="btn btn-ghost" onclick="prevLevel()">◀</button>
-      <span class="level-label">Level <strong id="level-num">1</strong> / 100</span>
+      <span class="level-label">Level <strong id="level-num">1</strong></span>
       <button class="btn btn-ghost" onclick="nextLevel()">▶</button>
     </div>
     <button class="btn btn-ghost" onclick="loadCurrentPuzzle()">↺ Restart</button>
@@ -271,7 +270,7 @@ const SIZES = [
   { N: 11, colors: 11 },
   { N: 12, colors: 12 },
 ];
-const LEVELS_PER_SIZE = 100;
+// Levels are infinite — no cap per size
 
 // ── SEEDED PRNG (mulberry32) ──
 function makePRNG(seed) {
@@ -444,14 +443,13 @@ function setSize(idx) {
 
 function prevLevel() {
   if (currentLevel > 1) { currentLevel--; }
-  else if (currentSizeIdx > 0) { currentSizeIdx--; currentLevel = LEVELS_PER_SIZE; buildSizeUI(); }
+  else if (currentSizeIdx > 0) { currentSizeIdx--; currentLevel = 1; buildSizeUI(); }
   savePosition();
   loadCurrentPuzzle();
 }
 
 function nextLevel() {
-  if (currentLevel < LEVELS_PER_SIZE) { currentLevel++; }
-  else if (currentSizeIdx < SIZES.length - 1) { currentSizeIdx++; currentLevel = 1; buildSizeUI(); }
+  currentLevel++;
   savePosition();
   loadCurrentPuzzle();
 }

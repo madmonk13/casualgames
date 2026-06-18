@@ -66,6 +66,7 @@ select option { background:#1a2e3d; color:#fff; }
 /* ── Grid ── */
 #grid-wrap { margin-bottom:12px; }
 #grid {
+  touch-action: none;
   display:grid;
   grid-template-columns:repeat(9,1fr);
   border:3px solid rgba(255,255,255,0.5);
@@ -151,6 +152,10 @@ select option { background:#1a2e3d; color:#fff; }
   <h1>🔢 Sudoku</h1>
   <div class="header-right">
     <div class="timer-box">
+      <div class="timer-label">Level</div>
+      <div class="timer-val" id="level-el">1</div>
+    </div>
+    <div class="timer-box">
       <div class="timer-label">Time</div>
       <div class="timer-val" id="timer-el">0:00</div>
     </div>
@@ -179,8 +184,15 @@ select option { background:#1a2e3d; color:#fff; }
 
 <script>
 // ─── Sudoku solver / generator ─────────────────────────────────────────────
+// Seeded PRNG (xorshift32) for reproducible puzzles per level
+function mkSudokuRng(seed) {
+  let s = (seed ^ 0xf1234567) >>> 0;
+  return () => { s=(s^(s<<13))>>>0; s=(s^(s>>17))>>>0; s=(s^(s<<5))>>>0; return s/4294967296; };
+}
+let _rng = Math.random; // default to Math.random; overridden per level
+
 function shuffleArr(a) {
-  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(_rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
   return a;
 }
 
@@ -216,7 +228,10 @@ function isValid(g,r,c,n) {
   return true;
 }
 
-function generatePuzzle(difficulty) {
+function generatePuzzle(difficulty, levelNum) {
+  // Seed the RNG from difficulty + level so the same level always gives the same puzzle
+  const diffSeed = difficulty==='easy'?1:difficulty==='medium'?2:3;
+  _rng = mkSudokuRng(diffSeed * 1000000 + levelNum);
   // Fill complete valid grid
   const full = Array.from({length:9},()=>Array(9).fill(0));
   solve(full);
@@ -265,8 +280,19 @@ let notesMode=false;
 let timerInterval=null, elapsed=0;
 let undoStack=[];
 let hintsUsed=0;
+let levelNums = { easy:0, medium:0, hard:0 };
 
 // ─── State persistence ────────────────────────────────────────────────────
+function saveLevelNums() {
+  localStorage.setItem('sudoku_levels', JSON.stringify(levelNums));
+}
+function loadLevelNums() {
+  try {
+    const s = JSON.parse(localStorage.getItem('sudoku_levels') || '{}');
+    levelNums = { easy: s.easy||0, medium: s.medium||0, hard: s.hard||0 };
+  } catch(e) {}
+}
+
 function saveState() {
   const diff = document.getElementById('difficulty').value;
   const state = {
@@ -274,9 +300,10 @@ function saveState() {
     solution: solution.map(r=>[...r]),
     userGrid: userGrid.map(r=>[...r]),
     notes:    notes.map(r=>r.map(s=>[...s])),
-    elapsed,  hintsUsed,
+    elapsed, hintsUsed,
   };
   localStorage.setItem(`sudoku_state_${diff}`, JSON.stringify(state));
+  saveLevelNums();
 }
 
 function loadState(diff) {
@@ -309,12 +336,14 @@ function newGame(forceNew=false) {
 
   if (!restored) {
     elapsed=0; hintsUsed=0;
-    const {puzzle:p, solution:sol} = generatePuzzle(diff);
+    levelNums[diff]++;
+    const {puzzle:p, solution:sol} = generatePuzzle(diff, levelNums[diff]);
     puzzle=p; solution=sol;
     userGrid = p.map(r=>[...r]);
     notes = Array.from({length:9},()=>Array.from({length:9},()=>new Set()));
     given = p.map(r=>r.map(v=>v!==0));
   }
+  document.getElementById('level-el').textContent = levelNums[diff];
 
   const m=Math.floor(elapsed/60), s=elapsed%60;
   document.getElementById('timer-el').textContent=`${m}:${s.toString().padStart(2,'0')}`;
@@ -587,6 +616,7 @@ function undoAction() {
 window.addEventListener('resize',()=>{ calcCellSize(); });
 
 // ─── Start ────────────────────────────────────────────────────────────────
+loadLevelNums();
 newGame();
 </script>
 </body>

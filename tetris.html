@@ -483,8 +483,7 @@ let swipeX=0, swipeY=0;
 document.addEventListener('touchstart', e=>{
   if (e.target.closest('#dpad')) return;
   swipeX=e.touches[0].clientX; swipeY=e.touches[0].clientY;
-  e.preventDefault();
-}, {passive:false});
+}, {passive:true});
 document.addEventListener('touchend', e=>{
   if (e.target.closest('#dpad')) return;
   const dx=e.changedTouches[0].clientX-swipeX;
