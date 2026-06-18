@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌀 Maze</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1923;
+  background-image: radial-gradient(ellipse at 30% 20%, #1a2e3d 0%, #0a1018 100%);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+header {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  gap: 12px;
+}
+header a {
+  color: rgba(255,255,255,0.45);
+  text-decoration: none;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+header a:hover { color: #f0c040; }
+header h1 {
+  font-size: 1.4em;
+  font-weight: 800;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #f0c040, #ffe880);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hdr-stat {
+  font-size: 0.9em;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: right;
+}
+.hdr-stat span { color: #f0c040; font-weight: 600; }
+
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px 32px;
+  width: 100%;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.diff-tabs {
+  display: flex;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+.diff-tab {
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.diff-tab.active {
+  background: #f0c040;
+  color: #1a1000;
+}
+.diff-tab:hover:not(.active) {
+  color: rgba(255,255,255,0.8);
+  background: rgba(255,255,255,0.08);
+}
+
+.btn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.85em;
+  font-weight: 700;
+  transition: background 0.15s;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  color: #2a1800;
+}
+.btn-primary:hover { background: linear-gradient(135deg, #ffe060, #e8b820); }
+.btn-ghost {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.13); }
+
+#canvas-wrap {
+  position: relative;
+  width: min(480px, 94vw);
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+#maze-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 36px;
+  font-size: 0.9em;
+  color: rgba(255,255,255,0.45);
+}
+.stats-bar span { color: #f0c040; font-weight: 600; }
+
+.hint-bar {
+  font-size: 0.78em;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 0.5px;
+}
+
+/* Win overlay */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.overlay.show { display: flex; }
+.overlay-box {
+  background: linear-gradient(145deg, #1e2d3d, #162030);
+  border-radius: 16px;
+  padding: 36px 40px;
+  text-align: center;
+  border: 1px solid rgba(240,192,64,0.3);
+  min-width: 260px;
+}
+.overlay-box h2 { font-size: 2em; margin-bottom: 10px; color: #f0c040; }
+.win-time { font-size: 1.3em; color: #fff; margin-bottom: 4px; font-weight: 700; }
+.win-best { font-size: 0.9em; color: rgba(255,255,255,0.45); margin-bottom: 26px; min-height: 1.2em; }
+.btn-row { display: flex; gap: 10px; justify-content: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html">← Games</a>
+  <h1>🌀 Maze</h1>
+  <div class="hdr-stat"><span id="hdr-time">0:00</span></div>
+</header>
+
+<div class="overlay" id="win-overlay">
+  <div class="overlay-box">
+    <h2>🎉 Escaped!</h2>
+    <div class="win-time" id="win-time-txt"></div>
+    <div class="win-best" id="win-best-txt"></div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="newGame()">New Maze</button>
+      <button class="btn btn-ghost" onclick="restartGame()">Replay</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="controls">
+    <div class="diff-tabs" id="diff-tabs"></div>
+    <button class="btn btn-ghost" onclick="newGame()">↺ New</button>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="maze-canvas" width="480" height="480"></canvas>
+  </div>
+
+  <div class="stats-bar">
+    <div>Time &nbsp;<span id="time-disp">0:00</span></div>
+    <div>Best &nbsp;<span id="best-disp">--:--</span></div>
+  </div>
+  <div class="hint-bar" id="hint-bar">Arrow keys · WASD · Swipe</div>
+</main>
+
+<script>
+// ── PRNG (mulberry32) ──────────────────────────────────────────────────────
+function makePRNG(seed) {
+  return function() {
+    seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// ── CONFIG ──────────────────────────────────────────────────────────────────
+const DIFFS = [
+  { label: 'Easy',   size: 11 },
+  { label: 'Medium', size: 19 },
+  { label: 'Hard',   size: 29 },
+];
+let diffIdx = 0;
+
+// Wall bits: N=1, E=2, S=4, W=8 (bit set = passage open)
+const DIR = {
+  N: { dx:  0, dy: -1, bit: 1, opp: 4 },
+  E: { dx:  1, dy:  0, bit: 2, opp: 8 },
+  S: { dx:  0, dy:  1, bit: 4, opp: 1 },
+  W: { dx: -1, dy:  0, bit: 8, opp: 2 },
+};
+const DIRS = Object.values(DIR);
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let N, cells, visited;
+let px, py;
+let currentSeed;
+let timerStart, timerID, elapsed;
+let won = false;
+
+// ── CANVAS ─────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('maze-canvas');
+const ctx    = canvas.getContext('2d');
+
+// ── MAZE GENERATION (iterative DFS / recursive backtracker) ────────────────
+function generateMaze(size, seed) {
+  const rand  = makePRNG(seed);
+  const total = size * size;
+  const c     = new Uint8Array(total);
+  const vis   = new Uint8Array(total);
+  const stack = [[0, 0]];
+  vis[0]      = 1;
+
+  while (stack.length) {
+    const [x, y] = stack[stack.length - 1];
+    // collect unvisited neighbours in random order
+    const nbrs = [];
+    for (const { dx, dy, bit, opp } of DIRS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < size && ny >= 0 && ny < size && !vis[ny * size + nx]) {
+        nbrs.push({ nx, ny, bit, opp });
+      }
+    }
+    if (!nbrs.length) {
+      stack.pop();
+    } else {
+      const pick = nbrs[Math.floor(rand() * nbrs.length)];
+      c[y * size + x]          |= pick.bit;   // open this wall
+      c[pick.ny * size + pick.nx] |= pick.opp; // open neighbour's opposite wall
+      vis[pick.ny * size + pick.nx] = 1;
+      stack.push([pick.nx, pick.ny]);
+    }
+  }
+  return c;
+}
+
+// ── COLORS ─────────────────────────────────────────────────────────────────
+const C_WALL    = '#bfbfbf';  // maze wall (25% black)
+const C_PATH    = '#e8e8e8';  // unvisited floor
+const C_VISIT   = '#c0cdd8';  // visited floor (breadcrumb trail)
+const C_PLAYER  = '#d4880a';  // player (darker gold for contrast on light bg)
+const C_EXIT_BG = '#c8e8d0';  // exit cell background
+const C_EXIT    = '#1a9e50';  // exit marker
+const C_START   = '#d8e8d8';  // start cell tint once player leaves
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+function render() {
+  const SZ = canvas.width;           // 480
+  const gs = SZ / N;                 // pixels per grid cell
+  const wt = Math.max(1.5, gs * 0.1); // wall thickness
+
+  ctx.fillStyle = C_WALL;
+  ctx.fillRect(0, 0, SZ, SZ);
+
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      const cell = cells[y * N + x];
+      const bx = x * gs + wt;          // cell interior top-left
+      const by = y * gs + wt;
+      const bs = gs - 2 * wt;          // cell interior size
+
+      // Cell fill
+      const isPlayer = (x === px && y === py);
+      const isExit   = (x === N - 1 && y === N - 1);
+      const isStart  = (x === 0 && y === 0);
+
+      if (isExit) {
+        ctx.fillStyle = C_EXIT_BG;
+      } else if (isStart && !isPlayer) {
+        ctx.fillStyle = C_START;
+      } else if (visited[y * N + x] && !isPlayer) {
+        ctx.fillStyle = C_VISIT;
+      } else {
+        ctx.fillStyle = C_PATH;
+      }
+      ctx.fillRect(bx, by, bs, bs);
+
+      // East passage
+      if (cell & 2) {
+        const bothVis = visited[y * N + x] && x + 1 < N && visited[y * N + x + 1];
+        const adjPlayer = isPlayer || (x + 1 === px && y === py);
+        ctx.fillStyle = (bothVis && !adjPlayer) ? C_VISIT : C_PATH;
+        ctx.fillRect(x * gs + gs - wt, by, 2 * wt, bs);
+      }
+      // South passage
+      if (cell & 4) {
+        const bothVis = visited[y * N + x] && y + 1 < N && visited[(y + 1) * N + x];
+        const adjPlayer = isPlayer || (x === px && y + 1 === py);
+        ctx.fillStyle = (bothVis && !adjPlayer) ? C_VISIT : C_PATH;
+        ctx.fillRect(bx, y * gs + gs - wt, bs, 2 * wt);
+      }
+    }
+  }
+
+  // Exit marker (glowing green square)
+  {
+    const ex = (N - 1) * gs + wt, ey = (N - 1) * gs + wt, es = gs - 2 * wt;
+    ctx.shadowColor = C_EXIT;
+    ctx.shadowBlur  = gs * 0.8;
+    ctx.fillStyle   = C_EXIT;
+    ctx.fillRect(ex + es * 0.22, ey + es * 0.22, es * 0.56, es * 0.56);
+    ctx.shadowBlur  = 0;
+  }
+
+  // Player (gold circle with glow)
+  {
+    const cx = px * gs + gs / 2;
+    const cy = py * gs + gs / 2;
+    const r  = gs * 0.28;
+    ctx.shadowColor = C_PLAYER;
+    ctx.shadowBlur  = gs * 0.6;
+    ctx.fillStyle   = C_PLAYER;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+  }
+}
+
+// ── MOVEMENT ───────────────────────────────────────────────────────────────
+function dirBit(dx, dy) {
+  if (dy === -1) return 1; // N
+  if (dx ===  1) return 2; // E
+  if (dy ===  1) return 4; // S
+  if (dx === -1) return 8; // W
+  return 0;
+}
+
+// Run in direction (dx,dy) until hitting a wall or reaching a junction
+// (a cell where the player could turn — i.e. a passage opens perpendicular
+//  to the direction of travel, or the forward path is blocked).
+function tryMove(dx, dy) {
+  if (won) return;
+  const fwdBit  = dirBit(dx, dy);
+  const backBit = dirBit(-dx, -dy);
+
+  while (true) {
+    if (!(cells[py * N + px] & fwdBit)) break; // wall ahead — stop
+
+    px += dx; py += dy;
+    visited[py * N + px] = 1;
+
+    if (px === N - 1 && py === N - 1) { render(); onWin(); return; }
+
+    // Stop if there are open passages besides the one we came from and the
+    // one straight ahead (i.e. the player has a meaningful choice to make).
+    const cell    = cells[py * N + px];
+    const choices = cell & ~backBit;          // everything except going back
+    const popcount = (n) => { let c=0; while(n){c+=n&1;n>>>=1;} return c; };
+    if (popcount(choices) > 1) break;         // junction — let player decide
+    if (!(choices & fwdBit))   break;         // dead end or turn ahead
+  }
+
+  render();
+}
+
+// ── TIMER ──────────────────────────────────────────────────────────────────
+function fmt(ms) {
+  const s = Math.floor(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+function startTimer() {
+  clearInterval(timerID);
+  timerStart = Date.now();
+  timerID = setInterval(() => {
+    if (won) { clearInterval(timerID); return; }
+    elapsed = Date.now() - timerStart;
+    const t = fmt(elapsed);
+    document.getElementById('hdr-time').textContent  = t;
+    document.getElementById('time-disp').textContent = t;
+  }, 500);
+}
+
+// ── WIN ────────────────────────────────────────────────────────────────────
+function onWin() {
+  won = true;
+  clearInterval(timerID);
+  elapsed = Date.now() - timerStart;
+  const t = fmt(elapsed);
+  document.getElementById('hdr-time').textContent  = t;
+  document.getElementById('time-disp').textContent = t;
+
+  const key  = `maze_best_${diffIdx}`;
+  const prev = localStorage.getItem(key);
+  let bestMsg = '';
+  if (!prev || elapsed < parseInt(prev)) {
+    localStorage.setItem(key, String(elapsed));
+    bestMsg = prev ? '🏆 New best!' : 'First solve!';
+    document.getElementById('best-disp').textContent = t;
+  } else {
+    bestMsg = `Best: ${fmt(parseInt(prev))}`;
+  }
+  document.getElementById('win-time-txt').textContent = `Time: ${t}`;
+  document.getElementById('win-best-txt').textContent = bestMsg;
+  document.getElementById('win-overlay').classList.add('show');
+  render();
+}
+
+// ── GAME CONTROL ───────────────────────────────────────────────────────────
+function loadBest() {
+  const b = localStorage.getItem(`maze_best_${diffIdx}`);
+  document.getElementById('best-disp').textContent = b ? fmt(parseInt(b)) : '--:--';
+}
+
+function startGame(seed) {
+  N           = DIFFS[diffIdx].size;
+  currentSeed = seed;
+  cells       = generateMaze(N, seed);
+  visited     = new Uint8Array(N * N);
+  px = 0; py = 0;
+  visited[0]  = 1;
+  won         = false;
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('hdr-time').textContent  = '0:00';
+  document.getElementById('time-disp').textContent = '0:00';
+  loadBest();
+  render();
+  startTimer();
+}
+
+function newGame()     { startGame(Date.now() & 0x7fffffff); }
+function restartGame() { document.getElementById('win-overlay').classList.remove('show'); startGame(currentSeed); }
+
+// ── DIFFICULTY TABS ────────────────────────────────────────────────────────
+function buildDiffUI() {
+  const wrap = document.getElementById('diff-tabs');
+  wrap.innerHTML = '';
+  DIFFS.forEach((d, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'diff-tab' + (i === diffIdx ? ' active' : '');
+    btn.textContent = d.label;
+    btn.onclick = () => { diffIdx = i; buildDiffUI(); newGame(); };
+    wrap.appendChild(btn);
+  });
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────
+const KEY_MAP = {
+  ArrowUp:'N', ArrowRight:'E', ArrowDown:'S', ArrowLeft:'W',
+  w:'N', d:'E', s:'S', a:'W',
+  W:'N', D:'E', S:'S', A:'W',
+};
+const MOVE_VEC = { N:[0,-1], E:[1,0], S:[0,1], W:[-1,0] };
+
+document.addEventListener('keydown', e => {
+  const dir = KEY_MAP[e.key];
+  if (!dir) return;
+  e.preventDefault();
+  const [dx, dy] = MOVE_VEC[dir];
+  tryMove(dx, dy);
+});
+
+// ── TOUCH / SWIPE ─────────────────────────────────────────────────────────
+let tx0 = 0, ty0 = 0;
+canvas.addEventListener('touchstart', e => {
+  tx0 = e.touches[0].clientX;
+  ty0 = e.touches[0].clientY;
+}, { passive: true });
+canvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - tx0;
+  const dy = e.changedTouches[0].clientY - ty0;
+  const threshold = 18;
+  if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+  if (Math.abs(dx) >= Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
+  else                               tryMove(0, dy > 0 ? 1 : -1);
+}, { passive: true });
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+buildDiffUI();
+newGame();
+</script>
+</body>
+</html>

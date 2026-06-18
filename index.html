@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎮 Game Center</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1923;
+  background-image: radial-gradient(ellipse at 30% 20%, #1a2e3d 0%, #0a1018 100%);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  color: #fff;
+  padding: 24px 16px 48px;
+}
+
+header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+header h1 {
+  font-size: clamp(2em, 6vw, 3.2em);
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-shadow: 0 0 30px rgba(240,192,64,0.4);
+  background: linear-gradient(135deg, #f0c040, #ffe880, #f0a020);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 8px;
+}
+header p {
+  color: rgba(255,255,255,0.5);
+  font-size: 1.05em;
+  letter-spacing: 1px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.card {
+  background: linear-gradient(145deg, #1e2d3d, #162030);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  border-color: rgba(240,192,64,0.4);
+}
+.card-icon {
+  font-size: 3em;
+  line-height: 1;
+}
+.card-title {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: #f0e0a0;
+}
+.card-desc {
+  font-size: 0.9em;
+  color: rgba(255,255,255,0.55);
+  line-height: 1.5;
+  flex: 1;
+}
+.card-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tag {
+  font-size: 0.75em;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.card-play {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 9px 0;
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: 700;
+  font-size: 0.95em;
+  border-radius: 8px;
+  text-align: center;
+  transition: background 0.15s;
+}
+.card:hover .card-play {
+  background: linear-gradient(135deg, #ffe060, #e8b820);
+}
+
+/* Coming-soon card */
+.card.soon {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+  border-style: dashed;
+}
+.card.soon .card-play {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.4);
+}
+
+footer {
+  text-align: center;
+  margin-top: 48px;
+  color: rgba(255,255,255,0.2);
+  font-size: 0.85em;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎮 Game Center</h1>
+  <p>Solo games — no sign-up, no ads, just play</p>
+</header>
+
+<div class="grid">
+
+  <a class="card" href="mahjong.html">
+    <div class="card-icon">🀄</div>
+    <div class="card-title">Mahjong Solitaire</div>
+    <div class="card-desc">Clear the board by matching pairs of identical free tiles. Six classic layouts from Turtle to Dragon.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">6 layouts</span>
+      <span class="tag">Hint &amp; Undo</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="2048.html">
+    <div class="card-icon">🔢</div>
+    <div class="card-title">2048</div>
+    <div class="card-desc">Slide tiles on a 4×4 grid to merge matching numbers. Reach the 2048 tile to win — then keep going!</div>
+    <div class="card-tags">
+      <span class="tag">Strategy</span>
+      <span class="tag">Arrow keys</span>
+      <span class="tag">Swipe</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="minesweeper.html">
+    <div class="card-icon">💣</div>
+    <div class="card-title">Minesweeper</div>
+    <div class="card-desc">Uncover every safe cell without triggering a mine. Three difficulty levels from Beginner to Expert.</div>
+    <div class="card-tags">
+      <span class="tag">Logic</span>
+      <span class="tag">3 difficulties</span>
+      <span class="tag">Flagging</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="klondike.html">
+    <div class="card-icon">🃏</div>
+    <div class="card-title">Klondike Solitaire</div>
+    <div class="card-desc">The classic card game. Stack cards on 7 columns and build all four suits up from Ace to King.</div>
+    <div class="card-tags">
+      <span class="tag">Cards</span>
+      <span class="tag">Undo</span>
+      <span class="tag">Auto-complete</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="sudoku.html">
+    <div class="card-icon">🧩</div>
+    <div class="card-title">Sudoku</div>
+    <div class="card-desc">Fill the 9×9 grid so every row, column, and box contains each digit 1–9. Three difficulty levels.</div>
+    <div class="card-tags">
+      <span class="tag">Numbers</span>
+      <span class="tag">Notes mode</span>
+      <span class="tag">Hints</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="tetris.html">
+    <div class="card-icon">🟦</div>
+    <div class="card-title">Tetris</div>
+    <div class="card-desc">Stack falling tetrominoes and clear lines to score. Speed increases every 10 lines.</div>
+    <div class="card-tags">
+      <span class="tag">Classic</span>
+      <span class="tag">Arrow keys</span>
+      <span class="tag">Swipe</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="flow.html">
+    <div class="card-icon">🌊</div>
+    <div class="card-title">Flow</div>
+    <div class="card-desc">Connect matching colored dots with pipes — but every cell must be filled. 100 levels each on 5×5 up to 12×12 grids.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">800 levels</span>
+      <span class="tag">Drag to draw</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="block.html">
+    <div class="card-icon">🧱</div>
+    <div class="card-title">Block Puzzle</div>
+    <div class="card-desc">Drag pieces onto a 10×10 grid and clear full rows and columns. No time limit — plan ahead before the board fills up.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Drag &amp; drop</span>
+      <span class="tag">High score</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="maze.html">
+    <div class="card-icon">🌀</div>
+    <div class="card-title">Maze</div>
+    <div class="card-desc">Navigate a procedurally generated maze from start to exit. Three difficulty sizes — Easy to Hard — with a new maze every time.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Procedural</span>
+      <span class="tag">Arrow keys</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="memory.html">
+    <div class="card-icon">🃏</div>
+    <div class="card-title">Memory</div>
+    <div class="card-desc">Flip cards to find matching emoji pairs. Three difficulty levels from 8 to 18 pairs.</div>
+    <div class="card-tags">
+      <span class="tag">Memory</span>
+      <span class="tag">3 difficulties</span>
+      <span class="tag">Timer</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="mastermind.html">
+    <div class="card-icon">🔐</div>
+    <div class="card-title">Mastermind</div>
+    <div class="card-desc">Crack the secret color code in 10 guesses. Black clue = right color &amp; spot. White = right color, wrong spot.</div>
+    <div class="card-tags">
+      <span class="tag">Logic</span>
+      <span class="tag">Classic &amp; Hard</span>
+      <span class="tag">Color pegs</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="yahtzee.html">
+    <div class="card-icon">🎲</div>
+    <div class="card-title">Yahtzee Solitaire</div>
+    <div class="card-desc">Roll 5 dice up to 3 times per turn. Score all 13 categories — upper bonus, Full House, Straights, and the coveted Yahtzee.</div>
+    <div class="card-tags">
+      <span class="tag">Dice</span>
+      <span class="tag">13 categories</span>
+      <span class="tag">Bonus scoring</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+</div>
+
+<footer>Open any game — everything runs locally in your browser.</footer>
+
+</body>
+</html>

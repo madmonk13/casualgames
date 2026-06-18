@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🀄 Mahjong Solitaire</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #1a472a;
+  background-image: radial-gradient(ellipse at center, #2d6a40 0%, #0f2d1a 100%);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  color: #fff;
+}
+h1 {
+  font-size: 1.8em;
+  margin-bottom: 10px;
+  text-shadow: 2px 2px 6px rgba(0,0,0,0.6);
+  letter-spacing: 2px;
+}
+#controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+button {
+  padding: 7px 18px;
+  font-size: 0.95em;
+  border: 2px solid #c8960a;
+  border-radius: 8px;
+  cursor: pointer;
+  background: linear-gradient(145deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: bold;
+  transition: all 0.15s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+button:hover { background: linear-gradient(145deg, #ffe060, #e8b820); transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+select {
+  padding: 7px 30px 7px 12px;
+  font-size: 0.95em;
+  border: 2px solid #c8960a;
+  border-radius: 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%232a1800'/%3E%3C/svg%3E") no-repeat right 10px center, linear-gradient(145deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  appearance: none;
+  -webkit-appearance: none;
+}
+select:hover { background-color: #ffe060; }
+#status {
+  font-size: 1em;
+  padding: 6px 14px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  min-width: 200px;
+  text-align: center;
+}
+#board-container {
+  /* overflow hidden; scaling handled by JS transform */
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.2);
+  padding: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+#board {
+  position: relative;
+  transform-origin: top left;
+}
+
+/* Layer depth shading — halfway between original and subtle */
+.tile.z0 { background: linear-gradient(160deg, #ccbe94 0%, #b7a86c 60%, #a28e4d 100%); }
+.tile.z1 { background: linear-gradient(160deg, #d9cda3 0%, #c6b77b 60%, #b09d59 100%); }
+.tile.z2 { background: linear-gradient(160deg, #e7dbb2 0%, #d4c689 60%, #bfab64 100%); }
+.tile.z3 { background: linear-gradient(160deg, #f5e8c0 0%, #e0cc90 60%, #c8b060 100%); }
+
+.tile {
+  position: absolute;
+  width: 52px;
+  height: 66px;
+  background: linear-gradient(160deg, #f5e8c0 0%, #e0cc90 60%, #c8b060 100%);
+  border: 2px solid #8B6914;
+  border-bottom: 3px solid #5a4008;
+  border-right: 3px solid #5a4008;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  line-height: 1;
+  user-select: none;
+  cursor: pointer;
+  box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+  transition: transform 0.1s, box-shadow 0.1s;
+  overflow: hidden;
+}
+/* Parchment grain texture overlay */
+.tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.25;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+/* Full-color emoji, no filter — just sized to fill the tile */
+.tile-art {
+  line-height: 1;
+  position: relative; /* sit above ::after */
+  z-index: 1;
+}
+.tile.selected {
+  background: linear-gradient(160deg, #ffffa8 0%, #ffe050 60%, #f0c020 100%);
+  border-color: #c08800;
+  border-bottom-color: #906000;
+  border-right-color: #906000;
+  box-shadow: 0 0 12px rgba(255,200,0,0.7), 2px 2px 5px rgba(0,0,0,0.4);
+  transform: translateY(-2px) scale(1.04);
+  z-index: 9999 !important;
+}
+.tile.hint-glow {
+  animation: hint-pulse 0.55s ease-in-out 3;
+}
+@keyframes hint-pulse {
+  0%, 100% { box-shadow: 2px 2px 5px rgba(0,0,0,0.5); }
+  50% { box-shadow: 0 0 16px rgba(100,200,255,0.9), 2px 2px 5px rgba(0,0,0,0.5); }
+}
+.tile.removing {
+  animation: tile-vanish 0.35s ease-out forwards;
+}
+@keyframes tile-vanish {
+  0%   { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.3); opacity: 0; }
+}
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+#overlay.show { display: flex; }
+#overlay-box {
+  background: linear-gradient(145deg, #2d6a40, #1a3d24);
+  border: 3px solid #f0c040;
+  border-radius: 16px;
+  padding: 40px 50px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+#overlay-box h2 { font-size: 2.4em; margin-bottom: 12px; }
+#overlay-box p  { font-size: 1.1em; margin-bottom: 24px; opacity: 0.9; }
+</style>
+</head>
+<body>
+<div style="width:100%;max-width:960px;margin-bottom:8px;font-size:0.88em;">
+  <a href="index.html" style="color:rgba(255,255,255,0.45);text-decoration:none;transition:color 0.15s;" onmouseover="this.style.color='#f0c040'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">🎮 Game Center</a>
+  <span style="color:rgba(255,255,255,0.2);margin:0 6px">›</span>
+  <span style="color:rgba(255,255,255,0.7)">Mahjong Solitaire</span>
+</div>
+<h1>🀄 Mahjong Solitaire</h1>
+<div id="controls">
+  <select id="layout-select" onchange="newGame()">
+    <optgroup label="Classic">
+      <option value="turtle">🐢 Turtle</option>
+      <option value="dragon">🐉 Dragon</option>
+      <option value="pyramid">🔺 Pyramid</option>
+      <option value="cross">✚ Cross</option>
+      <option value="fortress">🏰 Fortress</option>
+      <option value="crab">🦀 Crab</option>
+    </optgroup>
+    <optgroup label="Mobile-friendly (vertical)">
+      <option value="pagodav">🏯 Pagoda</option>
+      <option value="tower">🗼 Tower</option>
+      <option value="hourglass">⌛ Hourglass</option>
+    </optgroup>
+  </select>
+  <button onclick="newGame()">🔀 New Game</button>
+  <button onclick="showHint()">💡 Hint</button>
+  <button onclick="undoMove()">↩ Undo</button>
+  <button onclick="shuffleTiles()" id="shuffle-btn" style="display:none">🎲 Shuffle</button>
+  <span id="status">Loading…</span>
+</div>
+<div id="board-container">
+  <div id="board"></div>
+</div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-msg"></p>
+    <p id="overlay-best" style="font-size:.85em;opacity:.5;margin-bottom:8px;min-height:1.2em;"></p>
+    <button onclick="closeOverlay()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ─── Tile Definitions ────────────────────────────────────────────────────────
+// Unicode mahjong emoji for all 34 standard tile types + 4 flowers + 4 seasons
+const STD_TILES = [
+  // Man (Characters 1–9) — Japanese/Asian cultural icons (very distinct shapes)
+  {id:'m1',emoji:'🏯',group:'man'},  // castle
+  {id:'m2',emoji:'⛩️',group:'man'}, // shrine gate
+  {id:'m3',emoji:'🎎',group:'man'}, // kokeshi dolls
+  {id:'m4',emoji:'🪭',group:'man'}, // folding fan
+  {id:'m5',emoji:'🎏',group:'man'}, // carp streamers
+  {id:'m6',emoji:'🎐',group:'man'}, // wind chimes
+  {id:'m7',emoji:'🏺',group:'man'}, // decorative urn
+  {id:'m8',emoji:'🎴',group:'man'}, // hanafuda card
+  {id:'m9',emoji:'🪆',group:'man'}, // matryoshka
+  // Pin (Circles 1–9) — Fruits (round theme, each visually distinct)
+  {id:'p1',emoji:'🍎',group:'pin'}, // red apple
+  {id:'p2',emoji:'🍊',group:'pin'}, // orange
+  {id:'p3',emoji:'🍋',group:'pin'}, // lemon
+  {id:'p4',emoji:'🍇',group:'pin'}, // grapes
+  {id:'p5',emoji:'🫐',group:'pin'}, // blueberries
+  {id:'p6',emoji:'🍓',group:'pin'}, // strawberry
+  {id:'p7',emoji:'🍒',group:'pin'}, // cherries
+  {id:'p8',emoji:'🍑',group:'pin'}, // peach
+  {id:'p9',emoji:'🍉',group:'pin'}, // watermelon
+  // Sou (Bamboo 1–9) — Wildlife & nature (distinct shapes)
+  {id:'s1',emoji:'🎋',group:'sou'}, // bamboo stalks
+  {id:'s2',emoji:'🌿',group:'sou'}, // herb sprig
+  {id:'s3',emoji:'🍀',group:'sou'}, // four-leaf clover
+  {id:'s4',emoji:'🌴',group:'sou'}, // palm tree
+  {id:'s5',emoji:'🦎',group:'sou'}, // lizard
+  {id:'s6',emoji:'🌵',group:'sou'}, // cactus
+  {id:'s7',emoji:'🦜',group:'sou'}, // parrot
+  {id:'s8',emoji:'🌾',group:'sou'}, // grain sheaf
+  {id:'s9',emoji:'🍄',group:'sou'}, // mushroom
+  // Winds — cardinal directions (distinct sky scenes)
+  {id:'we',emoji:'🌅',group:'wind'}, // sunrise (East)
+  {id:'ws',emoji:'☀️',group:'wind'},  // noon sun (South)
+  {id:'ww',emoji:'🌇',group:'wind'}, // sunset (West)
+  {id:'wn',emoji:'🌨️',group:'wind'}, // snowstorm (North)
+  // Dragons — elemental forces
+  {id:'dc',emoji:'🔥',group:'dragon'}, // fire (red dragon)
+  {id:'dg',emoji:'🌊',group:'dragon'}, // wave (green dragon)
+  {id:'dw',emoji:'💨',group:'dragon'}, // gust (white dragon)
+];
+const BONUS_TILES = [
+  {id:'f1',emoji:'🌸',group:'flower'},{id:'f2',emoji:'🌺',group:'flower'},
+  {id:'f3',emoji:'🌼',group:'flower'},{id:'f4',emoji:'🌻',group:'flower'},
+  {id:'se1',emoji:'🌱',group:'season'},{id:'se2',emoji:'🌞',group:'season'},
+  {id:'se3',emoji:'🍂',group:'season'},{id:'se4',emoji:'❄️',group:'season'},
+];
+
+function createDeck() {
+  // 34 standard × 4 = 136, plus 4 flowers + 4 seasons = 144
+  const deck = [];
+  for (const t of STD_TILES) for (let i = 0; i < 4; i++) deck.push({...t});
+  for (const t of BONUS_TILES) deck.push({...t});
+  return deck; // 144 tiles
+}
+
+// ─── Turtle Layout ────────────────────────────────────────────────────────────
+// Coordinate system: each unit = half a tile.
+// A tile placed at (x, y, z) occupies pixel-area [x*UX+z*OX, y*UY-z*OY] to [+TW, +TH].
+// Overlap (cover): z1 = z0+1 AND |dx|<2 AND |dy|<2
+// Adjacent (block): same z, x differs by exactly 2, |dy|<2
+function buildTurtleLayout() {
+  const pos = [];
+  const add = (x,y,z) => pos.push([x,y,z]);
+
+  // ── Layer 0 (z=0) ──────────────────────────────────────── 84 tiles
+  // Top partial row  (y=0): x = 4..26  → 12
+  for (let x=4; x<=26; x+=2) add(x,0,0);
+  // Full rows (y=2..8): x = 2..28 → 14 each × 4 = 56
+  for (let y=2; y<=8; y+=2)
+    for (let x=2; x<=28; x+=2) add(x,y,0);
+  // Bottom partial row (y=10): x = 4..26 → 12
+  for (let x=4; x<=26; x+=2) add(x,10,0);
+  // Tail (left): 2 tiles
+  add(0,4,0); add(0,6,0);
+  // Head (right): 2 tiles
+  add(30,4,0); add(30,6,0);
+
+  // ── Layer 1 (z=1) ─────────────────────────────────────── 40 tiles
+  // 4 rows × 10 cols
+  for (let y=2; y<=8; y+=2)
+    for (let x=6; x<=24; x+=2) add(x,y,1);
+
+  // ── Layer 2 (z=2) ─────────────────────────────────────── 12 tiles
+  // 2 rows × 6 cols
+  for (let y=4; y<=6; y+=2)
+    for (let x=10; x<=20; x+=2) add(x,y,2);
+
+  // ── Layer 3 (z=3) ──────────────────────────────────────── 8 tiles
+  // 2 rows × 4 cols
+  for (let y=4; y<=6; y+=2)
+    for (let x=12; x<=18; x+=2) add(x,y,3);
+
+  // Total: 84 + 40 + 12 + 8 = 144
+  return pos;
+}
+
+function buildDragonLayout() {
+  // All rows centered at x=16 (spine center). 68+52+18+6=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (68): long spine + scales + tips
+  for (let x=0;  x<=32; x+=2) { add(x,4,0); add(x,6,0); }  // spine  17×2=34, center=16
+  for (let x=4;  x<=28; x+=2) { add(x,2,0); add(x,8,0); }  // scales 13×2=26, center=16
+  for (let x=12; x<=18; x+=2) { add(x,0,0); add(x,10,0); } // tips    4×2= 8, center=15
+  // Layer 1 (52)
+  for (let x=2;  x<=30; x+=2) { add(x,4,1); add(x,6,1); }  // 15×2=30, center=16
+  for (let x=6;  x<=26; x+=2) { add(x,2,1); add(x,8,1); }  // 11×2=22, center=16
+  // Layer 2 (18)
+  for (let x=8;  x<=24; x+=2) { add(x,4,2); add(x,6,2); }  // 9×2=18,  center=16
+  // Layer 3 (6)
+  for (let x=14; x<=18; x+=2) { add(x,4,3); add(x,6,3); }  // 3×2= 6,  center=16
+  return pos; // 144
+}
+
+function buildPyramidLayout() {
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (64): 8-row isoceles triangle
+  [[0,28],[2,26],[4,24],[6,22],[8,20],[10,18],[12,16],[14,14]]
+    .forEach(([s,e],i) => { for (let x=s; x<=e; x+=2) add(x,i*2,0); });
+  // Layer 1 (48): 6-row subset
+  [[2,26],[4,24],[6,22],[8,20],[10,18],[12,16]]
+    .forEach(([s,e],i) => { for (let x=s; x<=e; x+=2) add(x,i*2,1); });
+  // Layer 2 (25): 5-row subset
+  [[6,22],[8,20],[10,18],[12,16],[14,14]]
+    .forEach(([s,e],i) => { for (let x=s; x<=e; x+=2) add(x,i*2,2); });
+  // Layer 3 (7): apex row
+  for (let x=8; x<=20; x+=2) add(x,0,3);
+  return pos; // 144
+}
+
+function buildCrossLayout() {
+  // Symmetric cross: horizontal arm y=4..10 (center y=7), equal 2-row arms above & below.
+  // Vertical arm x=10..20 (center x=15, closest even-tile center to horizontal center x=14).
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (84): thick cross
+  for (let y=4; y<=10; y+=2) for (let x=0;  x<=28; x+=2) add(x,y,0); // horiz 4×15=60
+  for (let y=0; y<=14; y+=2) for (let x=10; x<=20; x+=2)              // vert, skip overlap
+    if (y < 4 || y > 10) add(x,y,0);                                  // 4 rows×6=24
+  // Layer 1 (42)
+  for (let x=2;  x<=26; x+=2) { add(x,6,1); add(x,8,1); }            // horiz 13×2=26
+  for (let y=0;  y<=14; y+=2) for (let x=12; x<=18; x+=2)             // vert, skip overlap
+    if (y < 4 || y > 10) add(x,y,1);                                  // 4 rows×4=16
+  // Layer 2 (18)
+  for (let x=6; x<=22; x+=2) { add(x,6,2); add(x,8,2); }
+  return pos; // 144
+}
+
+function buildFortressLayout() {
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (72): filled rectangle
+  for (let x=0; x<=22; x+=2) for (let y=0; y<=10; y+=2) add(x,y,0);
+  // Layer 1 (56): top/bottom walls + side pillars (y=4 and y=6, mirrored)
+  for (let x=0; x<=22; x+=2) { add(x,0,1); add(x,2,1); add(x,8,1); add(x,10,1); } // 24+24=48
+  add(0,4,1); add(2,4,1); add(20,4,1); add(22,4,1);                                  // pillars y=4
+  add(0,6,1); add(2,6,1); add(20,6,1); add(22,6,1);                                  // pillars y=6 (mirror)
+  // Layer 2 (16): ramparts (inset to x=4..18 to keep total=144)
+  for (let x=4; x<=18; x+=2) { add(x,0,2); add(x,10,2); }
+  return pos; // 144
+}
+
+function buildCrabLayout() {
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (78): wide body + claws
+  for (let x=0;  x<=32; x+=2) { add(x,4,0); add(x,6,0); }  // claws  17×2=34
+  for (let x=4;  x<=28; x+=2) { add(x,2,0); add(x,8,0); }  // body   13×2=26
+  for (let x=8;  x<=24; x+=2) { add(x,0,0); add(x,10,0); } // legs    9×2=18
+  // Layer 1 (48)
+  for (let x=4;  x<=28; x+=2) { add(x,4,1); add(x,6,1); }  // 13×2=26
+  for (let x=6;  x<=26; x+=2) { add(x,2,1); add(x,8,1); }  // 11×2=22
+  // Layer 2 (18)
+  for (let x=8;  x<=24; x+=2) { add(x,4,2); add(x,6,2); }
+  return pos; // 144
+}
+
+function buildPagodaVLayout() {
+  // Stepped pagoda: narrow apex at top (y=0), wide base at bottom (y=16). 70+48+26=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // z=0: 5 tiers, 3→5→7→9→11 tiles top-to-bottom (all centered at x=10)
+  const tiers = [[8,12],[6,14],[4,16],[2,18],[0,20]];
+  tiers.forEach(([xs,xe],i) => {
+    const y = i*4;
+    for (let x=xs; x<=xe; x+=2) { add(x,y,0); add(x,y+2,0); }
+  });
+  // z=1: tiers 1-4 (y=4..18), inset 1 tile each side. 3,5,7,9 × 2 = 48
+  tiers.slice(1).forEach(([xs,xe],i) => {
+    const y = (i+1)*4;
+    for (let x=xs+2; x<=xe-2; x+=2) { add(x,y,1); add(x,y+2,1); }
+  });
+  // z=2: tiers 2-4 (y=8..18), widths 1,5,7. 2+10+14 = 26
+  [[10,10],[6,14],[4,16]].forEach(([xs,xe],i) => {
+    const y = (i+2)*4;
+    for (let x=xs; x<=xe; x+=2) { add(x,y,2); add(x,y+2,2); }
+  });
+  return pos; // 144
+}
+
+function buildTowerLayout() {
+  // Tall narrow column — 4 concentric z-layers, all centered at y=11. 72+40+24+8=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  for (let y=0;  y<=22; y+=2) for (let x=4; x<=14; x+=2) add(x,y,0); // 12×6=72, center y=11
+  for (let y=2;  y<=20; y+=2) for (let x=6; x<=12; x+=2) add(x,y,1); // 10×4=40, center y=11
+  for (let y=6;  y<=16; y+=2) for (let x=6; x<=12; x+=2) add(x,y,2); //  6×4=24, center y=11
+  for (let y=8;  y<=14; y+=2) for (let x=8; x<=10; x+=2) add(x,y,3); //  4×2= 8, center y=11
+  return pos; // 144
+}
+
+function buildHourglassLayout() {
+  // Wide top, pinched waist (3 tiles, centered), wide bottom. 78+62+4=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // z=0 (all sections centered at x=8)
+  for (let y=0;  y<=6;  y+=2) for (let x=0; x<=16; x+=2) add(x,y,0); // top  4×9=36
+  for (let y=8;  y<=10; y+=2) for (let x=6; x<=10; x+=2) add(x,y,0); // waist 2×3= 6
+  for (let y=12; y<=18; y+=2) for (let x=0; x<=16; x+=2) add(x,y,0); // bot  4×9=36 → 78
+  // z=1
+  for (let y=0;  y<=6;  y+=2) for (let x=2; x<=14; x+=2) add(x,y,1); // top  4×7=28
+  for (let y=8;  y<=10; y+=2) for (let x=6; x<=10; x+=2) add(x,y,1); // waist 2×3= 6
+  for (let y=12; y<=18; y+=2) for (let x=2; x<=14; x+=2) add(x,y,1); // bot  4×7=28 → 62
+  // z=2 (single-tile column at x=8, top and bottom)
+  for (let y=2;  y<=4;  y+=2) add(8,y,2); // top  2
+  for (let y=14; y<=16; y+=2) add(8,y,2); // bot  2 → 4
+  return pos; // 144
+}
+
+function getLayout() {
+  const val = document.getElementById('layout-select').value;
+  switch (val) {
+    case 'dragon':   return buildDragonLayout();
+    case 'pyramid':  return buildPyramidLayout();
+    case 'cross':    return buildCrossLayout();
+    case 'fortress': return buildFortressLayout();
+    case 'crab':     return buildCrabLayout();
+    case 'pagodav':  return buildPagodaVLayout();
+    case 'tower':    return buildTowerLayout();
+    case 'hourglass':return buildHourglassLayout();
+    default:         return buildTurtleLayout();
+  }
+}
+
+// ─── Tile Dimensions ─────────────────────────────────────────────────────────
+const TW = 52, TH = 66;       // tile width/height in px
+const UX = TW / 2, UY = TH / 2; // px per half-tile unit
+const OX = 5, OY = 5;          // px offset per z-layer (3-D illusion)
+
+// ─── Game State ──────────────────────────────────────────────────────────────
+let tiles = [];
+let selected = null;
+let history = [];
+
+function tilesMatch(a, b) {
+  if (a.group === 'flower'  && b.group === 'flower')  return true;
+  if (a.group === 'season'  && b.group === 'season')  return true;
+  return a.id === b.id;
+}
+
+function isCovered(tile) {
+  return tiles.some(t => !t.removed && t !== tile
+    && t.z === tile.z + 1
+    && Math.abs(t.x - tile.x) < 2
+    && Math.abs(t.y - tile.y) < 2);
+}
+function isLeftBlocked(tile) {
+  return tiles.some(t => !t.removed && t !== tile
+    && t.z === tile.z
+    && t.x === tile.x - 2
+    && Math.abs(t.y - tile.y) < 2);
+}
+function isRightBlocked(tile) {
+  return tiles.some(t => !t.removed && t !== tile
+    && t.z === tile.z
+    && t.x === tile.x + 2
+    && Math.abs(t.y - tile.y) < 2);
+}
+function isFree(tile) {
+  if (tile.removed) return false;
+  if (isCovered(tile)) return false;
+  return !isLeftBlocked(tile) || !isRightBlocked(tile);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ─── Shuffle remaining tiles ─────────────────────────────────────────────────
+function shuffleTiles() {
+  const remaining = tiles.filter(t => !t.removed);
+  // Extract tile data (emoji/id/group), shuffle it, reassign to same positions
+  const data = shuffle(remaining.map(t => ({id: t.id, emoji: t.emoji, group: t.group})));
+  remaining.forEach((t, i) => {
+    t.id    = data[i].id;
+    t.emoji = data[i].emoji;
+    t.group = data[i].group;
+  });
+  selected = null;
+  document.getElementById('shuffle-btn').style.display = 'none';
+  renderBoard();
+  const remaining2 = tiles.filter(t => !t.removed).length;
+  setStatus(`${remaining2} tiles remaining`);
+}
+
+// ─── New Game ────────────────────────────────────────────────────────────────
+function newGame() {
+  closeOverlay();
+  const positions = getLayout();      // 144 positions for chosen layout
+  const deck = shuffle(createDeck()); // 144 shuffled tiles
+
+  tiles = positions.map(([x, y, z], i) => ({
+    ...deck[i],
+    x, y, z,
+    removed: false,
+    el: null,
+  }));
+
+  selected = null;
+  history = [];
+  document.getElementById('shuffle-btn').style.display = 'none';
+  renderBoard();
+  setStatus(`${tiles.length} tiles remaining`);
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  // Board pixel dimensions — computed from actual tile extents (stable across removals)
+  const maxX = Math.max(...tiles.map(t => t.x));
+  const maxY = Math.max(...tiles.map(t => t.y));
+  const maxZ = Math.max(...tiles.map(t => t.z));
+  const boardW = (maxX + 2) * UX + maxZ * OX + TW + 20;
+  const boardH = (maxY + 2) * UY + maxZ * OY + TH + 20;
+  board.style.width  = boardW + 'px';
+  board.style.height = boardH + 'px';
+
+  // Render bottom-to-top so higher tiles visually sit on lower ones
+  const sorted = [...tiles].sort((a,b) =>
+    a.z - b.z || a.y - b.y || a.x - b.x);
+
+  for (const tile of sorted) {
+    if (tile.removed) continue;
+
+    const px = tile.x * UX + tile.z * OX + 10;
+    const py = tile.y * UY - tile.z * OY + maxZ * OY + 10; // maxZ now dynamic
+    const zi = tile.z * 1000 + tile.y * 20 + tile.x;
+
+    const el = document.createElement('div');
+    el.className = `tile z${tile.z}`;
+    el.style.left   = px + 'px';
+    el.style.top    = py + 'px';
+    el.style.zIndex = zi;
+
+    const art = document.createElement('span');
+    art.className = 'tile-art';
+    art.textContent = tile.emoji;
+    el.appendChild(art);
+
+    const free = isFree(tile);
+    // No visual distinction — player figures out which tiles are free
+    if (tile === selected) el.classList.add('selected');
+    el.addEventListener('click', () => onTileClick(tile));
+
+    tile.el = el;
+    board.appendChild(el);
+  }
+
+  scaleBoard();
+}
+
+// ─── Responsive Scaling ───────────────────────────────────────────────────────
+function scaleBoard() {
+  const board     = document.getElementById('board');
+  const container = document.getElementById('board-container');
+  const boardW    = parseFloat(board.style.width);
+  const boardH    = parseFloat(board.style.height);
+  const pad       = 40; // container padding (20px each side)
+  const maxW      = window.innerWidth - 32; // body padding
+  const scale     = Math.min(1, (maxW - pad) / boardW);
+
+  board.style.transform = `scale(${scale})`;
+  container.style.width  = (boardW  * scale + pad) + 'px';
+  container.style.height = (boardH * scale + pad) + 'px';
+}
+
+// ─── Interaction ─────────────────────────────────────────────────────────────
+function onTileClick(tile) {
+  if (!isFree(tile)) return;
+
+  if (!selected) {
+    selected = tile;
+    tile.el && tile.el.classList.add('selected');
+    return;
+  }
+
+  if (selected === tile) {
+    selected = null;
+    tile.el && tile.el.classList.remove('selected');
+    return;
+  }
+
+  if (tilesMatch(selected, tile)) {
+    removePair(selected, tile);
+  } else {
+    // Switch selection to new tile
+    const prev = selected;
+    selected = tile;
+    if (prev.el) prev.el.classList.remove('selected');
+    if (tile.el) tile.el.classList.add('selected');
+  }
+}
+
+function removePair(a, b) {
+  history.push([a, b]);
+  selected = null;
+
+  for (const t of [a, b]) {
+    if (t.el) t.el.classList.add('removing');
+  }
+  setTimeout(() => {
+    a.removed = true;
+    b.removed = true;
+    renderBoard();
+    const remaining = tiles.filter(t => !t.removed).length;
+    if (remaining === 0) {
+      showOverlay('🎉 You Win!', 'Congratulations — all tiles cleared!');
+      return;
+    }
+    if (!hasMoves()) {
+      document.getElementById('shuffle-btn').style.display = '';
+      setStatus(`${remaining} tiles — no moves left!`);
+      setTimeout(() => showOverlay('😔 No Moves Left', `${remaining} tiles remain. Shuffle, Undo, or New Game.`), 800);
+    } else {
+      setStatus(`${remaining} tiles remaining`);
+    }
+  }, 360);
+}
+
+// ─── Undo ────────────────────────────────────────────────────────────────────
+function undoMove() {
+  if (!history.length) return;
+  const [a, b] = history.pop();
+  a.removed = false;
+  b.removed = false;
+  selected = null;
+  renderBoard();
+  const remaining = tiles.filter(t => !t.removed).length;
+  setStatus(`${remaining} tiles remaining`);
+}
+
+// ─── Hint ────────────────────────────────────────────────────────────────────
+function showHint() {
+  const free = tiles.filter(t => !t.removed && isFree(t));
+  for (let i = 0; i < free.length; i++) {
+    for (let j = i + 1; j < free.length; j++) {
+      if (tilesMatch(free[i], free[j])) {
+        for (const t of [free[i], free[j]]) {
+          const el = t.el;
+          if (!el) continue;
+          el.classList.remove('hint-glow');
+          // Force reflow to restart animation
+          void el.offsetWidth;
+          el.classList.add('hint-glow');
+          el.addEventListener('animationend', () => el.classList.remove('hint-glow'), {once:true});
+        }
+        return;
+      }
+    }
+  }
+  setStatus('No available moves!');
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function hasMoves() {
+  const free = tiles.filter(t => !t.removed && isFree(t));
+  for (let i = 0; i < free.length; i++)
+    for (let j = i+1; j < free.length; j++)
+      if (tilesMatch(free[i], free[j])) return true;
+  return false;
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+function showOverlay(title, msg) {
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-msg').textContent   = msg;
+  // Track wins per layout
+  const layout = document.getElementById('layout-select').value;
+  const isWin  = title.includes('Win');
+  let bestMsg  = '';
+  if (isWin) {
+    const key  = `mahjong_wins_${layout}`;
+    const wins = parseInt(localStorage.getItem(key) || '0') + 1;
+    localStorage.setItem(key, wins);
+    bestMsg = `${layout.charAt(0).toUpperCase()+layout.slice(1)} wins: ${wins}`;
+  }
+  document.getElementById('overlay-best').textContent = bestMsg;
+  document.getElementById('overlay').classList.add('show');
+}
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+// ─── Start ───────────────────────────────────────────────────────────────────
+window.addEventListener('resize', scaleBoard);
+newGame();
+</script>
+</body>
+</html>
