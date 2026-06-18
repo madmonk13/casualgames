@@ -45,6 +45,7 @@ canvas {
   display: block;
   border: 2px solid rgba(255,255,255,0.15);
   border-radius: 4px;
+  touch-action: none;
 }
 #overlay-canvas {
   position: absolute;
@@ -482,7 +483,8 @@ let swipeX=0, swipeY=0;
 document.addEventListener('touchstart', e=>{
   if (e.target.closest('#dpad')) return;
   swipeX=e.touches[0].clientX; swipeY=e.touches[0].clientY;
-}, {passive:true});
+  e.preventDefault();
+}, {passive:false});
 document.addEventListener('touchend', e=>{
   if (e.target.closest('#dpad')) return;
   const dx=e.changedTouches[0].clientX-swipeX;

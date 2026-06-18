@@ -498,17 +498,19 @@ document.addEventListener('keydown', e => {
 // ── TOUCH / SWIPE ─────────────────────────────────────────────────────────
 let tx0 = 0, ty0 = 0;
 canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
   tx0 = e.touches[0].clientX;
   ty0 = e.touches[0].clientY;
-}, { passive: true });
+}, { passive: false });
 canvas.addEventListener('touchend', e => {
+  e.preventDefault();
   const dx = e.changedTouches[0].clientX - tx0;
   const dy = e.changedTouches[0].clientY - ty0;
   const threshold = 18;
   if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
   if (Math.abs(dx) >= Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
   else                               tryMove(0, dy > 0 ? 1 : -1);
-}, { passive: true });
+}, { passive: false });
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 buildDiffUI();
