@@ -423,10 +423,9 @@ function animTick(now) {
 
   animX = animFromX + (toX - animFromX) * e;
   animY = animFromY + (toY - animFromY) * e;
-  render();
 
   if (t >= 1) {
-    // Commit arrival at this cell
+    // Commit arrival before rendering so the trail is up to date
     px = tx; py = ty;
     visited[py * N + px] = 1;
     animFromX = toX;
@@ -434,10 +433,11 @@ function animTick(now) {
     animQueue.shift();
     animSegStart = now;
 
-    if (px === N-1 && py === N-1) { moving = false; onWin(); return; }
-    if (!animQueue.length)         { moving = false; return; }
+    if (px === N-1 && py === N-1) { render(); moving = false; onWin(); return; }
+    if (!animQueue.length)         { render(); moving = false; return; }
   }
 
+  render();
   requestAnimationFrame(animTick);
 }
 
