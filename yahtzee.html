@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>🎲 Yahtzee</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11,7 +11,6 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   color: #fff;
-  padding-bottom: 48px;
 }
 
 /* ── Header ── */
@@ -23,296 +22,199 @@ header {
   align-items: center;
   gap: 12px;
 }
-header a {
-  color: rgba(255,255,255,0.4);
-  text-decoration: none;
-  font-size: 0.9em;
-}
+header a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.9em; }
 header a:hover { color: rgba(255,255,255,0.8); }
-header h1 {
-  font-size: 1.2em;
-  font-weight: 700;
-  color: #f0e0a0;
-  flex: 1;
-}
-#total-score {
-  font-size: 1.3em;
-  font-weight: 800;
-  color: #f0c040;
-}
+header h1 { font-size: 1.2em; font-weight: 700; color: #f0e0a0; flex: 1; }
+#total-score { font-size: 1.3em; font-weight: 800; color: #f0c040; }
 
-/* ── Main layout ── */
+/* ── Two-column layout ── */
 main {
-  touch-action: none;
-  max-width: 680px;
+  max-width: 460px;
   margin: 0 auto;
-  padding: 20px 12px;
+  padding: 12px 10px;
   display: flex;
-  flex-direction: column;
-  gap: 20px;
+  gap: 10px;
+  align-items: flex-start;
 }
 
-/* ── Dice area ── */
-.dice-area {
-  background: #1a2534;
-  border-radius: 16px;
-  padding: 20px;
-  text-align: center;
-}
+/* ── Left: Scorecard ── */
+.score-panel { flex: 1; min-width: 0; }
 
-.dice-row {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-/* Die rendered as a 3×3 pip grid */
-.die {
-  width: 66px;
-  height: 66px;
-  background: #f5f0e8;
-  border-radius: 12px;
-  cursor: pointer;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  padding: 9px;
-  gap: 5px;
-  transition: transform 0.15s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
-  border: 3px solid transparent;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.4);
-  user-select: none;
-}
-.die:active { transform: scale(0.93); }
-.die.held {
-  background: #dff2df;
-  border-color: #4caf50;
-  transform: translateY(-5px);
-  box-shadow: 0 8px 20px rgba(76,175,80,0.35);
-}
-.die.rolling {
-  animation: dieShake 0.35s ease-in-out;
-}
-.die.held.rolling { animation: none; }
-
-@keyframes dieShake {
-  0%,100% { transform: translateY(0) rotate(0deg); }
-  20% { transform: translateY(-3px) rotate(-10deg); }
-  40% { transform: translateY(-3px) rotate(10deg); }
-  60% { transform: translateY(-2px) rotate(-6deg); }
-  80% { transform: translateY(-2px) rotate(6deg); }
-}
-
-.pip-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.pip {
-  width: 10px;
-  height: 10px;
-  background: #1a2534;
-  border-radius: 50%;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
-}
-
-/* HOLD label beneath each die */
-.die-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-.hold-label {
-  font-size: 0.65em;
-  font-weight: 700;
-  letter-spacing: 1px;
-  color: rgba(255,255,255,0.0);
-  text-transform: uppercase;
-  transition: color 0.15s;
-  height: 14px;
-}
-.die.held ~ .hold-label,
-.die-wrapper.held-wrap .hold-label {
-  color: #4caf50;
-}
-
-/* ── Roll button ── */
-.btn-roll {
-  display: inline-block;
-  padding: 12px 36px;
-  background: linear-gradient(135deg, #f0c040, #d4a010);
-  color: #2a1800;
-  font-weight: 800;
-  font-size: 1.05em;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background 0.15s, transform 0.1s, opacity 0.15s;
-  letter-spacing: 0.5px;
-}
-.btn-roll:hover:not(:disabled) {
-  background: linear-gradient(135deg, #ffe060, #e8b820);
-  transform: translateY(-2px);
-}
-.btn-roll:disabled {
-  background: rgba(255,255,255,0.08);
-  color: rgba(255,255,255,0.25);
-  cursor: default;
-  transform: none;
-}
-
-.roll-info {
-  margin-top: 10px;
-  font-size: 0.85em;
-  color: rgba(255,255,255,0.4);
-  min-height: 20px;
-}
-
-/* ── Scorecard ── */
 .scorecard {
   background: #1a2534;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.06);
 }
 .section-header {
   background: #0f1923;
-  padding: 7px 16px;
-  font-size: 0.75em;
+  padding: 4px 10px;
+  font-size: 0.62em;
   font-weight: 700;
   letter-spacing: 1.5px;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.3);
   text-transform: uppercase;
 }
 .score-row {
   display: flex;
   align-items: center;
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  gap: 10px;
+  padding: 7px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  gap: 6px;
   transition: background 0.1s;
 }
 .score-row:last-child { border-bottom: none; }
-.score-row.scored { cursor: default; }
 .score-row.scoreable { cursor: pointer; }
-.score-row.scoreable:hover { background: rgba(240,192,64,0.1); }
-.score-row .cat-name {
-  font-size: 0.92em;
-  font-weight: 600;
-  color: #e8e0d0;
-}
-.score-row .cat-desc {
-  font-size: 0.72em;
-  color: rgba(255,255,255,0.3);
-  margin-top: 1px;
-}
+.score-row.scoreable:hover { background: rgba(240,192,64,0.12); }
+.score-row .cat-name { flex: 1; font-size: 0.82em; color: #e8e0d0; }
 .score-row .cat-val {
-  font-size: 1.05em;
-  font-weight: 700;
-  min-width: 40px;
-  text-align: right;
-  flex-shrink: 0;
+  font-size: 0.88em; font-weight: 700;
+  min-width: 26px; text-align: right; flex-shrink: 0;
 }
 .score-row.scored .cat-val { color: #f0e0a0; }
-.score-row.scoreable .cat-val { color: rgba(240,192,64,0.55); }
-.score-row.scoreable .cat-val.zero { color: rgba(255,80,80,0.5); }
+.score-row.scoreable .cat-val { color: rgba(240,192,64,0.7); }
+.score-row.scoreable .cat-val.zero { color: rgba(255,80,80,0.6); }
 .score-row .cat-val.empty { color: rgba(255,255,255,0.15); }
 
-/* Bonus & subtotal rows */
-.bonus-row {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px;
-  background: rgba(240,192,64,0.05);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  gap: 10px;
+.summary-row {
+  display: flex; align-items: center;
+  padding: 5px 10px;
+  background: rgba(240,192,64,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 0.72em;
 }
-.bonus-row .label { flex: 1; font-size: 0.82em; color: rgba(255,255,255,0.5); }
-.bonus-row .val { font-weight: 700; min-width: 40px; text-align: right; }
-
-.subtotal-row {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px;
-  gap: 10px;
-  font-size: 0.83em;
-  color: rgba(255,255,255,0.45);
-  font-weight: 600;
-}
-.subtotal-row .label { flex: 1; }
-.subtotal-row .val { min-width: 40px; text-align: right; color: #f0e0a0; }
+.summary-row .label { flex: 1; color: rgba(255,255,255,0.38); }
+.summary-row .val { font-weight: 700; min-width: 26px; text-align: right; }
 
 .grand-total-row {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
+  display: flex; align-items: center;
+  padding: 8px 10px;
   background: rgba(240,192,64,0.07);
   border-top: 1px solid rgba(240,192,64,0.15);
-  gap: 10px;
   font-weight: 800;
 }
-.grand-total-row .label { flex: 1; color: #f0e0a0; font-size: 1em; }
-.grand-total-row .val { font-size: 1.2em; color: #f0c040; min-width: 40px; text-align: right; }
+.grand-total-row .label { flex: 1; color: #f0e0a0; font-size: 0.85em; }
+.grand-total-row .val { font-size: 1.1em; color: #f0c040; min-width: 26px; text-align: right; }
 
-/* Yahtzee bonus chips */
-.ybonus-row {
+/* ── Right: Dice panel ── */
+.dice-panel {
+  width: 106px;
+  flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  padding: 7px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-  gap: 8px;
+  gap: 7px;
+  background: #1e7a32;
+  border-radius: 14px;
+  padding: 10px 8px 12px;
+  border: 1px solid rgba(255,255,255,0.06);
 }
-.ybonus-row .label { flex: 1; font-size: 0.8em; color: rgba(255,255,255,0.4); }
-.ybonus-chips { display: flex; gap: 4px; }
-.ybonus-chip {
-  background: #f0c040;
-  color: #2a1800;
-  font-size: 0.7em;
-  font-weight: 800;
-  padding: 2px 6px;
-  border-radius: 20px;
+
+/* Die wrapper */
+.die-wrap { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+
+/* Die: CSS radial-gradient dot faces */
+.die {
+  width: 62px; height: 62px;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,0.22);
+  background-color: #c8392b;
+  background-image: none;
+  cursor: pointer;
+  transition: border-color 0.12s, transform 0.1s;
+  user-select: none;
 }
-.ybonus-row .val { font-size: 0.9em; font-weight: 700; color: #f0c040; min-width: 40px; text-align: right; }
+.die:active { transform: scale(0.9); }
+.die.hold { background-color: #7b1a11; border-color: #111; }
+
+/* Dot patterns */
+.die_1 { background-image: radial-gradient(white 15%, black 16%, gray 17%, transparent 18%); }
+.die_2 { background-image:
+  radial-gradient(circle at 20% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 80%, white 10%, black 11%, gray 12%, transparent 12%); }
+.die_3 { background-image:
+  radial-gradient(circle at 20% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(white 15%, black 16%, gray 17%, transparent 17%),
+  radial-gradient(circle at 80% 80%, white 10%, black 11%, gray 12%, transparent 12%); }
+.die_4 { background-image:
+  radial-gradient(circle at 20% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 20% 80%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 80%, white 10%, black 11%, gray 12%, transparent 12%); }
+.die_5 { background-image:
+  radial-gradient(circle at 20% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(white 15%, black 16%, gray 17%, transparent 18%),
+  radial-gradient(circle at 20% 80%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 80%, white 10%, black 11%, gray 12%, transparent 12%); }
+.die_6 { background-image:
+  radial-gradient(circle at 20% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 20%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 20% 50%, white 12%, black 13%, gray 14%, transparent 14%),
+  radial-gradient(circle at 80% 50%, white 12%, black 13%, gray 14%, transparent 14%),
+  radial-gradient(circle at 20% 80%, white 10%, black 11%, gray 12%, transparent 12%),
+  radial-gradient(circle at 80% 80%, white 10%, black 11%, gray 12%, transparent 12%); }
+
+/* Hold label */
+.hold-label {
+  font-size: 0.58em; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: transparent; height: 10px;
+  transition: color 0.12s;
+}
+.die-wrap.held .hold-label { color: rgba(255,255,255,0.85); }
+
+/* Roll animation */
+@keyframes rolling {
+  0%   { transform: rotate(0deg)   scale(1); }
+  40%  { transform: rotate(320deg) scale(0.88); }
+  100% { transform: rotate(720deg) scale(1); }
+}
+.die.rolling { animation: rolling 0.6s ease-in-out; }
+
+/* Roll button */
+.btn-roll {
+  width: 88px; padding: 10px 0;
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  color: #2a1800; font-weight: 800; font-size: 0.9em;
+  border: none; border-radius: 8px; cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+  margin-top: 2px;
+}
+.btn-roll:hover:not(:disabled) { background: linear-gradient(135deg, #ffe060, #e8b820); transform: translateY(-1px); }
+.btn-roll:disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.28); cursor: default; transform: none; }
+
+.roll-count { font-size: 0.67em; color: rgba(255,255,255,0.5); text-align: center; min-height: 12px; }
+
+.btn-new {
+  width: 88px; padding: 6px 0;
+  background: rgba(0,0,0,0.2);
+  color: rgba(255,255,255,0.45); font-weight: 700; font-size: 0.72em;
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 7px; cursor: pointer;
+}
+.btn-new:hover { background: rgba(0,0,0,0.35); color: rgba(255,255,255,0.8); }
 
 /* ── Game-over overlay ── */
 .game-over {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.78);
-  z-index: 100;
-  align-items: center;
-  justify-content: center;
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.78); z-index: 100;
+  align-items: center; justify-content: center;
 }
 .game-over.show { display: flex; }
 .game-over-box {
-  background: #1e2d3d;
-  border-radius: 20px;
-  padding: 36px 40px;
-  text-align: center;
-  max-width: 320px;
-  width: 90%;
+  background: #1e2d3d; border-radius: 20px; padding: 36px 40px;
+  text-align: center; max-width: 300px; width: 90%;
   border: 1px solid rgba(240,192,64,0.3);
   box-shadow: 0 20px 60px rgba(0,0,0,0.6);
 }
 .game-over-box h2 { font-size: 1.8em; color: #f0c040; margin-bottom: 4px; }
-.game-over-box .final-score {
-  font-size: 3.5em;
-  font-weight: 900;
-  color: #fff;
-  margin: 16px 0 8px;
-}
+.game-over-box .final-score { font-size: 3.5em; font-weight: 900; color: #fff; margin: 16px 0 8px; }
 .game-over-box .rating { color: rgba(255,255,255,0.5); font-size: 0.95em; margin-bottom: 24px; }
 .btn-new-game {
   padding: 12px 36px;
   background: linear-gradient(135deg, #f0c040, #d4a010);
-  color: #2a1800;
-  font-weight: 800;
-  font-size: 1.05em;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
+  color: #2a1800; font-weight: 800; font-size: 1.05em;
+  border: none; border-radius: 10px; cursor: pointer;
 }
 .btn-new-game:hover { background: linear-gradient(135deg, #ffe060, #e8b820); }
 </style>
@@ -329,111 +231,84 @@ main {
   <div class="game-over-box">
     <h2>Game Over!</h2>
     <div class="final-score" id="final-score">0</div>
-    <div class="rating" id="rating">Nice game!</div>
+    <div class="rating" id="rating"></div>
     <div id="yahtzee-best-msg" style="color:rgba(255,255,255,0.4);font-size:.85em;margin-bottom:8px;min-height:1.2em;"></div>
-    <button class="btn-new-game" onclick="newGame()">🎲 New Game</button>
+    <button class="btn-new-game" onclick="newGame()">🎲 Play Again</button>
   </div>
 </div>
 
 <main>
-  <div class="dice-area">
-    <div class="dice-row" id="dice-row"></div>
-    <button class="btn-roll" id="btn-roll" onclick="rollDice()">Roll Dice</button>
-    <div class="roll-info" id="roll-info">Press Roll to start your turn</div>
+  <!-- Left: Scorecard -->
+  <div class="score-panel">
+    <div class="scorecard" id="scorecard"></div>
   </div>
 
-  <div class="scorecard" id="scorecard"></div>
+  <!-- Right: Dice panel -->
+  <div class="dice-panel">
+    <div id="dice-area"></div>
+    <button class="btn-roll" id="btn-roll" onclick="rollDice()">Roll</button>
+    <div class="roll-count" id="roll-count">3 rolls</div>
+    <button class="btn-new" onclick="newGame()">New Game</button>
+  </div>
 </main>
 
 <script>
-// ── Pip layout: which of 9 cells (3×3) get a pip per face ──
-const PIPS = {
-  1: [4],
-  2: [2, 6],
-  3: [2, 4, 6],
-  4: [0, 2, 6, 8],
-  5: [0, 2, 4, 6, 8],
-  6: [0, 2, 3, 5, 6, 8]
-};
-
 // ── Categories ──
 const UPPER_CATS = ['ones','twos','threes','fours','fives','sixes'];
 const LOWER_CATS = ['three_of_a_kind','four_of_a_kind','full_house','small_straight','large_straight','yahtzee','chance'];
-const ALL_CATS = [...UPPER_CATS, ...LOWER_CATS];
+const ALL_CATS   = [...UPPER_CATS, ...LOWER_CATS];
 
 const CAT_INFO = {
-  ones:            { name: 'Ones',           desc: 'Sum of all 1s' },
-  twos:            { name: 'Twos',           desc: 'Sum of all 2s' },
-  threes:          { name: 'Threes',         desc: 'Sum of all 3s' },
-  fours:           { name: 'Fours',          desc: 'Sum of all 4s' },
-  fives:           { name: 'Fives',          desc: 'Sum of all 5s' },
-  sixes:           { name: 'Sixes',          desc: 'Sum of all 6s' },
-  three_of_a_kind: { name: '3 of a Kind',    desc: 'Three alike → sum all dice' },
-  four_of_a_kind:  { name: '4 of a Kind',    desc: 'Four alike → sum all dice' },
-  full_house:      { name: 'Full House',      desc: '3 + 2 → 25 pts' },
-  small_straight:  { name: 'Sm. Straight',   desc: '4 in sequence → 30 pts' },
-  large_straight:  { name: 'Lg. Straight',   desc: '5 in sequence → 40 pts' },
-  yahtzee:         { name: 'Yahtzee!',        desc: 'All 5 the same → 50 pts' },
-  chance:          { name: 'Chance',          desc: 'Sum of all dice (any roll)' }
+  ones:            { name: 'Ones' },
+  twos:            { name: 'Twos' },
+  threes:          { name: 'Threes' },
+  fours:           { name: 'Fours' },
+  fives:           { name: 'Fives' },
+  sixes:           { name: 'Sixes' },
+  three_of_a_kind: { name: '3 of a Kind' },
+  four_of_a_kind:  { name: '4 of a Kind' },
+  full_house:      { name: 'Full House' },
+  small_straight:  { name: 'Sm. Straight' },
+  large_straight:  { name: 'Lg. Straight' },
+  yahtzee:         { name: 'Yahtzee!' },
+  chance:          { name: 'Chance' }
 };
 
 // ── State ──
-let dice = [1,1,1,1,1];
+let dice = [0,0,0,0,0];
 let held = [false,false,false,false,false];
 let rollsLeft = 3;
 let rolled = false;
 let scores = {};
-let yahtzeeBonus = 0; // accumulates 100 per extra yahtzee
+let yahtzeeBonus = 0;
 
 // ── Init ──
 function newGame() {
-  dice = [1,1,1,1,1];
+  dice = [0,0,0,0,0];
   held = [false,false,false,false,false];
   rollsLeft = 3;
   rolled = false;
   scores = {};
   yahtzeeBonus = 0;
   document.getElementById('game-over').classList.remove('show');
-  renderDice(false);
+  renderDice();
   renderScorecard();
   updateRollBtn();
-  document.getElementById('roll-info').textContent = 'Press Roll to start your turn';
   updateTotal();
 }
 
 // ── Dice rendering ──
-function renderDice(showValues) {
-  const row = document.getElementById('dice-row');
-  row.innerHTML = '';
+function renderDice() {
+  const area = document.getElementById('dice-area');
+  area.innerHTML = '';
   dice.forEach((val, i) => {
     const wrap = document.createElement('div');
-    wrap.className = 'die-wrapper' + (held[i] ? ' held-wrap' : '');
+    wrap.className = 'die-wrap' + (held[i] ? ' held' : '');
 
     const die = document.createElement('div');
-    die.className = 'die' + (held[i] ? ' held' : '');
-    die.onclick = () => toggleHold(i);
-    die.setAttribute('title', held[i] ? 'Click to release' : 'Click to hold');
-
-    if (showValues !== false && rolled) {
-      const pips = PIPS[val] || [];
-      for (let cell = 0; cell < 9; cell++) {
-        const pc = document.createElement('div');
-        pc.className = 'pip-cell';
-        if (pips.includes(cell)) {
-          const p = document.createElement('div');
-          p.className = 'pip';
-          pc.appendChild(p);
-        }
-        die.appendChild(pc);
-      }
-    } else {
-      // blank before first roll
-      for (let cell = 0; cell < 9; cell++) {
-        const pc = document.createElement('div');
-        pc.className = 'pip-cell';
-        die.appendChild(pc);
-      }
-    }
+    const faceClass = (rolled && val) ? ' die_' + val : '';
+    die.className = 'die' + faceClass + (held[i] ? ' hold' : '');
+    die.addEventListener('click', () => toggleHold(i));
 
     const lbl = document.createElement('div');
     lbl.className = 'hold-label';
@@ -441,14 +316,12 @@ function renderDice(showValues) {
 
     wrap.appendChild(die);
     wrap.appendChild(lbl);
-    if (held[i]) wrap.querySelector('.hold-label').style.color = '#4caf50';
-    row.appendChild(wrap);
+    area.appendChild(wrap);
   });
 }
 
 function toggleHold(i) {
-  if (!rolled) return;
-  if (rollsLeft === 0) return; // no more rolls — holding pointless
+  if (!rolled || rollsLeft === 0) return;
   held[i] = !held[i];
   renderDice();
 }
@@ -459,47 +332,38 @@ function rollDice() {
   rolled = true;
   rollsLeft--;
 
-  // Start shake animation on un-held dice
-  const wrappers = document.querySelectorAll('.die-wrapper');
+  // Animate non-held dice, then update values
+  const dieEls = document.querySelectorAll('.die');
   dice.forEach((_, i) => {
     if (!held[i]) {
       dice[i] = Math.ceil(Math.random() * 6);
-      const die = wrappers[i]?.querySelector('.die');
-      if (die) die.classList.add('rolling');
+      dieEls[i]?.classList.add('rolling');
     }
   });
 
   setTimeout(() => {
-    renderDice(true);
+    renderDice();
     renderScorecard();
     updateRollBtn();
-    updateRollInfo();
     updateTotal();
-  }, 350);
+  }, 620);
 }
 
 function updateRollBtn() {
   const btn = document.getElementById('btn-roll');
+  const cnt = document.getElementById('roll-count');
   if (rollsLeft <= 0) {
     btn.disabled = true;
-    btn.textContent = 'No rolls left';
+    btn.textContent = 'No rolls';
+    cnt.textContent = 'Pick a score ↑';
   } else if (!rolled) {
     btn.disabled = false;
-    btn.textContent = 'Roll Dice';
+    btn.textContent = 'Roll';
+    cnt.textContent = '3 rolls';
   } else {
     btn.disabled = false;
-    btn.textContent = `Roll Again (${rollsLeft} left)`;
-  }
-}
-
-function updateRollInfo() {
-  const info = document.getElementById('roll-info');
-  if (!rolled) {
-    info.textContent = 'Press Roll to start your turn';
-  } else if (rollsLeft === 0) {
-    info.textContent = 'Select a category below to score';
-  } else {
-    info.textContent = 'Tap dice to hold, then roll again';
+    btn.textContent = 'Roll';
+    cnt.textContent = rollsLeft + (rollsLeft === 1 ? ' roll left' : ' rolls left');
   }
 }
 
@@ -507,7 +371,7 @@ function updateRollInfo() {
 function calcScore(cat, d) {
   const counts = Array(7).fill(0);
   d.forEach(v => counts[v]++);
-  const sum = d.reduce((a,b) => a+b, 0);
+  const sum = d.reduce((a, b) => a + b, 0);
   const max = Math.max(...counts.slice(1));
 
   switch (cat) {
@@ -521,14 +385,14 @@ function calcScore(cat, d) {
     case 'four_of_a_kind':  return max >= 4 ? sum : 0;
     case 'full_house': {
       const vals = counts.slice(1).filter(c => c > 0);
-      return vals.length === 2 && vals.includes(2) && vals.includes(3) ? 25 : 0;
+      return (vals.length === 2 && vals.includes(2) && vals.includes(3)) ? 25 : 0;
     }
     case 'small_straight': {
-      const u = [...new Set(d)].sort((a,b)=>a-b).join('');
+      const u = [...new Set(d)].sort((a,b) => a-b).join('');
       return (u.includes('1234') || u.includes('2345') || u.includes('3456')) ? 30 : 0;
     }
     case 'large_straight': {
-      const u = [...new Set(d)].sort((a,b)=>a-b).join('');
+      const u = [...new Set(d)].sort((a,b) => a-b).join('');
       return (u === '12345' || u === '23456') ? 40 : 0;
     }
     case 'yahtzee': return max === 5 ? 50 : 0;
@@ -538,28 +402,19 @@ function calcScore(cat, d) {
 }
 
 function scoreCategory(cat) {
-  if (scores[cat] !== undefined) return;
-  if (!rolled) return;
+  if (scores[cat] !== undefined || !rolled) return;
 
-  // Extra Yahtzee bonus: if yahtzee already scored 50, each additional Yahtzee is +100
-  const isYahtzee = calcScore('yahtzee', dice) === 50;
-  if (isYahtzee && scores['yahtzee'] === 50) {
-    yahtzeeBonus += 100;
-  }
+  if (calcScore('yahtzee', dice) === 50 && scores['yahtzee'] === 50) yahtzeeBonus += 100;
 
   scores[cat] = calcScore(cat, dice);
-
-  // Reset turn
   held = [false,false,false,false,false];
   rollsLeft = 3;
   rolled = false;
-  renderDice(false);
+  renderDice();
   renderScorecard();
   updateRollBtn();
-  updateRollInfo();
   updateTotal();
 
-  // Check game over
   if (ALL_CATS.every(c => scores[c] !== undefined)) {
     const total = getTotalScore();
     document.getElementById('final-score').textContent = total;
@@ -569,77 +424,57 @@ function scoreCategory(cat) {
       localStorage.setItem('yahtzee_best', total);
       document.getElementById('yahtzee-best-msg').textContent = yBest ? '🏆 New best score!' : 'First game recorded!';
     } else {
-      document.getElementById('yahtzee-best-msg').textContent = `Best: ${yBest}`;
+      document.getElementById('yahtzee-best-msg').textContent = yBest ? `Best: ${yBest}` : '';
     }
     setTimeout(() => document.getElementById('game-over').classList.add('show'), 400);
   }
 }
 
 function rateScore(s) {
-  if (s >= 400) return '🏆 Legendary! Top 1% score!';
-  if (s >= 300) return '⭐ Excellent game!';
-  if (s >= 250) return '👏 Really nice score!';
+  if (s >= 400) return '🏆 Legendary!';
+  if (s >= 300) return '⭐ Excellent!';
+  if (s >= 250) return '👏 Really nice!';
   if (s >= 200) return '🎲 Solid game!';
-  if (s >= 150) return 'Not bad — keep rolling!';
-  return 'Tough luck. Try again!';
+  if (s >= 150) return 'Not bad!';
+  return 'Tough luck — try again!';
 }
 
-function getUpperTotal() {
-  return UPPER_CATS.reduce((s,c) => s + (scores[c] || 0), 0);
-}
-function getUpperBonus() {
-  return getUpperTotal() >= 63 ? 35 : 0;
-}
-function getLowerTotal() {
-  return LOWER_CATS.reduce((s,c) => s + (scores[c] || 0), 0);
-}
-function getTotalScore() {
-  return getUpperTotal() + getUpperBonus() + getLowerTotal() + yahtzeeBonus;
-}
-function updateTotal() {
-  document.getElementById('total-score').textContent = getTotalScore();
-}
+function getUpperTotal() { return UPPER_CATS.reduce((s,c) => s + (scores[c]||0), 0); }
+function getUpperBonus()  { return getUpperTotal() >= 63 ? 35 : 0; }
+function getLowerTotal()  { return LOWER_CATS.reduce((s,c) => s + (scores[c]||0), 0); }
+function getTotalScore()  { return getUpperTotal() + getUpperBonus() + getLowerTotal() + yahtzeeBonus; }
+function updateTotal()    { document.getElementById('total-score').textContent = getTotalScore(); }
 
-// ── Scorecard rendering ──
+// ── Scorecard ──
 function renderScorecard() {
   const sc = document.getElementById('scorecard');
   sc.innerHTML = '';
 
-  // Upper section
-  addSectionHeader(sc, 'Upper Section');
+  addSectionHeader(sc, 'Upper');
   UPPER_CATS.forEach(cat => sc.appendChild(makeScoreRow(cat)));
 
-  const upperTotal = getUpperTotal();
-  const needed = Math.max(0, 63 - upperTotal);
+  const upperTotal  = getUpperTotal();
   const bonusEarned = upperTotal >= 63;
-
-  const subRow = document.createElement('div');
-  subRow.className = 'subtotal-row';
-  subRow.innerHTML = `<span class="label">Upper subtotal${needed > 0 ? ` (need ${needed} for bonus)` : ''}</span><span class="val">${upperTotal}</span>`;
-  sc.appendChild(subRow);
+  const needed      = Math.max(0, 63 - upperTotal);
 
   const bonusRow = document.createElement('div');
-  bonusRow.className = 'bonus-row';
-  bonusRow.innerHTML = `<span class="label">Bonus (≥63 pts → +35)</span><span class="val" style="color:${bonusEarned?'#f0c040':'rgba(255,255,255,0.2)'}">${bonusEarned ? '+35' : '—'}</span>`;
+  bonusRow.className = 'summary-row';
+  bonusRow.innerHTML = `<span class="label">Bonus${needed>0?' (need '+needed+')':''}</span><span class="val" style="color:${bonusEarned?'#f0c040':'rgba(255,255,255,0.2)'}">${bonusEarned?'+35':'—'}</span>`;
   sc.appendChild(bonusRow);
 
-  // Lower section
-  addSectionHeader(sc, 'Lower Section');
+  addSectionHeader(sc, 'Lower');
   LOWER_CATS.forEach(cat => sc.appendChild(makeScoreRow(cat)));
 
-  // Yahtzee bonus chips
   if (yahtzeeBonus > 0) {
     const yRow = document.createElement('div');
-    yRow.className = 'ybonus-row';
-    const chips = Array(yahtzeeBonus / 100).fill(0).map(() => `<span class="ybonus-chip">+100</span>`).join('');
-    yRow.innerHTML = `<span class="label">Yahtzee Bonus</span><div class="ybonus-chips">${chips}</div><span class="val">+${yahtzeeBonus}</span>`;
+    yRow.className = 'summary-row';
+    yRow.innerHTML = `<span class="label">Yahtzee Bonus</span><span class="val" style="color:#f0c040">+${yahtzeeBonus}</span>`;
     sc.appendChild(yRow);
   }
 
-  // Grand total
   const totalRow = document.createElement('div');
   totalRow.className = 'grand-total-row';
-  totalRow.innerHTML = `<span class="label">Grand Total</span><span class="val">${getTotalScore()}</span>`;
+  totalRow.innerHTML = `<span class="label">Total</span><span class="val">${getTotalScore()}</span>`;
   sc.appendChild(totalRow);
 }
 
@@ -651,32 +486,23 @@ function addSectionHeader(parent, text) {
 }
 
 function makeScoreRow(cat) {
-  const info = CAT_INFO[cat];
   const row = document.createElement('div');
-  const isScored = scores[cat] !== undefined;
+  const isScored  = scores[cat] !== undefined;
   const potential = (rolled && !isScored) ? calcScore(cat, dice) : null;
-  const canScore = rolled && !isScored;
+  const canScore  = rolled && !isScored;
 
   row.className = 'score-row' + (isScored ? ' scored' : '') + (canScore ? ' scoreable' : '');
 
   let valHtml;
   if (isScored) {
-    valHtml = `<div class="cat-val">${scores[cat]}</div>`;
+    valHtml = `<span class="cat-val">${scores[cat]}</span>`;
   } else if (potential !== null) {
-    const cls = potential === 0 ? 'zero' : '';
-    valHtml = `<div class="cat-val ${cls}">${potential}</div>`;
+    valHtml = `<span class="cat-val ${potential===0?'zero':''}">${potential}</span>`;
   } else {
-    valHtml = `<div class="cat-val empty">—</div>`;
+    valHtml = `<span class="cat-val empty">—</span>`;
   }
 
-  row.innerHTML = `
-    <div style="flex:1;min-width:0">
-      <div class="cat-name">${info.name}</div>
-      <div class="cat-desc">${info.desc}</div>
-    </div>
-    ${valHtml}
-  `;
-
+  row.innerHTML = `<span class="cat-name">${CAT_INFO[cat].name}</span>${valHtml}`;
   if (canScore) row.onclick = () => scoreCategory(cat);
   return row;
 }

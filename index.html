@@ -90,6 +90,12 @@ header p {
   color: rgba(255,255,255,0.5);
   border: 1px solid rgba(255,255,255,0.1);
 }
+.card-icon img {
+  height: 1em;
+  width: auto;
+  image-rendering: pixelated;
+  display: block;
+}
 .card-play {
   display: inline-block;
   margin-top: 4px;
@@ -135,18 +141,6 @@ footer {
 
 <div class="grid">
 
-  <a class="card" href="mahjong.html">
-    <div class="card-icon">🀄</div>
-    <div class="card-title">Mahjong Solitaire</div>
-    <div class="card-desc">Clear the board by matching pairs of identical free tiles. Six classic layouts from Turtle to Dragon.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">6 layouts</span>
-      <span class="tag">Hint &amp; Undo</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
   <a class="card" href="2048.html">
     <div class="card-icon">🔢</div>
     <div class="card-title">2048</div>
@@ -155,66 +149,6 @@ footer {
       <span class="tag">Strategy</span>
       <span class="tag">Arrow keys</span>
       <span class="tag">Swipe</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="minesweeper.html">
-    <div class="card-icon">💣</div>
-    <div class="card-title">Minesweeper</div>
-    <div class="card-desc">Uncover every safe cell without triggering a mine. Three difficulty levels from Beginner to Expert.</div>
-    <div class="card-tags">
-      <span class="tag">Logic</span>
-      <span class="tag">3 difficulties</span>
-      <span class="tag">Flagging</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="klondike.html">
-    <div class="card-icon">🃏</div>
-    <div class="card-title">Klondike Solitaire</div>
-    <div class="card-desc">The classic card game. Stack cards on 7 columns and build all four suits up from Ace to King.</div>
-    <div class="card-tags">
-      <span class="tag">Cards</span>
-      <span class="tag">Undo</span>
-      <span class="tag">Auto-complete</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="sudoku.html">
-    <div class="card-icon">🧩</div>
-    <div class="card-title">Sudoku</div>
-    <div class="card-desc">Fill the 9×9 grid so every row, column, and box contains each digit 1–9. Three difficulty levels.</div>
-    <div class="card-tags">
-      <span class="tag">Numbers</span>
-      <span class="tag">Notes mode</span>
-      <span class="tag">Hints</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="tetris.html">
-    <div class="card-icon">🟦</div>
-    <div class="card-title">Tetris</div>
-    <div class="card-desc">Stack falling tetrominoes and clear lines to score. Speed increases every 10 lines.</div>
-    <div class="card-tags">
-      <span class="tag">Classic</span>
-      <span class="tag">Arrow keys</span>
-      <span class="tag">Swipe</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="flow.html">
-    <div class="card-icon">🌊</div>
-    <div class="card-title">Flow</div>
-    <div class="card-desc">Connect matching colored dots with pipes — but every cell must be filled. 100 levels each on 5×5 up to 12×12 grids.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">800 levels</span>
-      <span class="tag">Drag to draw</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
@@ -243,50 +177,50 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="maze.html">
-    <div class="card-icon">🌀</div>
-    <div class="card-title">Maze</div>
-    <div class="card-desc">Navigate a procedurally generated maze from start to exit. Three difficulty sizes — Easy to Hard — with a new maze every time.</div>
+  <a class="card" href="https://madmonk13.github.io/Dragonslayer/dragonslayer.html" target="_blank" rel="noopener">
+    <div class="card-icon"><img src="https://madmonk13.github.io/Dragonslayer/sprites/dragon.png" alt="🐉" onerror="this.outerHTML='🐉'"></div>
+    <div class="card-title">Dragonslayer</div>
+    <div class="card-desc">Your daughter has been chosen as the dragon's sacrifice. You have 30 days to train, explore, and grow strong enough to defeat Pyraxis and save her.</div>
     <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Procedural</span>
-      <span class="tag">Arrow keys</span>
+      <span class="tag">RPG</span>
+      <span class="tag">Dice combat</span>
+      <span class="tag">30-day quest</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="pipes.html">
-    <div class="card-icon">🔧</div>
-    <div class="card-title">Pipes</div>
-    <div class="card-desc">Rotate pipe segments to connect every piece into a single network with no open ends. Three grid sizes from 5×5 to 10×10.</div>
+  <a class="card" href="flow.html">
+    <div class="card-icon">🌊</div>
+    <div class="card-title">Flow</div>
+    <div class="card-desc">Connect matching colored dots with pipes — but every cell must be filled. 100 levels each on 5×5 up to 12×12 grids.</div>
     <div class="card-tags">
       <span class="tag">Puzzle</span>
-      <span class="tag">Logic</span>
-      <span class="tag">Rotation</span>
+      <span class="tag">800 levels</span>
+      <span class="tag">Drag to draw</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="unblock.html">
-    <div class="card-icon">🚗</div>
-    <div class="card-title">Unblock</div>
-    <div class="card-desc">Slide cars and trucks out of the way to free the red car. Drag pieces along their axis — they can only move in one direction.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Sliding</span>
-      <span class="tag">Logic</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="memory.html">
+  <a class="card" href="klondike.html">
     <div class="card-icon">🃏</div>
-    <div class="card-title">Memory</div>
-    <div class="card-desc">Flip cards to find matching emoji pairs. Three difficulty levels from 8 to 18 pairs.</div>
+    <div class="card-title">Klondike Solitaire</div>
+    <div class="card-desc">The classic card game. Stack cards on 7 columns and build all four suits up from Ace to King.</div>
     <div class="card-tags">
-      <span class="tag">Memory</span>
-      <span class="tag">3 difficulties</span>
-      <span class="tag">Timer</span>
+      <span class="tag">Cards</span>
+      <span class="tag">Undo</span>
+      <span class="tag">Auto-complete</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="mahjong.html">
+    <div class="card-icon">🀄</div>
+    <div class="card-title">Mahjong Solitaire</div>
+    <div class="card-desc">Clear the board by matching pairs of identical free tiles. Six classic layouts from Turtle to Dragon.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">6 layouts</span>
+      <span class="tag">Hint &amp; Undo</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
@@ -303,14 +237,86 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="yahtzee.html">
-    <div class="card-icon">🎲</div>
-    <div class="card-title">Yahtzee Solitaire</div>
-    <div class="card-desc">Roll 5 dice up to 3 times per turn. Score all 13 categories — upper bonus, Full House, Straights, and the coveted Yahtzee.</div>
+  <a class="card" href="maze.html">
+    <div class="card-icon">🌀</div>
+    <div class="card-title">Maze</div>
+    <div class="card-desc">Navigate a procedurally generated maze from start to exit. Three difficulty sizes — Easy to Hard — with a new maze every time.</div>
     <div class="card-tags">
-      <span class="tag">Dice</span>
-      <span class="tag">13 categories</span>
-      <span class="tag">Bonus scoring</span>
+      <span class="tag">Puzzle</span>
+      <span class="tag">Procedural</span>
+      <span class="tag">Arrow keys</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="memory.html">
+    <div class="card-icon">🃏</div>
+    <div class="card-title">Memory</div>
+    <div class="card-desc">Flip cards to find matching emoji pairs. Three difficulty levels from 8 to 18 pairs.</div>
+    <div class="card-tags">
+      <span class="tag">Memory</span>
+      <span class="tag">3 difficulties</span>
+      <span class="tag">Timer</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="minesweeper.html">
+    <div class="card-icon">💣</div>
+    <div class="card-title">Minesweeper</div>
+    <div class="card-desc">Uncover every safe cell without triggering a mine. Three difficulty levels from Beginner to Expert.</div>
+    <div class="card-tags">
+      <span class="tag">Logic</span>
+      <span class="tag">3 difficulties</span>
+      <span class="tag">Flagging</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="pipes.html">
+    <div class="card-icon">🔧</div>
+    <div class="card-title">Pipes</div>
+    <div class="card-desc">Rotate pipe segments to connect every piece into a single network with no open ends. Three grid sizes from 5×5 to 10×10.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Logic</span>
+      <span class="tag">Rotation</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="sudoku.html">
+    <div class="card-icon">🧩</div>
+    <div class="card-title">Sudoku</div>
+    <div class="card-desc">Fill the 9×9 grid so every row, column, and box contains each digit 1–9. Three difficulty levels.</div>
+    <div class="card-tags">
+      <span class="tag">Numbers</span>
+      <span class="tag">Notes mode</span>
+      <span class="tag">Hints</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="tetris.html">
+    <div class="card-icon">🟦</div>
+    <div class="card-title">Tetris</div>
+    <div class="card-desc">Stack falling tetrominoes and clear lines to score. Speed increases every 10 lines.</div>
+    <div class="card-tags">
+      <span class="tag">Classic</span>
+      <span class="tag">Arrow keys</span>
+      <span class="tag">Swipe</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="unblock.html">
+    <div class="card-icon">🚗</div>
+    <div class="card-title">Unblock</div>
+    <div class="card-desc">Slide cars and trucks out of the way to free the red car. Drag pieces along their axis — they can only move in one direction.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Sliding</span>
+      <span class="tag">Logic</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
@@ -321,8 +327,20 @@ footer {
     <div class="card-desc">Slide colored blocks left and right — gravity pulls them down. Match adjacent same-color blocks to make them vanish. Chain reactions score big. A cult classic from the Palm Pilot era.</div>
     <div class="card-tags">
       <span class="tag">Puzzle</span>
-      <span class="tag">Classic + Algorithmic</span>
+      <span class="tag">Classic + Expansion</span>
       <span class="tag">Par scoring</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="yahtzee.html">
+    <div class="card-icon">🎲</div>
+    <div class="card-title">Yahtzee Solitaire</div>
+    <div class="card-desc">Roll 5 dice up to 3 times per turn. Score all 13 categories — upper bonus, Full House, Straights, and the coveted Yahtzee.</div>
+    <div class="card-tags">
+      <span class="tag">Dice</span>
+      <span class="tag">13 categories</span>
+      <span class="tag">Bonus scoring</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
