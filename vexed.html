@@ -161,7 +161,8 @@ header h1{
 
 <div id="pack-tabs">
   <div class="ptab active" onclick="switchPack('classic')">Classic</div>
-  <div class="ptab" onclick="switchPack('algo')">Algorithmic</div>
+  <div class="ptab" onclick="switchPack('algo')">Expansion 1</div>
+  <div class="ptab" onclick="switchPack('crafted')">Expansion 2</div>
 </div>
 
 <div id="info-bar">
@@ -303,6 +304,53 @@ function parseAndroidLevels(raw){
 const CLASSIC_LEVELS=parseAndroidLevels(VEXED_RAW);
 
 // ═══════════════════════════════════════════════════════════
+//  EXPANSION 2 — Hand-crafted levels (Led Zeppelin titles)
+//  All 40 levels BFS-verified; par = minimum moves to solve
+// ═══════════════════════════════════════════════════════════
+const CRAFTED_RAW=`Rock and Roll;a..a/b..b;2
+Good Times Bad Times;a..b/b..a;2
+Communication Breakdown;Xa.aX/Xb.bX;2
+Your Time Is Gonna Come;.a.b/.b.a;2
+Babe I'm Gonna Leave You;ba.ab;2
+You Shook Me;.ab./b..a/a..b/.ba.;2
+Dazed and Confused;ab/ba/ab/ba;2
+How Many More Times;Xab.X/X....X/Xba.X;2
+The Lemon Song;a..X./X..../b...b/.a.a.;2
+Ramble On;a..X../X....../...b.b./.a.a..;2
+Heartbreaker;a..X../X....../c....c./.a.a..;2
+Tea for One;a.Xb../XaXX.b;2
+Black Mountain Side;a..X/X..a/b..X/X..b;3
+I Can't Quit You Baby;a.b/Xb./a.X;3
+Whole Lotta Love;a..b./c..a./b..c.;3
+What Is and What Should Never Be;a.b.c/c.a.b;3
+Friends;a..b../b..c../c..a..;3
+Since I've Been Loving You;a.c.b/b.a.c;3
+D'yer Mak'er;a.b../XXaXX/b....;3
+In My Time of Dying;a.b.c/b.c.a;3
+Ten Years Gone;a..b.c/c..a../.....b;3
+Misty Mountain Hop;a...b/b...c/c...a;3
+Immigrant Song;a...b/XXbXX/.a...;4
+Out on the Tiles;.a./bXb/.a.;4
+Gallows Pole;a.b/XXX/b.a;4
+Tangerine;a.b.c.d/d.c.b.a;4
+Going to California;ab.cd/dc.ba;4
+When the Levee Breaks;a..b../c..d../b..a../d..c..;4
+The Ocean;a.d.b.c/c.b.d.a;4
+Dancing Days;abab/baba/abab;4
+No Quarter;..a.X../..X...../..b...b/....a.a.;4
+Black Dog;a.b.c.d/d.a.b.c;4
+The Rover;a.c.b.d/d.b.c.a;4
+Over the Hills and Far Away;abcd/dcba;6
+Kashmir;a.b.c.d/c.d.a.b;6
+The Rain Song;abcd/cdab/badc/dcba;6
+Achilles Last Stand;.abcd./....../.dcba.;6
+Houses of the Holy;a.b.c/XXaXX/c.b.a;9
+Trampled Under Foot;abcba/XXXXX/abcba;9
+The Song Remains the Same;b.a..X./X.X...../b..c..c/...a..a.;10`;
+
+const CRAFTED_LEVELS=parseAndroidLevels(CRAFTED_RAW);
+
+// ═══════════════════════════════════════════════════════════
 //  PRNG
 // ═══════════════════════════════════════════════════════════
 function makePRNG(seed){
@@ -324,10 +372,14 @@ let sel=null;       // {r,c}
 let moveCount=0;
 let undoStack=[];
 let animating=false;
-let solved={classic:new Set(),algo:new Set()};
+let solved={classic:new Set(),algo:new Set(),crafted:new Set()};
 let algoLevels=[];
 
-function currentPack(){ return packName==='classic'?CLASSIC_LEVELS:algoLevels; }
+function currentPack(){
+  if(packName==='classic') return CLASSIC_LEVELS;
+  if(packName==='crafted') return CRAFTED_LEVELS;
+  return algoLevels;
+}
 
 // ═══════════════════════════════════════════════════════════
 //  DOM HELPERS
@@ -643,7 +695,7 @@ function prevLevel(){ if(lvIdx>0) loadLevel(lvIdx-1); }
 function switchPack(name){
   packName=name;
   document.querySelectorAll('.ptab').forEach((el,i)=>
-    el.classList.toggle('active',['classic','algo'][i]===name));
+    el.classList.toggle('active',['classic','algo','crafted'][i]===name));
   if(name==='algo'&&!algoLevels.length) startAlgoGeneration();
   loadLevel(0);
 }
@@ -713,6 +765,17 @@ function gravityArr(g){
   }
 }
 
+// Mirror of gravityArr — blocks float toward row 0 (used during reverse-construction generation)
+function gravityUp(g){
+  let moved=true;
+  while(moved){
+    moved=false;
+    for(let c=0;c<COLS;c++)
+      for(let r=1;r<ROWS;r++)
+        if(g[r][c]>0&&g[r][c]!==9&&g[r-1][c]===0){ g[r-1][c]=g[r][c];g[r][c]=0;moved=true; }
+  }
+}
+
 function hasMatch(g){
   for(let r=0;r<ROWS;r++)
     for(let c=0;c<COLS;c++){
@@ -723,12 +786,35 @@ function hasMatch(g){
   return false;
 }
 
-// Generate a single algo level by index (synchronous, called on-demand)
+// Generate a single algo level by index (synchronous, called on-demand).
+// For hard levels (diff≥27) we explicitly try 3-block seeds on odd attempts
+// so that ~half the hardest levels are 3-per-color matches, like classic levels.
+const PINK_FLOYD_TITLES=[
+  'Breathe','On the Run','Time','The Great Gig in the Sky','Money',
+  'Us and Them','Any Colour You Like','Brain Damage','Eclipse','Speak to Me',
+  'Shine On You Crazy Diamond','Welcome to the Machine','Have a Cigar',
+  'Wish You Were Here','Dogs','Pigs (Three Different Ones)','Sheep',
+  'Comfortably Numb','Hey You','Nobody Home','Vera','Bring the Boys Back Home',
+  'In the Flesh','The Thin Ice','Another Brick in the Wall','The Happiest Days',
+  'Empty Spaces','Young Lust','One of My Turns','Don\'t Leave Me Now',
+  'Waiting for the Worms','Stop','The Trial','Outside the Wall',
+  'Astronomy Domine','Interstellar Overdrive','Set the Controls for the Heart of the Sun',
+  'Careful with That Axe, Eugene','A Saucerful of Secrets','See Emily Play',
+  'Learning to Fly','High Hopes','Keep Talking','One of These Days',
+  'Several Species of Small Furry Animals','Echoes','Fearless','San Tropez',
+  'Seamus','Bike',
+];
+
 function buildAlgoLevel(lvl){
   const td=Math.floor(lvl*35/49);
   let found=null;
-  for(let a=0;a<30&&!found;a++) found=genLevel(lvl*30+a,td);
-  return found||{...CLASSIC_LEVELS[lvl%CLASSIC_LEVELS.length],name:`Puzzle ${lvl+1}`};
+  for(let a=0;a<30&&!found;a++){
+    const forceBlocks=(td>=27&&a%2===1)?3:undefined;
+    found=genLevel(lvl*30+a,td,forceBlocks);
+  }
+  const title=PINK_FLOYD_TITLES[lvl]||`Puzzle ${lvl+1}`;
+  if(found){ found.name=title; return found; }
+  return{...CLASSIC_LEVELS[lvl%CLASSIC_LEVELS.length],name:title};
 }
 
 // Initialise the 50-slot cache. Levels are built on-demand in loadLevel() —
@@ -741,8 +827,8 @@ function startAlgoGeneration(){
 // Kept for compatibility; now a no-op (generation is lazy/background)
 function generateAlgoLevels(){ if(!algoLevels.length) startAlgoGeneration(); }
 
-// BFS solver — returns true if the grid state is solvable
-function canSolve(gridIn){
+// BFS solver — returns true if the grid state is solvable within `limit` iterations
+function canSolve(gridIn,limit=2000){
   const g2s=g=>g.map(r=>r.join('')).join('|');
   const clone=g=>g.map(r=>[...r]);
   function step(g){
@@ -770,11 +856,11 @@ function canSolve(gridIn){
   }
   const start=clone(gridIn);
   step(start);
-  if(start.every(r=>r.every(v=>v===0))) return true;
+  if(start.every(r=>r.every(v=>v===0||v===9))) return true;
   const visited=new Set([g2s(start)]);
   const queue=[start];
   let iters=0;
-  while(queue.length&&iters<2000){
+  while(queue.length&&iters<limit){
     iters++;
     const g=queue.shift();
     for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
@@ -787,7 +873,7 @@ function canSolve(gridIn){
         const ng=clone(g);
         ng[r][nc]=ng[r][c]; ng[r][c]=0;
         step(ng);
-        if(ng.every(row=>row.every(v=>v===0))) return true;
+        if(ng.every(row=>row.every(v=>v===0||v===9))) return true;
         const key=g2s(ng);
         if(!visited.has(key)){ visited.add(key); queue.push(ng); }
       }
@@ -796,62 +882,138 @@ function canSolve(gridIn){
   return false;
 }
 
-function genLevel(seed,diff){
+function genLevel(seed,diff,forceBlocks){
   if(diff===undefined) diff=Math.min(seed,35);
   const rng=makePRNG(seed*7919+1337);
-  // numTypes 2–3 only. This structure is provably always solvable for ≤3 types,
-  // so no BFS needed — generation is instant.
-  // Difficulty comes from numTypes (2 vs 3), wallRow height, and gap count.
-  const numTypes=diff<18?2:3;
-  const oneGap=diff>28; // hard levels: single gap forces more specific routing
 
-  // colPairs that leave col0 and col7 free as routing corridors (no [0,7])
-  const colPairs=[[1,6],[2,5],[1,5],[2,6],[3,5]];
-  const [colL,colR]=colPairs[seed%colPairs.length];
+  // ── Scale parameters with difficulty ──────────────────────
+  // Colors: 2 (easy) → 5 (hard). Each color adds one pair/triple to clear.
+  const numColors = diff<9  ? 2
+                  : diff<18 ? 3
+                  : diff<27 ? 4
+                  :           5;
+
+  // Blocks per color: 2 normally; hard levels sometimes use 3 (like classic levels).
+  // forceBlocks lets the caller override (used by buildAlgoLevel for variety).
+  const blocksPerColor = forceBlocks || (diff<27 ? 2 : rng()<0.4 ? 3 : 2);
+
+  // Cap colors at 3 for 3-block levels (9 blocks max keeps BFS tractable)
+  const effectiveColors = blocksPerColor===3 ? Math.min(numColors,3) : numColors;
+
+  // How many random spreading slides per color (2 easy → 5 hard)
+  const numMoves = 2+Math.floor(diff*0.09);
+
+  // Max columns a single slide can travel (limits 1-move solutions)
+  const maxSlide = 2+Math.floor(diff*0.07);
+
   const g=Array.from({length:ROWS},()=>Array(COLS).fill(0));
-  // Hard levels use a higher wall (row 3), easier levels sit lower (row 5)
-  const wallRow=diff<12?5:diff<24?4:3;
 
-  // Cross-wall type (type 1): one block above wall, partner below — must route to meet
-  const crossAbove=rng()>0.5?colL:colR;
-  const crossBelow=crossAbove===colL?colR:colL;
+  // ── 1. Draw wall segments (rows 2–6, never col 0 or 7) ────
+  const numWalls = diff<12 ? 1 : diff<24 ? 2 : 3;
+  const usedWallRows=new Set();
+  for(let w=0;w<numWalls;w++){
+    // Pick a row not yet occupied by another wall band
+    let wallRow=-1;
+    for(let t=0;t<12;t++){
+      const r=2+Math.floor(rng()*5); // rows 2–6
+      if(!usedWallRows.has(r)){wallRow=r;break;}
+    }
+    if(wallRow<0) continue;
+    usedWallRows.add(wallRow);
 
-  // Drop below-wall types (type 1 partner + 0–1 same-side pairs)
-  g[0][crossBelow]=1; gravityArr(g);
-  const belowExtra=Math.floor((numTypes-1)/2); // 0 for numTypes=2, 1 for numTypes=3
-  for(let i=0;i<belowExtra;i++){
-    const t=2+i;
-    const ca=(i%2===0)?colL:colR, cb=(i%2===0)?colR:colL;
-    g[0][ca]=t; gravityArr(g); g[0][cb]=t; gravityArr(g);
+    // Segment length 2–5, always fits within cols 1–6
+    const segLen=2+Math.floor(rng()*4);
+    const maxStart=Math.max(1,7-segLen);
+    const colA=1+Math.floor(rng()*maxStart);
+    const colB=Math.min(colA+segLen-1,6);
+
+    for(let c=colA;c<=colB;c++) g[wallRow][c]=9;
+
+    // Punch at least one interior gap on longer segments so blocks aren't trapped
+    if(colB-colA>=3){
+      const gapC=colA+1+Math.floor(rng()*(colB-colA-1));
+      g[wallRow][gapC]=0;
+    }
   }
 
-  // Wall band spanning colL..colR with guaranteed interior gap(s)
-  for(let c=Math.min(colL,colR);c<=Math.max(colL,colR);c++) g[wallRow][c]=9;
-  const intL=Math.min(colL,colR)+1, intR=Math.max(colL,colR)-1;
-  if(intR>=intL){
-    g[wallRow][intL+Math.floor(rng()*(intR-intL+1))]=0;
-    if(!oneGap&&intR>intL&&rng()>0.4) g[wallRow][intL+Math.floor(rng()*(intR-intL+1))]=0;
+  // ── 2–5. For each color: spawn → float up → spread ────────
+  // Generating in reverse: start from the "solved" adjacent state, then scramble
+  // using upward gravity. Reversing those steps (with normal gravity) is always valid.
+  for(let color=1;color<=effectiveColors;color++){
+    const count=blocksPerColor;
+    // For 3-block: place with stride=2 (gap between blocks) so they land at different
+    // heights after upward gravity, avoiding the guaranteed-adjacent problem.
+    const stride = count===3 ? 2 : 1;
+    const span = (count-1)*stride;
+
+    // Place blocks in the bottom row (spaced for count=3, consecutive for count=2)
+    let placed=false;
+    for(let att=0;att<40&&!placed;att++){
+      const startC=Math.floor(rng()*(COLS-span));
+      if(startC+span>=COLS) continue;
+
+      // Need all target cells empty in the bottom row
+      let ok=true;
+      for(let i=0;i<count;i++) if(g[ROWS-1][startC+i*stride]!==0){ok=false;break;}
+      if(!ok) continue;
+
+      // Tentatively place and apply upward gravity, then verify no immediate match
+      const snap=g.map(row=>[...row]);
+      for(let i=0;i<count;i++) g[ROWS-1][startC+i*stride]=color;
+      gravityUp(g);
+
+      if(hasMatch(g)){
+        // Restore and try another position
+        for(let r=0;r<ROWS;r++) g[r]=snap[r];
+        continue;
+      }
+      placed=true;
+    }
+    if(!placed) return null;
+
+    // numMoves random horizontal slides, each followed by upward gravity
+    for(let m=0;m<numMoves;m++){
+      const blocks=[];
+      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+        if(g[r][c]===color) blocks.push([r,c]);
+      if(!blocks.length) break;
+
+      const [br,bc]=blocks[Math.floor(rng()*blocks.length)];
+      const dir=rng()<0.5?-1:1;
+
+      // Slide up to maxSlide steps in direction dir
+      let nc=bc+dir,steps=0;
+      while(nc>=0&&nc<COLS&&g[br][nc]===0&&steps<maxSlide){nc+=dir;steps++;}
+      nc-=dir;
+      if(nc===bc) continue; // couldn't move
+
+      const snap=g.map(row=>[...row]);
+      g[br][nc]=color; g[br][bc]=0;
+      gravityUp(g);
+
+      // Undo if the slide creates an immediate adjacency (instant match = invalid start)
+      if(hasMatch(g)) for(let r=0;r<ROWS;r++) g[r]=snap[r];
+    }
   }
 
-  // Drop above-wall types (type 1 cross-wall + 0–1 same-side pairs)
-  g[0][crossAbove]=1; gravityArr(g);
-  const aboveExtra=numTypes-1-belowExtra; // 1 for numTypes=2, 1 for numTypes=3
-  for(let i=0;i<aboveExtra;i++){
-    const t=belowExtra+2+i;
-    const ca=(i%2===0)?colR:colL, cb=(i%2===0)?colL:colR;
-    g[0][ca]=t; gravityArr(g); g[0][cb]=t; gravityArr(g);
-  }
+  // ── 6. Flip to normal downward gravity (the actual puzzle state) ──
+  gravityArr(g);
 
   if(hasMatch(g)) return null;
-  let hasAbove=false, hasBelow=false;
-  for(let r=0;r<wallRow;r++) for(let c=0;c<COLS;c++) if(g[r][c]>0&&g[r][c]!==9) hasAbove=true;
-  for(let r=wallRow+1;r<ROWS;r++) for(let c=0;c<COLS;c++) if(g[r][c]>0&&g[r][c]!==9) hasBelow=true;
-  if(!hasAbove||!hasBelow) return null;
-  // No canSolve() call — ≤3 types with free outer columns is structurally guaranteed solvable
+
+  // Verify all colors have the expected block count (placement may have failed silently)
+  for(let color=1;color<=effectiveColors;color++){
+    let cnt=0;
+    for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) if(g[r][c]===color) cnt++;
+    if(cnt!==blocksPerColor) return null;
+  }
+
+  // BFS solvability check (2000 iterations is sufficient; higher limits slow failures)
+  if(!canSolve(g,2000)) return null;
 
   return{
     name:`Puzzle ${seed+1}`,
-    par:numTypes+1,
+    par:effectiveColors*blocksPerColor,
     grid:g.map(row=>row.map(v=>v===9?'#':v?String(v):'.').join(''))
   };
 }
