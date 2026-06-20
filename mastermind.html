@@ -403,7 +403,7 @@ function newGame() {
   document.getElementById('status').textContent = '';
   document.getElementById('status').className = 'status-msg';
   document.getElementById('hdr-row').textContent = '1';
-  const prev = parseInt(localStorage.getItem(`mm_best_${difficulty}`) || '0');
+  const prev = parseInt(localStorage.getItem(`mm_best_${diff}`) || '0');
   document.getElementById('mm-best-msg').textContent = prev ? `Best: ${prev} guess${prev>1?'es':''}` : '';
 
   buildPalette(colors);
@@ -497,7 +497,7 @@ function submitGuess() {
     document.getElementById('status').textContent = '🎉 You cracked the code!';
     document.getElementById('status').className = 'status-msg win';
     // Best: fewest guesses to crack
-    const key  = `mm_best_${difficulty}`;
+    const key  = `mm_best_${diff}`;
     const prev = parseInt(localStorage.getItem(key) || '0');
     const numGuesses = guesses.length;
     if (!prev || numGuesses < prev) {
