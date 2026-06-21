@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔴 Laser Lab</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1923;
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  color: #fff;
+  user-select: none;
+}
+
+header {
+  background: #0a1018;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.9em; }
+header a:hover { color: rgba(255,255,255,0.8); }
+header h1 { font-size: 1.2em; font-weight: 700; color: #f0e0a0; flex: 1; }
+.hdr-level { font-size: 0.9em; color: rgba(255,255,255,0.4); }
+.hdr-level span { color: #f0c040; font-weight: 700; }
+
+main {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 16px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Level info bar ── */
+.level-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.level-name {
+  flex: 1;
+  font-size: 1em;
+  font-weight: 700;
+  color: #f0e0a0;
+}
+.btn-sm {
+  padding: 6px 14px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 7px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.6);
+  font-size: 0.82em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-sm:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.btn-sm.primary {
+  background: linear-gradient(135deg,#f0c040,#d4a010);
+  color: #2a1800;
+  border-color: #d4a010;
+}
+.btn-sm.primary:hover { background: linear-gradient(135deg,#ffe060,#e8b820); }
+
+/* ── Grid ── */
+.grid-wrap {
+  position: relative;
+  background: #1a2534;
+  border-radius: 14px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+#grid-canvas {
+  display: block;
+  margin: 0 auto;
+  border-radius: 6px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+/* ── Piece tray ── */
+.tray-label {
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.tray {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: #1a2534;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+  min-height: 64px;
+  align-items: center;
+}
+.tray-piece {
+  width: 52px;
+  height: 52px;
+  border-radius: 8px;
+  border: 2px solid rgba(255,255,255,0.15);
+  background: #243040;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4em;
+  transition: border-color 0.12s, transform 0.12s, background 0.12s;
+  position: relative;
+  flex-shrink: 0;
+}
+.tray-piece:hover { border-color: rgba(255,255,255,0.4); transform: scale(1.06); }
+.tray-piece.selected {
+  border-color: #f0c040;
+  background: rgba(240,192,64,0.15);
+  transform: scale(1.1);
+}
+.tray-piece.used { opacity: 0.3; cursor: default; pointer-events: none; }
+.tray-piece .piece-count {
+  position: absolute;
+  bottom: 2px; right: 5px;
+  font-size: 0.55em;
+  color: rgba(255,255,255,0.5);
+  font-weight: 700;
+}
+
+/* ── Laser toggle ── */
+.laser-bar {
+  display: flex;
+  justify-content: center;
+}
+.btn-laser {
+  padding: 10px 32px;
+  border-radius: 10px;
+  font-size: 0.95em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  border: 2px solid;
+  letter-spacing: 0.5px;
+}
+.btn-laser.off {
+  background: rgba(255,50,50,0.08);
+  border-color: rgba(255,80,80,0.35);
+  color: rgba(255,120,120,0.7);
+}
+.btn-laser.off:hover {
+  background: rgba(255,50,50,0.16);
+  border-color: rgba(255,80,80,0.6);
+  color: rgba(255,150,150,0.9);
+}
+.btn-laser.on {
+  background: rgba(255,50,50,0.22);
+  border-color: #ff3333;
+  color: #ff6666;
+  box-shadow: 0 0 14px rgba(255,50,50,0.45);
+}
+.btn-laser.on:hover {
+  background: rgba(255,50,50,0.3);
+}
+
+/* ── Instructions ── */
+.instructions {
+  font-size: 0.78em;
+  color: rgba(255,255,255,0.35);
+  line-height: 1.6;
+  background: #1a2534;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.instructions strong { color: rgba(255,255,255,0.6); }
+
+/* ── Win overlay ── */
+.win-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.win-overlay.show { display: flex; }
+.win-box {
+  background: #1e2d3d;
+  border-radius: 20px;
+  padding: 36px 40px;
+  text-align: center;
+  max-width: 300px;
+  width: 90%;
+  border: 1px solid rgba(240,192,64,0.3);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.win-box h2 { font-size: 2em; margin-bottom: 8px; }
+.win-box p { color: rgba(255,255,255,0.5); margin-bottom: 24px; font-size: 0.95em; }
+.btn-next {
+  padding: 12px 36px;
+  background: linear-gradient(135deg,#f0c040,#d4a010);
+  color: #2a1800;
+  font-weight: 800;
+  font-size: 1.05em;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.btn-next:hover { background: linear-gradient(135deg,#ffe060,#e8b820); }
+.btn-replay {
+  padding: 10px 36px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+  font-weight: 700;
+  font-size: 0.9em;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  cursor: pointer;
+  width: 100%;
+}
+.btn-replay:hover { background: rgba(255,255,255,0.1); color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="index.html">← Games</a>
+  <h1>🔴 Laser Lab</h1>
+  <div class="hdr-level">Level <span id="hdr-num">1</span>/30</div>
+</header>
+
+<div class="win-overlay" id="win-overlay">
+  <div class="win-box">
+    <h2>✨ Solved!</h2>
+    <p id="win-msg">All targets lit up!</p>
+    <button class="btn-next" id="btn-next" onclick="nextLevel()">Next Level →</button>
+    <button class="btn-replay" onclick="resetLevel()">Play Again</button>
+  </div>
+</div>
+
+<main>
+  <div class="level-bar">
+    <div class="level-name" id="level-name">Level 1</div>
+    <button class="btn-sm" onclick="resetLevel()">↺ Reset</button>
+    <button class="btn-sm" id="btn-prev" onclick="changeLevel(-1)">‹ Prev</button>
+    <button class="btn-sm primary" id="btn-next-bar" onclick="changeLevel(1)">Next ›</button>
+  </div>
+
+  <div class="grid-wrap">
+    <canvas id="grid-canvas"></canvas>
+  </div>
+
+  <div class="laser-bar">
+    <button class="btn-laser off" id="btn-laser" onclick="toggleLaser()">◉ Laser OFF</button>
+  </div>
+
+  <div>
+    <div class="tray-label">Available Pieces — tap to select, tap grid to place • tap placed piece to remove</div>
+    <div class="tray" id="tray"></div>
+  </div>
+
+  <div class="instructions">
+    <strong>Mirrors</strong> (╱ ╲) reflect the beam 90°. &nbsp;
+    <strong>Splitter</strong> (✦) creates 3 beams: straight, ╱, and ╲ simultaneously. &nbsp;
+    <strong>Filters</strong> (🔴🟢🔵) only pass matching laser color.
+    Mix colors: R+G=Yellow, R+B=Magenta, G+B=Cyan. &nbsp;
+    Aim every beam at its matching <strong>target</strong>.
+  </div>
+</main>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════
+const CELL = 56;          // px per cell
+const COLS = 7;
+const ROWS = 7;
+const PAD  = 2;           // cells of padding on canvas
+
+// Directions: 0=right 1=down 2=left 3=up
+const DX = [1, 0, -1, 0];
+const DY = [0, 1,  0,-1];
+
+// Colors as bit flags
+const R = 1, G = 2, B = 4;
+const COLOR_HEX = {
+  [R]:     '#ff3333',
+  [G]:     '#33ff66',
+  [B]:     '#4488ff',
+  [R|G]:   '#ffee00',
+  [R|B]:   '#ff44ff',
+  [G|B]:   '#00ffee',
+  [R|G|B]: '#ffffff',
+};
+
+// Cell types
+const EMPTY    = 0;
+const WALL     = 'W';
+const EMITTER  = 'E'; // {type:EMITTER, color:R|G|B, dir:0-3}
+const TARGET   = 'T'; // {type:TARGET,  color:R|G|B}
+const MIRROR_F = '/'; // reflects: right↔up, left↔down
+const MIRROR_B = '\\';// reflects: right↔down, left↔up
+const SPLITTER = '+'; // passes + reflects
+const FILTER_R = 'FR';
+const FILTER_G = 'FG';
+const FILTER_B = 'FB';
+
+// Piece display
+const PIECE_GLYPH = {
+  [MIRROR_F]: '╱',
+  [MIRROR_B]: '╲',
+  [SPLITTER]: '✦',
+  [FILTER_R]: '🔴',
+  [FILTER_G]: '🟢',
+  [FILTER_B]: '🔵',
+};
+
+// ═══════════════════════════════════════════════
+// LEVELS
+// ═══════════════════════════════════════════════
+// Level format:
+//   name: string
+//   grid: 7x7 array. Each cell: 0 or {type, ...}
+//   pieces: [{type, count}] — what the player has
+//
+// Grid shorthands: E(color,dir), T(color), W
+
+function E(color, dir) { return { type: EMITTER, color, dir }; }
+function T(color)      { return { type: TARGET,  color }; }
+const W = { type: WALL };
+
+const LEVELS = [
+  // ── EASY ──────────────────────────────────────
+  {
+    name: 'Straight Shot',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [],
+  },
+  {
+    name: 'First Bounce',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F, count:1}],
+  },
+  {
+    name: 'Corner Turn',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(G),0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Two Mirrors',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(B)],
+    ],
+    pieces: [{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Zigzag',
+    grid: [
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Wall Around',
+    grid: [
+      [E(G,0),0,0,0,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,0,0,0,T(G)],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Split Intro',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Green Split',
+    grid: [
+      [0,0,0,T(G),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,T(G)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(G),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Red Filter',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:FILTER_R,count:1}],
+  },
+  {
+    name: 'Color Block',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,E(B,3),0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:FILTER_R,count:1},{type:FILTER_B,count:1}],
+  },
+
+  // ── MEDIUM ────────────────────────────────────
+  {
+    name: 'Yellow Mix',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [E(R,1),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R|G)],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
+  },
+  {
+    name: 'Cyan Target',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(G|B)],
+      [0,0,0,0,0,0,0],
+      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
+  },
+  {
+    name: 'Magenta Mix',
+    grid: [
+      [0,0,0,T(R|B),0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
+  },
+  {
+    name: 'Duo Filter',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,T(G)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:FILTER_R,count:1},{type:FILTER_G,count:1}],
+  },
+  {
+    name: 'Filter Wall',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(G)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:FILTER_G,count:1}],
+  },
+  {
+    name: 'Three Targets',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(R),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:2},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Blue Maze',
+    grid: [
+      [E(B,1),0,0,0,0,0,0],
+      [0,W,0,W,0,W,0],
+      [0,W,0,W,0,W,0],
+      [0,W,0,W,0,W,T(B)],
+      [0,W,0,W,0,W,0],
+      [0,W,0,W,0,W,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:3},{type:MIRROR_B,count:3}],
+  },
+  {
+    name: 'RGB Trio',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(G),0,0,0],
+    ],
+    pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Redirect',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(R),0,0,0,0,0,0],
+      [0,0,0,0,0,0,E(R,2)],
+      [T(R),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Color Cross',
+    grid: [
+      [0,0,0,T(R|G),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,E(G,2)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(R|G),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:2},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+
+  // ── HARD ──────────────────────────────────────
+  {
+    name: 'Prism',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(G)],
+      [E(R|G|B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Crisscross',
+    grid: [
+      [E(R,1),0,0,0,0,0,E(G,1)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(G),0,0,0,0,0,T(R)],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
+  },
+  {
+    name: 'White Light',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,T(R|G|B)],
+      [0,0,0,0,0,0,0],
+      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Filter Maze',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(G)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:1},{type:FILTER_R,count:1},{type:FILTER_G,count:1}],
+  },
+  {
+    name: 'Cascade',
+    grid: [
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+      [E(G,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(G)],
+      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:3},{type:MIRROR_B,count:3}],
+  },
+  {
+    name: 'Split and Filter',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(G|B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Labyrinth',
+    grid: [
+      [E(R,0),0,W,0,W,0,0],
+      [0,0,W,0,W,0,0],
+      [0,0,0,0,0,0,0],
+      [0,W,0,W,0,W,0],
+      [0,W,0,W,0,W,0],
+      [0,0,0,0,0,0,0],
+      [0,0,W,0,W,0,T(R)],
+    ],
+    pieces: [{type:MIRROR_F,count:4},{type:MIRROR_B,count:4}],
+  },
+  {
+    name: 'Full Spectrum',
+    grid: [
+      [E(R,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(R|G|B),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:3},{type:MIRROR_F,count:3},{type:MIRROR_B,count:3}],
+  },
+  {
+    name: 'Starburst',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(R),0,0,0,0,0,T(R)],
+      [0,0,0,E(R,1),0,0,0],
+      [T(R),0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(R),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:3},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Grand Finale',
+    grid: [
+      [E(R,0),0,0,0,0,0,E(B,2)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(G,0),0,0,0,0,0,T(R|G|B)],
+    ],
+    pieces: [{type:SPLITTER,count:3},{type:MIRROR_F,count:3},{type:MIRROR_B,count:3},{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1}],
+  },
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let levelIdx   = 0;
+let grid       = [];       // 7x7 working copy
+let fixedGrid  = [];       // original fixed cells
+let trayPieces = [];       // [{type, count, used}]
+let selectedPiece = null;  // type string or null
+let beams      = [];       // computed laser segments for drawing
+let laserActive = false;   // laser starts off
+
+// ═══════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('grid-canvas');
+const ctx    = canvas.getContext('2d');
+const SIZE   = CELL * COLS;
+canvas.width  = SIZE;
+canvas.height = SIZE;
+canvas.style.width  = SIZE + 'px';
+canvas.style.height = SIZE + 'px';
+
+// ═══════════════════════════════════════════════
+// LOAD LEVEL
+// ═══════════════════════════════════════════════
+function loadLevel(idx) {
+  levelIdx = idx;
+  const lvl = LEVELS[idx];
+  document.getElementById('hdr-num').textContent  = idx + 1;
+  document.getElementById('level-name').textContent = `Level ${idx+1} — ${lvl.name}`;
+  document.getElementById('btn-prev').disabled = idx === 0;
+  document.getElementById('btn-next-bar').disabled = idx === LEVELS.length - 1;
+  document.getElementById('btn-next').textContent =
+    idx === LEVELS.length - 1 ? '🏆 Complete!' : 'Next Level →';
+
+  // Deep-copy grid
+  fixedGrid = lvl.grid.map(row => row.map(c => c ? {...c} : 0));
+  grid = lvl.grid.map(row => row.map(c => c ? {...c} : 0));
+
+  // Build tray
+  trayPieces = lvl.pieces.map(p => ({...p, used: 0}));
+  selectedPiece = null;
+
+  document.getElementById('win-overlay').classList.remove('show');
+
+  // Reset laser to OFF
+  laserActive = false;
+  beams = [];
+  const btnLaser = document.getElementById('btn-laser');
+  if (btnLaser) { btnLaser.textContent = '◉ Laser OFF'; btnLaser.className = 'btn-laser off'; }
+
+  renderTray();
+  traceBeams();
+  draw();
+}
+
+function resetLevel() {
+  loadLevel(levelIdx);
+}
+
+function changeLevel(delta) {
+  const next = levelIdx + delta;
+  if (next >= 0 && next < LEVELS.length) loadLevel(next);
+}
+
+function nextLevel() {
+  if (levelIdx < LEVELS.length - 1) {
+    loadLevel(levelIdx + 1);
+  }
+}
+
+function toggleLaser() {
+  laserActive = !laserActive;
+  const btn = document.getElementById('btn-laser');
+  if (laserActive) {
+    btn.textContent = '◉ Laser ON';
+    btn.className = 'btn-laser on';
+    traceBeams();
+  } else {
+    btn.textContent = '◉ Laser OFF';
+    btn.className = 'btn-laser off';
+    beams = [];
+  }
+  draw();
+}
+
+// ═══════════════════════════════════════════════
+// TRAY
+// ═══════════════════════════════════════════════
+function renderTray() {
+  const tray = document.getElementById('tray');
+  tray.innerHTML = '';
+  if (trayPieces.length === 0) {
+    tray.innerHTML = '<span style="color:rgba(255,255,255,0.2);font-size:.85em">No pieces needed — just watch!</span>';
+    return;
+  }
+  trayPieces.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'tray-piece' +
+      (selectedPiece === p.type ? ' selected' : '') +
+      ((p.count - p.used) <= 0 ? ' used' : '');
+    div.textContent = PIECE_GLYPH[p.type] || p.type;
+    const rem = p.count - p.used;
+    if (p.count > 1) {
+      const cnt = document.createElement('span');
+      cnt.className = 'piece-count';
+      cnt.textContent = 'x' + rem;
+      div.appendChild(cnt);
+    }
+    div.addEventListener('click', () => selectPiece(p.type));
+    tray.appendChild(div);
+  });
+}
+
+function selectPiece(type) {
+  const p = trayPieces.find(p => p.type === type);
+  if (!p || p.count - p.used <= 0) return;
+  selectedPiece = (selectedPiece === type) ? null : type;
+  renderTray();
+}
+
+function usePiece(type) {
+  const p = trayPieces.find(p => p.type === type);
+  if (p) p.used++;
+  renderTray();
+}
+
+function returnPiece(type) {
+  const p = trayPieces.find(p => p.type === type);
+  if (p && p.used > 0) p.used--;
+  renderTray();
+}
+
+// ═══════════════════════════════════════════════
+// LASER TRACING
+// ═══════════════════════════════════════════════
+function traceBeams() {
+  beams = [];
+  const lit = Array.from({length:ROWS}, () => Array(COLS).fill(0));
+
+  // Seed queue from emitters; draw a half-segment on the emitter cell itself
+  const queue = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      if (cell && cell.type === EMITTER) {
+        // inDir=null means "starts at center" — half-segment outward
+        beams.push({r, c, inDir: null, outDir: cell.dir, color: cell.color});
+        queue.push({r: r + DY[cell.dir], c: c + DX[cell.dir], dir: cell.dir, color: cell.color});
+      }
+    }
+  }
+
+  const visited = new Set();
+  let iters = 0;
+  while (queue.length && iters < 2000) {
+    iters++;
+    const {r, c, dir, color} = queue.shift();
+
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+
+    const key = `${r},${c},${dir},${color}`;
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    lit[r][c] |= color;
+    const cell = grid[r][c];
+
+    if (!cell) {
+      // Empty: straight through
+      beams.push({r, c, inDir: dir, outDir: dir, color});
+      queue.push({r: r + DY[dir], c: c + DX[dir], dir, color});
+    } else if (cell.type === WALL) {
+      // No beam segment drawn — beam terminates at the wall face (entry edge of this cell)
+    } else if (cell.type === TARGET) {
+      beams.push({r, c, inDir: dir, outDir: null, color}); // enters target, stops at center
+    } else if (cell.type === EMITTER) {
+      // No beam segment — hits emitter face and stops
+    } else if (cell.type === MIRROR_F) {
+      // / : right→up, down→left, left→down, up→right
+      const outDir = [3, 2, 1, 0][dir];
+      beams.push({r, c, inDir: dir, outDir, color});
+      queue.push({r: r + DY[outDir], c: c + DX[outDir], dir: outDir, color});
+    } else if (cell.type === MIRROR_B) {
+      // \ : right→down, down→right, left→up, up→left
+      const outDir = [1, 0, 3, 2][dir];
+      beams.push({r, c, inDir: dir, outDir, color});
+      queue.push({r: r + DY[outDir], c: c + DX[outDir], dir: outDir, color});
+    } else if (cell.type === SPLITTER) {
+      // True 3-way split: straight + reflects like / + reflects like \
+      const outF = [3, 2, 1, 0][dir]; // / reflection
+      const outB = [1, 0, 3, 2][dir]; // \ reflection
+      beams.push({r, c, inDir: dir, outDir: dir,  color}); // straight
+      beams.push({r, c, inDir: dir, outDir: outF, color}); // / branch
+      beams.push({r, c, inDir: dir, outDir: outB, color}); // \ branch
+      queue.push({r: r + DY[dir],  c: c + DX[dir],  dir,       color});
+      queue.push({r: r + DY[outF], c: c + DX[outF], dir: outF, color});
+      queue.push({r: r + DY[outB], c: c + DX[outB], dir: outB, color});
+    } else if (cell.type === FILTER_R) {
+      const passed = color & R;
+      if (passed) { beams.push({r, c, inDir: dir, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
+      else          beams.push({r, c, inDir: dir, outDir: null, color}); // absorbed
+    } else if (cell.type === FILTER_G) {
+      const passed = color & G;
+      if (passed) { beams.push({r, c, inDir: dir, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
+      else          beams.push({r, c, inDir: dir, outDir: null, color});
+    } else if (cell.type === FILTER_B) {
+      const passed = color & B;
+      if (passed) { beams.push({r, c, inDir: dir, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
+      else          beams.push({r, c, inDir: dir, outDir: null, color});
+    }
+  }
+
+  window._litMap = lit;
+  if (laserActive) checkWin(lit);
+}
+
+function checkWin(lit) {
+  let allLit = true;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = grid[r][c];
+      if (cell && cell.type === TARGET) {
+        if (lit[r][c] !== cell.color) {
+          allLit = false;
+        }
+      }
+    }
+  }
+  if (allLit) {
+    setTimeout(() => {
+      document.getElementById('win-overlay').classList.add('show');
+    }, 300);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// DRAWING
+// ═══════════════════════════════════════════════
+const COLORS = {
+  bg:        '#111d2a',
+  gridLine:  'rgba(255,255,255,0.07)',
+  wall:      '#2a3a4a',
+  wallFace:  '#364a5e',
+};
+
+function draw() {
+  ctx.clearRect(0, 0, SIZE, SIZE);
+
+  // Background
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, SIZE, SIZE);
+
+  // Grid lines
+  ctx.strokeStyle = COLORS.gridLine;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= COLS; i++) {
+    ctx.beginPath(); ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, SIZE); ctx.stroke();
+  }
+  for (let j = 0; j <= ROWS; j++) {
+    ctx.beginPath(); ctx.moveTo(0, j*CELL); ctx.lineTo(SIZE, j*CELL); ctx.stroke();
+  }
+
+  // Pass 1: cell backgrounds (walls, tile fills) — beam will render on top of these
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      drawCellBg(r, c);
+
+  // Pass 2: laser beams — sit above tile backgrounds, below symbols
+  if (laserActive) drawBeams();
+
+  // Pass 3: cell symbols/details — mirror lines, target rings, emitter indicators
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      drawCellFg(r, c);
+}
+
+function drawBeams() {
+  // Group by color for glow effect
+  const byColor = {};
+  for (const b of beams) {
+    if (!byColor[b.color]) byColor[b.color] = [];
+    byColor[b.color].push(b);
+  }
+
+  for (const [colorKey, segs] of Object.entries(byColor)) {
+    const hex = COLOR_HEX[colorKey] || '#ffffff';
+    ctx.save();
+    ctx.strokeStyle = hex;
+    ctx.shadowColor = hex;
+    ctx.shadowBlur = 10;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    for (const seg of segs) {
+      const cx = seg.c * CELL + CELL/2;
+      const cy = seg.r * CELL + CELL/2;
+
+      // Entry point: edge the beam enters from.
+      // inDir=null means emitter — beam starts at center going outward.
+      let sx = cx, sy = cy;
+      if (seg.inDir !== null) {
+        sx = cx - DX[seg.inDir] * CELL/2;
+        sy = cy - DY[seg.inDir] * CELL/2;
+      }
+
+      // Exit point: edge the beam exits to.
+      // outDir=null means the beam terminates at center (wall/target).
+      let ex = cx, ey = cy;
+      if (seg.outDir !== null) {
+        ex = cx + DX[seg.outDir] * CELL/2;
+        ey = cy + DY[seg.outDir] * CELL/2;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      // Bent beam (mirror/splitter): route through center so the laser
+      // visually contacts the diagonal and doesn't bleed behind it.
+      if (seg.inDir !== null && seg.outDir !== null && seg.inDir !== seg.outDir) {
+        ctx.lineTo(cx, cy);
+      }
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+
+// ── Pass 1: backgrounds ──────────────────────────
+function drawCellBg(r, c) {
+  const cell = grid[r][c];
+  if (!cell) return;
+
+  const x = c * CELL, y = r * CELL;
+  const cx = x + CELL/2, cy = y + CELL/2;
+  const S = CELL - 4;
+
+  if (cell.type === WALL) {
+    ctx.fillStyle = COLORS.wall;
+    ctx.fillRect(x+2, y+2, S, S);
+    ctx.fillStyle = COLORS.wallFace;
+    ctx.fillRect(x+4, y+4, S-4, S-4);
+    return;
+  }
+
+  if (cell.type === EMITTER) {
+    ctx.fillStyle = '#1a2a3a';
+    roundRect(ctx, x+4, y+4, S-4, S-4, 8);
+    ctx.fill();
+    return;
+  }
+
+  if (cell.type === TARGET) {
+    const lit = window._litMap;
+    const isLit = laserActive && lit && (lit[r][c] & cell.color) === cell.color;
+    ctx.fillStyle = isLit ? 'rgba(255,255,255,0.08)' : '#0d1820';
+    roundRect(ctx, x+4, y+4, S-4, S-4, 8);
+    ctx.fill();
+    return;
+  }
+
+  // Player-placed piece background
+  const isFixed = fixedGrid[r][c] && fixedGrid[r][c].type !== EMPTY;
+  ctx.save();
+  ctx.fillStyle = isFixed ? '#1e3050' : '#243040';
+  ctx.strokeStyle = isFixed ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x+4, y+4, S-4, S-4, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ── Pass 3: symbols & details ────────────────────
+function drawCellFg(r, c) {
+  const cell = grid[r][c];
+  if (!cell || cell.type === WALL) return;
+
+  const x = c * CELL, y = r * CELL;
+  const cx = x + CELL/2, cy = y + CELL/2;
+  const S = CELL - 4;
+
+  if (cell.type === EMITTER) {
+    const hex = COLOR_HEX[cell.color] || '#ffffff';
+    ctx.save();
+
+    // Glowing circle
+    ctx.shadowColor = hex;
+    ctx.shadowBlur = 14;
+    ctx.fillStyle = hex;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 11, 0, Math.PI*2);
+    ctx.fill();
+
+    // Direction indicator: a small notch/chevron on the edge of the circle
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    const edgeX = cx + DX[cell.dir] * 11;
+    const edgeY = cy + DY[cell.dir] * 11;
+    const tipX  = cx + DX[cell.dir] * 19;
+    const tipY  = cy + DY[cell.dir] * 19;
+    // Perpendicular unit for chevron wings
+    const px = DY[cell.dir], py = -DX[cell.dir];
+    ctx.beginPath();
+    ctx.moveTo(edgeX + px*5, edgeY + py*5);
+    ctx.lineTo(tipX, tipY);
+    ctx.lineTo(edgeX - px*5, edgeY - py*5);
+    ctx.stroke();
+
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = 'bold 9px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('LASER', cx, y + S - 2);
+    return;
+  }
+
+  if (cell.type === TARGET) {
+    const hex = COLOR_HEX[cell.color] || '#ffffff';
+    const lit = window._litMap;
+    const isLit = laserActive && lit && (lit[r][c] & cell.color) === cell.color;
+
+    ctx.save();
+    ctx.strokeStyle = hex;
+    ctx.lineWidth = isLit ? 3 : 2;
+    ctx.shadowColor = hex;
+    ctx.shadowBlur = isLit ? 20 : 5;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 14, 0, Math.PI*2);
+    ctx.stroke();
+
+    if (isLit) {
+      ctx.fillStyle = hex;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 7, 0, Math.PI*2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = 'bold 9px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText('TARGET', cx, y + S - 2);
+    return;
+  }
+
+  // Piece symbols — drawn on top of any beam that passes through the tile
+  ctx.save();
+  ctx.font = `${Math.floor(CELL*0.44)}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  if (cell.type === MIRROR_F) {
+    // Draw the / diagonal as a canvas line (crisper than a text glyph)
+    ctx.strokeStyle = '#a0c8ff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#a0c8ff';
+    ctx.shadowBlur = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y + CELL - 10);
+    ctx.lineTo(x + CELL - 10, y + 10);
+    ctx.stroke();
+  } else if (cell.type === MIRROR_B) {
+    ctx.strokeStyle = '#a0c8ff';
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#a0c8ff';
+    ctx.shadowBlur = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y + 10);
+    ctx.lineTo(x + CELL - 10, y + CELL - 10);
+    ctx.stroke();
+  } else if (cell.type === SPLITTER) {
+    ctx.fillStyle = '#ffd080';
+    ctx.fillText('✦', cx, cy);
+  } else if (cell.type === FILTER_R) {
+    ctx.fillText('🔴', cx, cy);
+  } else if (cell.type === FILTER_G) {
+    ctx.fillText('🟢', cx, cy);
+  } else if (cell.type === FILTER_B) {
+    ctx.fillText('🔵', cx, cy);
+  }
+
+  ctx.restore();
+}
+
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y,   x+w, y+r,   r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+// ═══════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════
+function getCellFromEvent(e) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const mx = (e.clientX - rect.left) * scaleX;
+  const my = (e.clientY - rect.top)  * scaleY;
+  return {
+    c: Math.floor(mx / CELL),
+    r: Math.floor(my / CELL),
+  };
+}
+
+canvas.addEventListener('click', e => {
+  const {r, c} = getCellFromEvent(e);
+  if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+
+  const cell = grid[r][c];
+  const fixed = fixedGrid[r][c];
+
+  // If clicking a player-placed piece — remove it
+  if (cell && !fixed && isPlayerPiece(cell.type)) {
+    returnPiece(cell.type);
+    grid[r][c] = 0;
+    if (selectedPiece === null) {
+      // deselect
+    }
+    traceBeams();
+    draw();
+    return;
+  }
+
+  // If a piece is selected and cell is empty — place it
+  if (selectedPiece && (!cell || cell === 0)) {
+    grid[r][c] = { type: selectedPiece };
+    usePiece(selectedPiece);
+    // Deselect if no more of this piece
+    const p = trayPieces.find(p => p.type === selectedPiece);
+    if (p && p.count - p.used <= 0) selectedPiece = null;
+    traceBeams();
+    draw();
+    return;
+  }
+});
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const touch = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('click', {clientX: touch.clientX, clientY: touch.clientY}));
+}, {passive: false});
+
+function isPlayerPiece(type) {
+  return [MIRROR_F, MIRROR_B, SPLITTER, FILTER_R, FILTER_G, FILTER_B].includes(type);
+}
+
+// ═══════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════
+// Restore saved progress
+const savedLevel = parseInt(localStorage.getItem('laser_level') || '0');
+loadLevel(Math.min(savedLevel, LEVELS.length - 1));
+
+// Save on level completion
+const origNextLevel = nextLevel;
+window.nextLevel = function() {
+  localStorage.setItem('laser_level', levelIdx + 1);
+  origNextLevel();
+};
+</script>
+</body>
+</html>
