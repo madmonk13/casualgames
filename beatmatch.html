@@ -660,35 +660,95 @@ function playSnare(ctx, when) {
 }
 
 function playHiHat(ctx, when, open) {
+  // Closed: panned left; Open: panned right
+  const pan = ctx.createStereoPanner();
+  pan.pan.value = open ? 0.5 : -0.5;
+  pan.connect(ctx.destination);
+
   const nb = ctx.createBufferSource();
   nb.buffer = getNoiseBuf(ctx);
-  // Highpass only — bandpass was eating too much presence
   const hp = ctx.createBiquadFilter();
   hp.type = 'highpass'; hp.frequency.value = 5000;
   const g = ctx.createGain();
-  nb.connect(hp); hp.connect(g); g.connect(ctx.destination);
-  const decay = open ? 0.32 : 0.07;
+  nb.connect(hp); hp.connect(g); g.connect(pan);
+  const decay = open ? 1.1 : 0.07;
   const vol   = open ? 0.65 : 0.55;
   g.gain.setValueAtTime(vol, when);
   g.gain.exponentialRampToValueAtTime(0.001, when + decay);
   nb.start(when); nb.stop(when + decay + 0.01);
 
-  // Small click transient for articulation
   const c = ctx.createOscillator();
   const cg = ctx.createGain();
-  c.connect(cg); cg.connect(ctx.destination);
+  c.connect(cg); cg.connect(pan);
   c.frequency.value = 8000;
   cg.gain.setValueAtTime(0.12, when);
   cg.gain.exponentialRampToValueAtTime(0.001, when + 0.008);
   c.start(when); c.stop(when + 0.01);
 }
 
+function playCrash(ctx, when) {
+  const pan = ctx.createStereoPanner();
+  pan.pan.value = 0.55;
+  pan.connect(ctx.destination);
+
+  // Broad noise body — lower HP than hi-hat for fuller wash
+  const nb = ctx.createBufferSource();
+  nb.buffer = getNoiseBuf(ctx);
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 2500;
+  const g = ctx.createGain();
+  nb.connect(hp); hp.connect(g); g.connect(pan);
+  g.gain.setValueAtTime(0.75, when);
+  g.gain.exponentialRampToValueAtTime(0.001, when + 1.6);
+  nb.start(when); nb.stop(when + 1.65);
+
+  // Metallic shimmer ring
+  const ring = ctx.createOscillator();
+  const rg = ctx.createGain();
+  ring.type = 'sawtooth'; ring.frequency.value = 5800;
+  ring.connect(rg); rg.connect(pan);
+  rg.gain.setValueAtTime(0.07, when);
+  rg.gain.exponentialRampToValueAtTime(0.001, when + 0.4);
+  ring.start(when); ring.stop(when + 0.42);
+}
+
+function playTom(ctx, when, freq, decay, panVal) {
+  const pan = ctx.createStereoPanner();
+  pan.pan.value = panVal;
+  pan.connect(ctx.destination);
+
+  // Pitched sine sweep — the core tom tone
+  const osc = ctx.createOscillator();
+  const og = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, when);
+  osc.frequency.exponentialRampToValueAtTime(freq * 0.55, when + decay);
+  osc.connect(og); og.connect(pan);
+  og.gain.setValueAtTime(0.95, when);
+  og.gain.exponentialRampToValueAtTime(0.001, when + decay);
+  osc.start(when); osc.stop(when + decay + 0.01);
+
+  // Skin noise for attack texture
+  const nb = ctx.createBufferSource();
+  nb.buffer = getNoiseBuf(ctx);
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 2000;
+  const ng = ctx.createGain();
+  nb.connect(lp); lp.connect(ng); ng.connect(pan);
+  ng.gain.setValueAtTime(0.2, when);
+  ng.gain.exponentialRampToValueAtTime(0.001, when + decay * 0.4);
+  nb.start(when); nb.stop(when + decay * 0.5);
+}
+
 function playSound(inst, ctx, when) {
   try {
-    if (inst === 'kick')    playKick(ctx, when);
+    if      (inst === 'kick')    playKick(ctx, when);
     else if (inst === 'snare')   playSnare(ctx, when);
     else if (inst === 'hihat')   playHiHat(ctx, when, false);
     else if (inst === 'openhat') playHiHat(ctx, when, true);
+    else if (inst === 'crash')   playCrash(ctx, when);
+    else if (inst === 'hiTom')   playTom(ctx, when, 280, 0.22, 0.4);
+    else if (inst === 'loTom')   playTom(ctx, when, 110, 0.42, -0.4);
   } catch(e) { /* ignore audio errors */ }
 }
 
@@ -701,6 +761,9 @@ const INST = {
   snare:   { label: 'Snare',   color: '#3b82f6', alpha: 'rgba(59,130,246,0.3)' },
   hihat:   { label: 'Hi-Hat',  color: '#10b981', alpha: 'rgba(16,185,129,0.3)' },
   openhat: { label: 'Open HH', color: '#a855f7', alpha: 'rgba(168,85,247,0.3)' },
+  crash:   { label: 'Crash',   color: '#f43f5e', alpha: 'rgba(244,63,94,0.3)'  },
+  hiTom:   { label: 'Hi Tom',  color: '#06b6d4', alpha: 'rgba(6,182,212,0.3)'  },
+  loTom:   { label: 'Lo Tom',  color: '#fb923c', alpha: 'rgba(251,146,60,0.3)' },
 };
 
 // Step label sets
@@ -841,7 +904,7 @@ const LEVELS = [
 // ═══════════════════════════════════════════
 
 const MAX_MISSES    = 3;
-const MACHINE_INST  = ['kick','snare','hihat','openhat'];
+const MACHINE_INST  = ['kick','snare','hihat','openhat','crash','hiTom','loTom'];
 const MACHINE_STEPS = 16;
 
 // Patterns mode progress
@@ -1313,30 +1376,45 @@ function onDropIt() {
     st.textContent = "🎵 Here's what it should sound like…";
     st.className = 'status';
     doPlayback(1, () => {
-      feedback = fb;
       misses++;
       phase = 'program';
-      renderCells();
-      renderUI();
 
       if (misses >= MAX_MISSES) {
-        st.textContent = '❌ 3 misses — grid cleared. Listen again and try fresh.';
-        st.className = 'status s-wrong';
-        setTimeout(() => {
-          for (const inst of lv.inst) playerGrid[inst] = new Array(lv.steps).fill(0);
-          misses = 0; phase = 'pre'; feedback = null;
-          renderUI(); renderCells();
-        }, 1800);
+        // Third strike — show feedback briefly
+        feedback = fb;
+        renderCells();
+        renderUI();
+        if (gameMode === 'patterns') {
+          st.textContent = '❌ 3 misses — grid cleared. Listen again and try fresh.';
+          st.className = 'status s-wrong';
+          setTimeout(() => {
+            for (const inst of lv.inst) playerGrid[inst] = new Array(lv.steps).fill(0);
+            misses = 0; phase = 'pre'; feedback = null;
+            renderUI(); renderCells();
+          }, 1800);
+        } else {
+          // Infinite mode: show feedback, reset counter, keep the grid
+          st.textContent = '❌ 3 misses — keep listening and adjusting.';
+          st.className = 'status s-wrong';
+          setTimeout(() => {
+            misses = 0; feedback = null;
+            st.textContent = 'Keep adjusting or listen again.';
+            st.className = 'status';
+            renderUI(); renderCells();
+          }, 1800);
+        }
       } else {
+        // First or second miss — no visual hints yet, just a count
+        feedback = null;
+        renderCells();
+        renderUI();
         const left = MAX_MISSES - misses;
         st.textContent = `Not quite — ${left} attempt${left !== 1 ? 's' : ''} left.`;
         st.className = 'status s-wrong';
         setTimeout(() => {
           if (phase === 'program') {
-            feedback = null;
             st.textContent = 'Keep adjusting or listen again.';
             st.className = 'status';
-            renderCells();
           }
         }, 2200);
       }
@@ -1471,11 +1549,13 @@ function generateBeat(difficulty, round) {
           ? ['kick','snare','hihat','openhat']
           : ['kick','snare','hihat'];
   } else {
-    // full kit, always 16 steps
+    // Hard: 16 steps, rotates through instrument combos for variety
     steps = 16;
-    inst  = Math.random() > 0.35
-          ? ['kick','snare','hihat','openhat']
-          : ['kick','snare','hihat'];
+    const roll = Math.random();
+    if      (roll < 0.33) inst = ['kick','snare','hihat','openhat'];
+    else if (roll < 0.60) inst = ['kick','snare','hihat','crash'];
+    else if (roll < 0.80) inst = ['kick','snare','hihat','hiTom','loTom'];
+    else                  inst = ['kick','snare','hihat','openhat','crash'];
   }
 
   const pat = {};
@@ -1483,6 +1563,9 @@ function generateBeat(difficulty, round) {
   if (inst.includes('snare'))   pat.snare   = genSnare(steps);
   if (inst.includes('hihat'))   pat.hihat   = genHihat(steps);
   if (inst.includes('openhat')) pat.openhat = genOpenhat(steps, pat.hihat);
+  if (inst.includes('crash'))   pat.crash   = genCrash(steps);
+  if (inst.includes('hiTom'))   pat.hiTom   = genTom(steps);
+  if (inst.includes('loTom'))   pat.loTom   = genTom(steps);
 
   return { title:`Round ${round}`, bpm, steps, inst, pat };
 }
@@ -1536,6 +1619,24 @@ function genOpenhat(steps, closed) {
   rndShuffle(cands);
   const count = 1 + (Math.random() < 0.35 ? 1 : 0);
   for (let i=0;i<count&&i<cands.length;i++) p[cands[i]]=1;
+  return p;
+}
+
+function genCrash(steps) {
+  const p = new Array(steps).fill(0);
+  p[0] = 1; // always on beat 1
+  if (steps === 16 && Math.random() < 0.25) p[8] = 1; // occasional beat 3
+  return p;
+}
+
+function genTom(steps) {
+  // Toms: 1-3 sparse hits, not on beat 1 (that's the kick's territory)
+  const p = new Array(steps).fill(0);
+  const cands = [];
+  for (let i = 1; i < steps; i++) cands.push(i);
+  rndShuffle(cands);
+  const count = 1 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count && i < cands.length; i++) p[cands[i]] = 1;
   return p;
 }
 
