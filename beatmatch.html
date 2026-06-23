@@ -1,0 +1,1635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Beat Match</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0f1923;
+  background-image: radial-gradient(ellipse at 30% 20%, #1a2e3d 0%, #0a1018 100%);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 48px;
+  user-select: none;
+}
+
+/* ── HEADER ── */
+.game-header {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.back-btn {
+  color: rgba(255,255,255,0.35);
+  text-decoration: none;
+  font-size: 0.88em;
+  transition: color 0.15s;
+}
+.back-btn:hover { color: rgba(255,255,255,0.75); }
+.game-title {
+  font-size: 1.4em;
+  font-weight: 800;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #f59e0b, #fde68a, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap {
+  width: 100%;
+  max-width: 800px;
+  height: 3px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  margin-bottom: 22px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f59e0b, #fde68a);
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+
+/* ── LEVEL INFO ── */
+.level-info {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+.level-left .level-name {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: #f0e0a0;
+}
+.level-left .level-num {
+  font-size: 0.8em;
+  color: rgba(255,255,255,0.35);
+  margin-top: 2px;
+}
+.miss-counter {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+}
+.miss-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.18);
+  background: transparent;
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+.miss-dot.filled {
+  background: #ef4444;
+  border-color: #ef4444;
+  box-shadow: 0 0 7px rgba(239,68,68,0.7);
+}
+.nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.13);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.6);
+  font-size: 1.1em;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s;
+}
+.nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.15); color: #fff; }
+.nav-btn:disabled { opacity: 0.25; cursor: default; }
+
+/* ── GRID ── */
+.grid-wrapper {
+  width: 100%;
+  max-width: 800px;
+  overflow-x: auto;
+  margin-bottom: 18px;
+  -webkit-overflow-scrolling: touch;
+}
+.step-grid {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  background: rgba(0,0,0,0.28);
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  min-width: 100%;
+}
+
+/* Step numbers */
+.step-nums {
+  display: flex;
+  align-items: center;
+  margin-left: 76px; /* 68px label + 8px gap */
+}
+@media (max-width: 540px) {
+  .step-nums { margin-left: 62px; } /* 56px label + 6px gap */
+}
+.step-num-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62em;
+  font-weight: 700;
+  color: rgba(255,255,255,0.22);
+  flex-shrink: 0;
+}
+.step-num-cell.beat-one { color: rgba(255,255,255,0.45); }
+
+/* Instrument row */
+.inst-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+@media (max-width: 540px) {
+  .inst-row { gap: 6px; }
+}
+.inst-label {
+  width: 68px;
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* raised button — matches grid cell visual language */
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.04) 100%);
+  box-shadow: 0 2px 0 rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+
+  font-size: 0.65em;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 4px;
+  cursor: default;
+  transition: box-shadow 0.08s, transform 0.08s, background 0.1s, border-color 0.1s;
+}
+.inst-label.soloable {
+  cursor: pointer;
+  border-color: var(--ic);
+  box-shadow: 0 2px 0 rgba(0,0,0,0.5), 0 0 7px var(--ic-alpha), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.inst-label.soloable:hover {
+  background: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0.08) 100%);
+  box-shadow: 0 3px 0 rgba(0,0,0,0.55), 0 0 10px var(--ic-alpha), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.inst-label.soloable:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 6px var(--ic-alpha), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.inst-label.soloing {
+  transform: translateY(1px);
+  border-color: var(--ic) !important;
+  box-shadow: 0 0 14px var(--ic-alpha), inset 0 0 0 1px var(--ic) !important;
+}
+.cells {
+  display: flex;
+  align-items: center;
+}
+
+/* Step cell */
+.cell {
+  border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.04);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.08s, border-color 0.08s, box-shadow 0.08s, transform 0.08s;
+}
+.cell:hover:not(.cell-disabled) {
+  background: rgba(255,255,255,0.11);
+  border-color: rgba(255,255,255,0.22);
+  transform: scale(1.05);
+}
+.cell.beat-alt {
+  background: rgba(255,255,255,0.07);
+}
+.cell.cell-active {
+  box-shadow: 0 0 10px var(--ic-alpha);
+}
+.cell.cell-playhead {
+  background: rgba(255,255,255,0.18) !important;
+  border-color: rgba(255,255,255,0.5) !important;
+  box-shadow: 0 0 12px rgba(255,255,255,0.25) !important;
+}
+.cell.cell-playhead.cell-active {
+  background: var(--ic) !important;
+  border-color: var(--ic) !important;
+  box-shadow: 0 0 18px var(--ic) !important;
+}
+.cell.cell-disabled { cursor: default; pointer-events: none; }
+
+/* Feedback states */
+.cell.fb-extra {
+  background: rgba(239,68,68,0.45) !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 8px rgba(239,68,68,0.5) !important;
+}
+.cell.fb-miss {
+  background: rgba(239,68,68,0.06) !important;
+  border-color: rgba(239,68,68,0.45) !important;
+  border-style: dashed !important;
+}
+
+/* ── CONTROLS ── */
+.controls {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.btn {
+  padding: 13px 24px;
+  border-radius: 10px;
+  border: none;
+  font-size: 0.95em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  letter-spacing: 0.3px;
+  outline: none;
+}
+.btn-listen {
+  background: rgba(255,255,255,0.09);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.13);
+}
+.btn-listen:hover:not(:disabled) {
+  background: rgba(255,255,255,0.16);
+  border-color: rgba(255,255,255,0.28);
+}
+.btn-listen:disabled { opacity: 0.35; cursor: default; }
+.btn-listen.playing {
+  background: rgba(245,158,11,0.15);
+  border-color: rgba(245,158,11,0.35);
+  color: #fde68a;
+}
+
+.btn-submit {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1a0a00;
+  min-width: 140px;
+  justify-content: center;
+}
+.btn-submit:hover:not(:disabled) { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+.btn-submit:disabled { opacity: 0.28; cursor: default; }
+
+/* ── STATUS ── */
+.status {
+  min-height: 36px;
+  font-size: 0.9em;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+  line-height: 1.5;
+  transition: color 0.2s;
+}
+.status.s-wrong { color: #f87171; }
+.status.s-ok { color: #34d399; }
+
+/* ── OVERLAYS ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.82);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s;
+  backdrop-filter: blur(6px);
+}
+.overlay.show { opacity: 1; pointer-events: all; }
+.ov-emoji { font-size: 3.5em; line-height: 1; }
+.ov-title {
+  font-size: 2em;
+  font-weight: 800;
+  background: linear-gradient(135deg, #f59e0b, #fde68a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.ov-sub { color: rgba(255,255,255,0.55); font-size: 1em; }
+.ov-btn {
+  padding: 13px 32px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #1a0a00;
+  font-weight: 700;
+  font-size: 1.05em;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: background 0.15s;
+}
+.ov-btn:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+
+/* ── MOBILE ── */
+@media (max-width: 540px) {
+  body { padding: 12px 10px 36px; }
+
+  .game-title { font-size: 1.15em; letter-spacing: 1px; }
+  .game-header { margin-bottom: 12px; }
+
+  .level-left .level-name { font-size: 0.95em; }
+  .level-left .level-num  { font-size: 0.75em; }
+  .level-info { margin-bottom: 12px; }
+
+  .step-grid { padding: 10px 10px; gap: 5px; }
+  .step-nums { margin-left: 60px; }
+  .inst-label { width: 56px; font-size: 0.6em; }
+
+  .controls { gap: 8px; }
+  .btn { padding: 12px 14px; font-size: 0.88em; flex: 1; justify-content: center; }
+  .btn-submit { min-width: unset; }
+
+  .status { font-size: 0.82em; }
+
+  .ov-title { font-size: 1.6em; }
+  .ov-emoji { font-size: 2.8em; }
+}
+
+/* ── UTILITY ── */
+.hidden { display: none !important; }
+
+/* ── MODE SELECT ── */
+#modeSelect {
+  width: 100%; max-width: 840px;
+  display: flex; flex-direction: column; align-items: center;
+  padding-top: 48px; gap: 8px;
+}
+.ms-logo {
+  font-size: 2.2em; font-weight: 800; letter-spacing: 3px;
+  background: linear-gradient(135deg, #f59e0b, #fde68a, #f59e0b);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; margin-bottom: 4px;
+}
+.ms-tagline { color: rgba(255,255,255,0.3); font-size: 0.88em; margin-bottom: 28px; letter-spacing: 1px; }
+.ms-cards { display: flex; gap: 16px; width: 100%; justify-content: center; flex-wrap: wrap; }
+.ms-card {
+  flex: 1; min-width: 190px; max-width: 250px;
+  background: linear-gradient(145deg, #1e2d3d, #162030);
+  border: 1px solid rgba(255,255,255,0.09); border-radius: 16px;
+  padding: 28px 18px 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  cursor: pointer; color: #fff; text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+}
+.ms-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 18px 44px rgba(0,0,0,0.55);
+  border-color: rgba(245,158,11,0.45);
+}
+.ms-icon { font-size: 2.5em; line-height: 1; }
+.ms-name { font-size: 1.12em; font-weight: 800; color: #f0e0a0; }
+.ms-desc { font-size: 0.8em; color: rgba(255,255,255,0.48); line-height: 1.5; }
+.ms-tag {
+  font-size: 0.7em; color: rgba(245,158,11,0.7);
+  border: 1px solid rgba(245,158,11,0.22); border-radius: 20px;
+  padding: 2px 10px; margin-top: 2px;
+}
+.ms-back {
+  margin-top: 36px; color: rgba(255,255,255,0.25); font-size: 0.85em;
+  text-decoration: none; transition: color 0.15s;
+}
+.ms-back:hover { color: rgba(255,255,255,0.6); }
+
+/* ── GAME AREA ── */
+#gameArea {
+  width: 100%; display: flex; flex-direction: column; align-items: center;
+}
+
+/* ── DIFF BAR ── */
+.diff-bar {
+  width: 100%; max-width: 800px;
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 14px;
+}
+.diff-btn {
+  padding: 6px 22px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.45); font-size: 0.86em; font-weight: 600;
+  cursor: pointer; transition: all 0.15s;
+}
+.diff-btn:hover:not(.active) { background: rgba(255,255,255,0.12); color: #fff; }
+.diff-btn.active { background: rgba(245,158,11,0.17); border-color: rgba(245,158,11,0.5); color: #fde68a; }
+
+/* ── MACHINE CONTROLS ── */
+.machine-controls { flex-wrap: wrap; row-gap: 8px; }
+.btn-mplay {
+  background: rgba(52,211,153,0.14); border: 1px solid rgba(52,211,153,0.28);
+  color: #34d399; min-width: 110px; justify-content: center;
+}
+.btn-mplay:hover { background: rgba(52,211,153,0.24); border-color: rgba(52,211,153,0.5); }
+.btn-mplay.playing { background: rgba(239,68,68,0.14); border-color: rgba(239,68,68,0.32); color: #f87171; }
+.bpm-wrap {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 8px 14px;
+}
+.bpm-label { font-size: 0.76em; font-weight: 700; color: rgba(255,255,255,0.38); text-transform: uppercase; letter-spacing: 1px; }
+.bpm-slider { width: 120px; accent-color: #f59e0b; cursor: pointer; }
+.bpm-val { font-size: 0.9em; font-weight: 700; color: #fde68a; min-width: 28px; text-align: right; }
+.btn-mclear {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.5);
+}
+.btn-mclear:hover { background: rgba(255,255,255,0.13); color: #fff; }
+
+@media (max-width: 540px) {
+  .ms-cards { flex-direction: column; align-items: stretch; }
+  .ms-card { max-width: 100%; min-width: unset; flex-direction: row; text-align: left; padding: 18px 16px; gap: 14px; }
+  .ms-icon { font-size: 2em; flex-shrink: 0; }
+  .ms-card > div:not(.ms-icon) { flex: 1; }
+  .bpm-slider { width: 80px; }
+  .machine-controls { justify-content: center; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════ MODE SELECT ════ -->
+<div id="modeSelect">
+  <div class="ms-logo">🥁 Beat Match</div>
+  <p class="ms-tagline">Choose your mode</p>
+  <div class="ms-cards">
+    <button class="ms-card" onclick="selectMode('patterns')">
+      <div class="ms-icon">🎯</div>
+      <div>
+        <div class="ms-name">24 Patterns</div>
+        <div class="ms-desc">Hear a beat, then recreate it on the step sequencer.</div>
+        <div class="ms-tag">24 hand-crafted levels</div>
+      </div>
+    </button>
+    <button class="ms-card" onclick="selectMode('infinite')">
+      <div class="ms-icon">∞</div>
+      <div>
+        <div class="ms-name">Infinite</div>
+        <div class="ms-desc">Endless procedurally generated beats. How far can you go?</div>
+        <div class="ms-tag">3 difficulty settings</div>
+      </div>
+    </button>
+    <button class="ms-card" onclick="selectMode('machine')">
+      <div class="ms-icon">🎛️</div>
+      <div>
+        <div class="ms-name">Drum Machine</div>
+        <div class="ms-desc">Free-play step sequencer. Build your own grooves.</div>
+        <div class="ms-tag">16 steps · all instruments</div>
+      </div>
+    </button>
+  </div>
+  <a class="ms-back" href="index.html">← Back to Game Center</a>
+</div>
+
+<!-- ════ GAME AREA ════ -->
+<div id="gameArea" class="hidden">
+
+<header class="game-header">
+  <button class="back-btn" onclick="backToModes()" style="background:none;border:none;cursor:pointer;padding:0">← Modes</button>
+  <div class="game-title" id="modeTitle">🥁 Beat Match</div>
+  <div style="width:60px"></div>
+</header>
+
+<div class="progress-wrap" id="progressWrap">
+  <div class="progress-fill" id="progressFill"></div>
+</div>
+
+<div class="level-info" id="levelInfoBar">
+  <div class="level-left">
+    <div class="level-name" id="levelName"></div>
+    <div class="level-num" id="levelNum"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="miss-counter" id="missCounter"></div>
+    <button class="nav-btn" id="btnPrev" title="Previous level">‹</button>
+    <button class="nav-btn" id="btnNext2" title="Next level">›</button>
+  </div>
+</div>
+
+<div class="diff-bar hidden" id="diffBar">
+  <button class="diff-btn active" id="diffEasy"   onclick="setDifficulty('easy')">Easy</button>
+  <button class="diff-btn"        id="diffMedium" onclick="setDifficulty('medium')">Medium</button>
+  <button class="diff-btn"        id="diffHard"   onclick="setDifficulty('hard')">Hard</button>
+</div>
+
+<div class="grid-wrapper">
+  <div class="step-grid" id="stepGrid"></div>
+</div>
+
+<div class="controls" id="gameControls">
+  <button class="btn btn-listen" id="btnListen">🎧 Listen</button>
+  <button class="btn btn-submit" id="btnSubmit" disabled>Drop It</button>
+</div>
+
+<div class="controls machine-controls hidden" id="machineControls">
+  <button class="btn btn-mplay" id="btnMachinePlay" onclick="toggleMachinePlay()">▶ Play</button>
+  <div class="bpm-wrap">
+    <span class="bpm-label">BPM</span>
+    <input type="range" class="bpm-slider" id="bpmSlider" min="60" max="180" value="100"
+           oninput="onBpmChange(this.value)">
+    <span class="bpm-val" id="bpmDisplay">100</span>
+  </div>
+  <button class="btn btn-mclear" onclick="clearMachine()">✕ Clear</button>
+</div>
+
+<div class="status hidden" id="status"></div>
+
+<!-- Win overlay -->
+<div class="overlay" id="winOverlay">
+  <div class="ov-emoji">🎯</div>
+  <div class="ov-title">Nailed It!</div>
+  <div class="ov-sub" id="winMsg"></div>
+  <button class="ov-btn" id="btnNext">Next Beat →</button>
+</div>
+
+<!-- All-done overlay (patterns only) -->
+<div class="overlay" id="completeOverlay">
+  <div class="ov-emoji">🏆</div>
+  <div class="ov-title">Beat Master!</div>
+  <div class="ov-sub">You matched all 24 beats. Incredible ears.</div>
+  <button class="ov-btn" id="btnRestart">Play Again</button>
+</div>
+
+</div><!-- #gameArea -->
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════
+// AUDIO ENGINE
+// ═══════════════════════════════════════════
+
+let _ctx = null;
+let _noiseBuf = null;
+
+function getCtx() {
+  if (!_ctx || _ctx.state === 'closed') {
+    _ctx = new (window.AudioContext || window.webkitAudioContext)();
+    _noiseBuf = null;
+  }
+  if (_ctx.state === 'suspended') _ctx.resume();
+  return _ctx;
+}
+
+function getNoiseBuf(ctx) {
+  if (_noiseBuf && _noiseBuf.sampleRate === ctx.sampleRate) return _noiseBuf;
+  const len = ctx.sampleRate; // 1s of noise
+  _noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = _noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  return _noiseBuf;
+}
+
+function playKick(ctx, when) {
+  // Sub sweep — start lower for bigger separation from snare
+  const osc = ctx.createOscillator();
+  const g = ctx.createGain();
+  osc.connect(g); g.connect(ctx.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(75, when);
+  osc.frequency.exponentialRampToValueAtTime(0.01, when + 0.55);
+  g.gain.setValueAtTime(1.1, when);
+  g.gain.exponentialRampToValueAtTime(0.001, when + 0.55);
+  osc.start(when); osc.stop(when + 0.58);
+
+  // Click transient
+  const c = ctx.createOscillator();
+  const cg = ctx.createGain();
+  c.connect(cg); cg.connect(ctx.destination);
+  c.frequency.value = 500;
+  cg.gain.setValueAtTime(0.4, when);
+  cg.gain.exponentialRampToValueAtTime(0.001, when + 0.022);
+  c.start(when); c.stop(when + 0.025);
+}
+
+function playSnare(ctx, when) {
+  // Noise body — lower highpass so it has more mid body, less overlap with hihat
+  const nb = ctx.createBufferSource();
+  nb.buffer = getNoiseBuf(ctx);
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 700;
+  const lp = ctx.createBiquadFilter();
+  lp.type = 'lowpass'; lp.frequency.value = 5000; // cut the top so hihat stays distinct
+  const ng = ctx.createGain();
+  nb.connect(hp); hp.connect(lp); lp.connect(ng); ng.connect(ctx.destination);
+  ng.gain.setValueAtTime(0.65, when);
+  ng.gain.exponentialRampToValueAtTime(0.001, when + 0.2);
+  nb.start(when); nb.stop(when + 0.22);
+
+  // Tone body — lower pitch for more crack/thump distinction from hihat
+  const osc = ctx.createOscillator();
+  const og = ctx.createGain();
+  osc.type = 'triangle'; osc.frequency.value = 130;
+  osc.connect(og); og.connect(ctx.destination);
+  og.gain.setValueAtTime(0.65, when);
+  og.gain.exponentialRampToValueAtTime(0.001, when + 0.1);
+  osc.start(when); osc.stop(when + 0.11);
+}
+
+function playHiHat(ctx, when, open) {
+  const nb = ctx.createBufferSource();
+  nb.buffer = getNoiseBuf(ctx);
+  // Highpass only — bandpass was eating too much presence
+  const hp = ctx.createBiquadFilter();
+  hp.type = 'highpass'; hp.frequency.value = 5000;
+  const g = ctx.createGain();
+  nb.connect(hp); hp.connect(g); g.connect(ctx.destination);
+  const decay = open ? 0.32 : 0.07;
+  const vol   = open ? 0.65 : 0.55;
+  g.gain.setValueAtTime(vol, when);
+  g.gain.exponentialRampToValueAtTime(0.001, when + decay);
+  nb.start(when); nb.stop(when + decay + 0.01);
+
+  // Small click transient for articulation
+  const c = ctx.createOscillator();
+  const cg = ctx.createGain();
+  c.connect(cg); cg.connect(ctx.destination);
+  c.frequency.value = 8000;
+  cg.gain.setValueAtTime(0.12, when);
+  cg.gain.exponentialRampToValueAtTime(0.001, when + 0.008);
+  c.start(when); c.stop(when + 0.01);
+}
+
+function playSound(inst, ctx, when) {
+  try {
+    if (inst === 'kick')    playKick(ctx, when);
+    else if (inst === 'snare')   playSnare(ctx, when);
+    else if (inst === 'hihat')   playHiHat(ctx, when, false);
+    else if (inst === 'openhat') playHiHat(ctx, when, true);
+  } catch(e) { /* ignore audio errors */ }
+}
+
+// ═══════════════════════════════════════════
+// INSTRUMENT METADATA
+// ═══════════════════════════════════════════
+
+const INST = {
+  kick:    { label: 'Kick',    color: '#f59e0b', alpha: 'rgba(245,158,11,0.3)' },
+  snare:   { label: 'Snare',   color: '#3b82f6', alpha: 'rgba(59,130,246,0.3)' },
+  hihat:   { label: 'Hi-Hat',  color: '#10b981', alpha: 'rgba(16,185,129,0.3)' },
+  openhat: { label: 'Open HH', color: '#a855f7', alpha: 'rgba(168,85,247,0.3)' },
+};
+
+// Step label sets
+const LABELS_8  = ['1','+','2','+','3','+','4','+'];
+const LABELS_16 = ['1','e','+','a','2','e','+','a','3','e','+','a','4','e','+','a'];
+
+// ═══════════════════════════════════════════
+// LEVEL DATA  (24 hand-crafted levels)
+// ═══════════════════════════════════════════
+// Instruments added progressively:
+//   L1-4:   kick only, 8 steps
+//   L5-8:   kick + snare, 8 steps
+//   L9-12:  kick + snare + hi-hat, 8 steps
+//   L13-16: kick + snare + hi-hat + open hi-hat, 8 steps
+//   L17-20: kick + snare + hi-hat, 16 steps
+//   L21-24: all 4, 16 steps
+
+const LEVELS = [
+  /* 1 */ { title:'One and Three', bpm:88, steps:8,
+    inst:['kick'],
+    pat:{ kick:[1,0,0,0,1,0,0,0] } },
+
+  /* 2 */ { title:'Four on the Floor', bpm:88, steps:8,
+    inst:['kick'],
+    pat:{ kick:[1,0,1,0,1,0,1,0] } },
+
+  /* 3 */ { title:'Off Beat', bpm:88, steps:8,
+    inst:['kick'],
+    pat:{ kick:[1,0,0,1,0,0,1,0] } },
+
+  /* 4 */ { title:'The Push', bpm:90, steps:8,
+    inst:['kick'],
+    pat:{ kick:[1,0,1,0,0,1,0,0] } },
+
+  /* 5 */ { title:'Rock Solid', bpm:90, steps:8,
+    inst:['kick','snare'],
+    pat:{ kick:[1,0,0,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0] } },
+
+  /* 6 */ { title:'Double Kick', bpm:92, steps:8,
+    inst:['kick','snare'],
+    pat:{ kick:[1,0,1,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0] } },
+
+  /* 7 */ { title:'Ghost Notes', bpm:92, steps:8,
+    inst:['kick','snare'],
+    pat:{ kick:[1,0,0,0,1,0,0,0], snare:[0,0,1,0,0,1,0,1] } },
+
+  /* 8 */ { title:'Syncopation', bpm:92, steps:8,
+    inst:['kick','snare'],
+    pat:{ kick:[1,0,0,1,0,0,1,0], snare:[0,0,1,0,0,0,1,0] } },
+
+  /* 9 */ { title:'Steady Groove', bpm:93, steps:8,
+    inst:['kick','snare','hihat'],
+    pat:{ kick:[1,0,0,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,0,1,0,1,0,1,0] } },
+
+  /* 10 */ { title:'Eighth Heaven', bpm:95, steps:8,
+    inst:['kick','snare','hihat'],
+    pat:{ kick:[1,0,1,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,1,1,1,1,1,1,1] } },
+
+  /* 11 */ { title:'Skip', bpm:95, steps:8,
+    inst:['kick','snare','hihat'],
+    pat:{ kick:[1,0,0,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,1,0,1,1,1,0,1] } },
+
+  /* 12 */ { title:'Locked In', bpm:95, steps:8,
+    inst:['kick','snare','hihat'],
+    pat:{ kick:[1,0,0,1,0,0,1,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,0,1,0,1,0,1,0] } },
+
+  /* 13 */ { title:'The Open', bpm:96, steps:8,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:[1,0,0,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,1,0,1,1,1,0,0], openhat:[0,0,0,0,0,0,0,1] } },
+
+  /* 14 */ { title:'Breakdown', bpm:96, steps:8,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:[1,0,1,0,1,0,0,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,1,0,1,1,1,0,0], openhat:[0,0,0,0,0,0,0,1] } },
+
+  /* 15 */ { title:'Ride Out', bpm:98, steps:8,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:[1,0,0,1,0,0,1,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,0,1,0,1,0,0,0], openhat:[0,0,0,0,0,0,1,0] } },
+
+  /* 16 */ { title:'Full Kit', bpm:100, steps:8,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:[1,0,1,0,0,1,0,0], snare:[0,0,1,0,0,0,1,0], hihat:[1,1,0,1,1,0,0,0], openhat:[0,0,0,0,0,0,1,1] } },
+
+  /* 17 */ { title:'Into the 16s', bpm:95, steps:16,
+    inst:['kick','snare','hihat'],
+    pat:{ kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+          snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0] } },
+
+  /* 18 */ { title:'Sixteenth Drive', bpm:95, steps:16,
+    inst:['kick','snare','hihat'],
+    pat:{ kick: [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0],
+          snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0] } },
+
+  /* 19 */ { title:'Shuffle Step', bpm:95, steps:16,
+    inst:['kick','snare','hihat'],
+    pat:{ kick: [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+          snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:[1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,0] } },
+
+  /* 20 */ { title:'Funk', bpm:98, steps:16,
+    inst:['kick','snare','hihat'],
+    pat:{ kick: [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0],
+          snare:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,0,1] } },
+
+  /* 21 */ { title:'Full House', bpm:98, steps:16,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:   [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0],
+          snare:  [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:  [1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,0],
+          openhat:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0] } },
+
+  /* 22 */ { title:'Syncopated', bpm:100, steps:16,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:   [1,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0],
+          snare:  [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:  [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],
+          openhat:[0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0] } },
+
+  /* 23 */ { title:'Complex Groove', bpm:100, steps:16,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:   [1,0,0,0,0,0,1,0,0,1,0,0,0,1,0,0],
+          snare:  [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],
+          hihat:  [1,1,0,1,1,1,0,1,1,1,0,1,1,1,0,0],
+          openhat:[0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0] } },
+
+  /* 24 */ { title:'Master Beat', bpm:100, steps:16,
+    inst:['kick','snare','hihat','openhat'],
+    pat:{ kick:   [1,0,0,1,0,0,1,0,0,0,0,1,0,1,0,0],
+          snare:  [0,0,0,0,1,0,0,1,0,0,0,0,1,0,0,0],
+          hihat:  [1,0,1,0,1,1,0,1,1,0,1,0,1,0,1,1],
+          openhat:[0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1] } },
+];
+
+// ═══════════════════════════════════════════
+// GAME STATE
+// ═══════════════════════════════════════════
+
+const MAX_MISSES    = 3;
+const MACHINE_INST  = ['kick','snare','hihat','openhat'];
+const MACHINE_STEPS = 16;
+
+// Patterns mode progress
+let levelIdx = Math.min(
+  parseInt(localStorage.getItem('bm_level') || '0'),
+  LEVELS.length - 1
+);
+
+// Mode
+let gameMode      = null;   // 'patterns' | 'infinite' | 'machine'
+
+// Infinite mode
+let infDifficulty = 'easy';
+let infRound      = 0;
+let infLevel      = null;
+
+// Machine mode
+let machineBpm    = 100;
+let machineLoop   = false;  // machine play state (separate from isPlaying)
+
+// Shared game state
+let misses     = 0;
+let phase      = 'pre';   // pre | listen | program | result | playback
+let playerGrid = {};      // inst -> number[]
+let feedback   = null;    // inst -> ('correct'|'extra'|'miss')[]
+let isPlaying  = false;
+let phStep     = -1;      // playhead step
+let phStart    = 0;       // audioCtx time of first step
+let stepDur    = 0;
+let totalSteps = 0;
+
+// Loop engine
+let loopRunning   = false;
+let loopTimeout   = null;
+let _loopInstList = [];
+let _loopGetPat   = null;
+const LOOP_AHEAD  = 0.15;  // seconds to schedule ahead
+
+// Returns the active level object for game modes
+function currentLevel() {
+  return gameMode === 'infinite' ? infLevel : LEVELS[levelIdx];
+}
+
+// ═══════════════════════════════════════════
+// CELL SIZE CALCULATION
+// ═══════════════════════════════════════════
+
+function cellSize(steps) {
+  const mobile = window.innerWidth < 540;
+  const labelCol = mobile ? 62 : 76; // label + gap
+  const gridPad  = mobile ? 20 : 36; // left+right padding inside .step-grid
+  const avail = Math.min(window.innerWidth - (mobile ? 20 : 32), 780) - labelCol - gridPad;
+  const beatEvery = steps === 8 ? 2 : 4;
+  const gaps = (steps - 1) * 3 + (steps / beatEvery - 1) * 4;
+  const minSize = mobile ? 32 : 24;
+  return Math.max(minSize, Math.floor((avail - gaps) / steps));
+}
+
+// ═══════════════════════════════════════════
+// BUILD GRID DOM
+// ═══════════════════════════════════════════
+
+function buildGrid() {
+  const lv = gameMode === 'machine'
+    ? { inst: MACHINE_INST, steps: MACHINE_STEPS }
+    : currentLevel();
+  const grid = document.getElementById('stepGrid');
+  grid.innerHTML = '';
+  const cs = cellSize(lv.steps);
+  const labels = lv.steps === 8 ? LABELS_8 : LABELS_16;
+  const beatEvery = lv.steps === 8 ? 2 : 4;
+
+  // Step number row
+  const numRow = document.createElement('div');
+  numRow.className = 'step-nums';
+  for (let s = 0; s < lv.steps; s++) {
+    const n = document.createElement('div');
+    n.className = 'step-num-cell' + (s % beatEvery === 0 ? ' beat-one' : '');
+    n.style.width = cs + 'px';
+    n.style.height = '16px';
+    if (s > 0 && s % beatEvery === 0) n.style.marginLeft = '4px';
+    else if (s > 0) n.style.marginLeft = '3px';
+    n.textContent = labels[s];
+    numRow.appendChild(n);
+  }
+  grid.appendChild(numRow);
+
+  // Instrument rows
+  for (const inst of lv.inst) {
+    const meta = INST[inst];
+    const row = document.createElement('div');
+    row.className = 'inst-row';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'inst-label';
+    lbl.id = 'lbl_' + inst;
+    lbl.style.color = meta.color;
+    lbl.style.setProperty('--ic', meta.color);
+    lbl.style.setProperty('--ic-alpha', meta.alpha);
+    lbl.textContent = meta.label;
+    lbl.title = `Solo ${meta.label}`;
+    lbl.addEventListener('click', () => onSolo(inst));
+    row.appendChild(lbl);
+
+    const cellsDiv = document.createElement('div');
+    cellsDiv.className = 'cells';
+    cellsDiv.id = 'cells_' + inst;
+
+    for (let s = 0; s < lv.steps; s++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.inst = inst;
+      cell.dataset.step = s;
+      cell.style.width  = cs + 'px';
+      cell.style.height = Math.max(32, cs) + 'px';
+      cell.style.setProperty('--ic', meta.color);
+      cell.style.setProperty('--ic-alpha', meta.alpha);
+
+      // Beat grouping: slightly different background on alternate beats
+      const beat = Math.floor(s / beatEvery);
+      if (beat % 2 === 1) cell.classList.add('beat-alt');
+
+      // Extra gap at beat boundaries
+      if (s > 0 && s % beatEvery === 0) cell.style.marginLeft = '4px';
+      else if (s > 0) cell.style.marginLeft = '3px';
+
+      cell.addEventListener('click', onCellClick);
+      cellsDiv.appendChild(cell);
+    }
+    row.appendChild(cellsDiv);
+    grid.appendChild(row);
+  }
+}
+
+// ═══════════════════════════════════════════
+// RENDER CELLS (state → DOM)
+// ═══════════════════════════════════════════
+
+function renderCells() {
+  const lv = gameMode === 'machine'
+    ? { inst: MACHINE_INST, steps: MACHINE_STEPS }
+    : currentLevel();
+  const isProgram = phase === 'program';
+
+  for (const inst of lv.inst) {
+    const cellsDiv = document.getElementById('cells_' + inst);
+    if (!cellsDiv) continue;
+    const cells = cellsDiv.querySelectorAll('.cell');
+    const pg = playerGrid[inst] || [];
+    const fb = feedback ? feedback[inst] : null;
+    const meta = INST[inst];
+    const beatEvery = lv.steps === 8 ? 2 : 4;
+
+    cells.forEach((cell, s) => {
+      const active = pg[s] === 1;
+      const head   = s === phStep;
+      const beat   = Math.floor(s / beatEvery);
+      const altBeat = beat % 2 === 1;
+
+      // Clear dynamic classes
+      cell.classList.toggle('cell-active',   active && !head);
+      cell.classList.toggle('cell-playhead', head);
+      // Machine mode: always editable. Game modes: only during program phase, not while playing.
+      cell.classList.toggle('cell-disabled', gameMode !== 'machine' && (!isProgram || isPlaying));
+      cell.classList.remove('fb-extra','fb-miss');
+
+      // Set background
+      if (head && active) {
+        cell.style.background = '';
+        cell.style.borderColor = '';
+      } else if (head) {
+        cell.style.background = '';
+        cell.style.borderColor = '';
+      } else if (active) {
+        cell.style.background = meta.color + '50';
+        cell.style.borderColor = meta.color;
+      } else {
+        cell.style.background = '';
+        cell.style.borderColor = '';
+        if (altBeat) cell.classList.add('beat-alt');
+      }
+
+      // Feedback overlay
+      if (fb) {
+        if (fb[s] === 'extra') cell.classList.add('fb-extra');
+        if (fb[s] === 'miss')  cell.classList.add('fb-miss');
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════
+// RENDER UI (state → header, buttons, status)
+// ═══════════════════════════════════════════
+
+function renderUI() {
+  if (gameMode === 'machine') return;  // machine has no game UI
+
+  const lv = currentLevel();
+
+  if (gameMode === 'patterns') {
+    document.getElementById('levelName').textContent = lv.title;
+    document.getElementById('levelNum').textContent  = `Level ${levelIdx + 1} of ${LEVELS.length}`;
+    document.getElementById('progressFill').style.width = (levelIdx / LEVELS.length * 100) + '%';
+    document.getElementById('btnPrev').disabled  = levelIdx === 0 || isPlaying;
+    document.getElementById('btnNext2').disabled = levelIdx === LEVELS.length - 1 || isPlaying;
+  } else if (gameMode === 'infinite') {
+    document.getElementById('levelName').textContent = lv.title;
+    document.getElementById('levelNum').textContent  =
+      `${infDifficulty.charAt(0).toUpperCase() + infDifficulty.slice(1)} · ${lv.bpm} BPM · ${lv.steps} steps`;
+  }
+
+  // Miss counter
+  const mc = document.getElementById('missCounter');
+  mc.innerHTML = '';
+  for (let i = 0; i < MAX_MISSES; i++) {
+    const d = document.createElement('div');
+    d.className = 'miss-dot' + (i < misses ? ' filled' : '');
+    mc.appendChild(d);
+  }
+
+  // Buttons
+  const btnL = document.getElementById('btnListen');
+  const btnS = document.getElementById('btnSubmit');
+  btnL.disabled = isPlaying;
+  btnL.classList.toggle('playing', isPlaying);
+  btnS.disabled = phase !== 'program' || isPlaying;
+  updateSoloLabels();
+
+  // Status
+  if (!feedback && phase !== 'playback') {
+    const st = document.getElementById('status');
+    if (phase === 'pre') {
+      st.textContent = 'Hit Listen to hear the beat, then recreate it.';
+      st.className = 'status';
+    } else if (phase === 'listen') {
+      st.textContent = '🎵 Listening…';
+      st.className = 'status';
+    } else if (phase === 'program') {
+      st.textContent = 'Program your beat, then Drop It.';
+      st.className = 'status';
+    }
+  }
+}
+
+// ═══════════════════════════════════════════
+// INIT LEVEL
+// ═══════════════════════════════════════════
+
+function initLevel() {
+  const lv = currentLevel();
+  misses      = 0;
+  phase       = 'pre';
+  phStep      = -1;
+  feedback    = null;
+  soloingInst = null;
+  playerGrid  = {};
+  for (const inst of lv.inst) {
+    playerGrid[inst] = new Array(lv.steps).fill(0);
+  }
+  buildGrid();
+  renderUI();
+  renderCells();
+}
+
+// ═══════════════════════════════════════════
+// SHARED PLAYBACK ENGINE
+// ═══════════════════════════════════════════
+
+function doPlayback(times, onDone, soloInst = null) {
+  const lv  = currentLevel();
+  const ctx = getCtx();
+
+  isPlaying  = true;
+  phStep     = -1;
+  stepDur    = 60 / lv.bpm * 4 / lv.steps;
+  totalSteps = lv.steps;
+  phStart    = ctx.currentTime + 0.1;
+
+  // Schedule all passes in one block — no gap between them
+  for (let pass = 0; pass < times; pass++) {
+    for (let s = 0; s < lv.steps; s++) {
+      const t = phStart + (pass * lv.steps + s) * stepDur;
+      for (const inst of lv.inst) {
+        if (soloInst && inst !== soloInst) continue;
+        if (lv.pat[inst][s]) playSound(inst, ctx, t);
+      }
+    }
+  }
+
+  renderUI();
+  renderCells();
+
+  setTimeout(() => {
+    isPlaying = false;
+    phStep    = -1;
+    renderCells();
+    onDone();
+  }, (times * lv.steps * stepDur + 0.1) * 1000);
+}
+
+// ═══════════════════════════════════════════
+// SUCCESS LOOP
+// ═══════════════════════════════════════════
+
+// startLoop(instList, getPat, bpm, steps)
+//   getPat: function called each bar to read the current pattern — enables live machine editing
+function startLoop(instList, getPat, bpm, steps) {
+  const ctx    = getCtx();
+  _loopInstList = instList;
+  _loopGetPat   = getPat;
+  loopRunning   = true;
+  isPlaying     = true;
+  phStep        = -1;
+  stepDur       = 60 / bpm * 4 / steps;
+  totalSteps    = steps;
+  phStart       = ctx.currentTime + 0.1;
+  _schedulePass(phStart);
+}
+
+function _schedulePass(passStart) {
+  if (!loopRunning) return;
+  const ctx = getCtx();
+  const pat = _loopGetPat();  // re-reads pattern each bar (picks up live edits)
+  for (let s = 0; s < totalSteps; s++) {
+    const t = passStart + s * stepDur;
+    for (const inst of _loopInstList) {
+      if (pat[inst] && pat[inst][s]) playSound(inst, ctx, t);
+    }
+  }
+  const passDur = totalSteps * stepDur;
+  loopTimeout = setTimeout(() => {
+    if (!loopRunning) return;
+    _schedulePass(passStart + passDur);
+  }, (passDur - LOOP_AHEAD) * 1000);
+}
+
+function stopLoop() {
+  loopRunning = false;
+  if (loopTimeout) { clearTimeout(loopTimeout); loopTimeout = null; }
+  // Close the AudioContext to immediately silence all scheduled audio
+  if (_ctx && _ctx.state !== 'closed') { _ctx.close(); _ctx = null; _noiseBuf = null; }
+  isPlaying = false;
+  phStep    = -1;
+}
+
+// ═══════════════════════════════════════════
+// SOLO
+// ═══════════════════════════════════════════
+
+let soloingInst = null;
+
+function onSolo(inst) {
+  if (isPlaying) return;
+  if (phase !== 'program' && phase !== 'pre') return;
+  soloingInst = inst;
+  updateSoloLabels();
+  const st = document.getElementById('status');
+  st.textContent = `🎵 ${INST[inst].label} solo…`;
+  st.className = 'status';
+  doPlayback(1, () => {
+    soloingInst = null;
+    updateSoloLabels();
+    renderUI();
+  }, inst);
+}
+
+function updateSoloLabels() {
+  if (gameMode === 'machine') return;
+  const lv = currentLevel();
+  if (!lv) return;
+  const canSolo = (phase === 'program' || phase === 'pre') && !isPlaying;
+  for (const inst of lv.inst) {
+    const lbl = document.getElementById('lbl_' + inst);
+    if (!lbl) continue;
+    lbl.classList.toggle('soloable', canSolo);
+    lbl.classList.toggle('soloing', soloingInst === inst);
+  }
+}
+
+// ═══════════════════════════════════════════
+// LISTEN
+// ═══════════════════════════════════════════
+
+function onListen() {
+  if (isPlaying) return;
+  feedback = null;
+  phase    = 'listen';
+  doPlayback(1, () => {
+    if (phase === 'listen') phase = 'program';
+    renderUI();
+    renderCells();
+  });
+}
+
+// ═══════════════════════════════════════════
+// PLAYHEAD ANIMATION
+// ═══════════════════════════════════════════
+
+function animLoop() {
+  if (isPlaying && _ctx) {
+    const elapsed = _ctx.currentTime - phStart;
+    if (elapsed >= 0) {
+      const s = Math.floor(elapsed / stepDur) % totalSteps;
+      if (s !== phStep) {
+        phStep = s;
+        renderCells();
+      }
+    }
+  }
+  requestAnimationFrame(animLoop);
+}
+
+// ═══════════════════════════════════════════
+// CELL CLICK
+// ═══════════════════════════════════════════
+
+function onCellClick(e) {
+  const inst = e.currentTarget.dataset.inst;
+  const s    = parseInt(e.currentTarget.dataset.step);
+  if (gameMode === 'machine') {
+    playerGrid[inst][s] = playerGrid[inst][s] ? 0 : 1;
+    renderCells();
+    return;
+  }
+  if (phase !== 'program') return;
+  playerGrid[inst][s] = playerGrid[inst][s] ? 0 : 1;
+  feedback = null;
+  renderCells();
+}
+
+// ═══════════════════════════════════════════
+// DROP IT (check pattern)
+// ═══════════════════════════════════════════
+
+function onDropIt() {
+  if (phase !== 'program' || isPlaying) return;
+  const lv = currentLevel();
+  let allCorrect = true;
+  const fb = {};
+
+  for (const inst of lv.inst) {
+    const tgt = lv.pat[inst];
+    const pl  = playerGrid[inst] || [];
+    fb[inst] = [];
+    for (let s = 0; s < lv.steps; s++) {
+      const t = tgt[s], p = pl[s] || 0;
+      if (t === p) {
+        fb[inst].push('correct');
+      } else if (p && !t) {
+        fb[inst].push('extra');   allCorrect = false;
+      } else {
+        fb[inst].push('miss');    allCorrect = false;
+      }
+    }
+  }
+
+  if (allCorrect) {
+    phase = 'playback';
+    const st = document.getElementById('status');
+    st.textContent = '✅ Perfect! Playing back…';
+    st.className = 'status s-ok';
+    const sd = 60 / lv.bpm * 4 / lv.steps;
+    startLoop(lv.inst, () => lv.pat, lv.bpm, lv.steps);
+    setTimeout(onWin, (0.1 + lv.steps * sd) * 1000);
+  } else {
+    phase = 'playback';
+    const st = document.getElementById('status');
+    st.textContent = "🎵 Here's what it should sound like…";
+    st.className = 'status';
+    doPlayback(1, () => {
+      feedback = fb;
+      misses++;
+      phase = 'program';
+      renderCells();
+      renderUI();
+
+      if (misses >= MAX_MISSES) {
+        st.textContent = '❌ 3 misses — grid cleared. Listen again and try fresh.';
+        st.className = 'status s-wrong';
+        setTimeout(() => {
+          for (const inst of lv.inst) playerGrid[inst] = new Array(lv.steps).fill(0);
+          misses = 0; phase = 'pre'; feedback = null;
+          renderUI(); renderCells();
+        }, 1800);
+      } else {
+        const left = MAX_MISSES - misses;
+        st.textContent = `Not quite — ${left} attempt${left !== 1 ? 's' : ''} left.`;
+        st.className = 'status s-wrong';
+        setTimeout(() => {
+          if (phase === 'program') {
+            feedback = null;
+            st.textContent = 'Keep adjusting or listen again.';
+            st.className = 'status';
+            renderCells();
+          }
+        }, 2200);
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════
+// WIN
+// ═══════════════════════════════════════════
+
+function onWin() {
+  phase = 'result';
+  if (gameMode === 'patterns') {
+    const saved = parseInt(localStorage.getItem('bm_level') || '0');
+    if (levelIdx + 1 > saved) localStorage.setItem('bm_level', (levelIdx + 1).toString());
+    if (levelIdx + 1 >= LEVELS.length) {
+      setTimeout(() => document.getElementById('completeOverlay').classList.add('show'), 300);
+    } else {
+      document.getElementById('winMsg').textContent = `Level ${levelIdx + 1} matched!`;
+      setTimeout(() => document.getElementById('winOverlay').classList.add('show'), 200);
+    }
+  } else if (gameMode === 'infinite') {
+    document.getElementById('winMsg').textContent = `Round ${infRound} complete! 🔥`;
+    setTimeout(() => document.getElementById('winOverlay').classList.add('show'), 200);
+  }
+}
+
+// ═══════════════════════════════════════════
+// MODE SELECT
+// ═══════════════════════════════════════════
+
+function selectMode(m) {
+  gameMode = m;
+  document.getElementById('modeSelect').classList.add('hidden');
+  document.getElementById('gameArea').classList.remove('hidden');
+  applyModeUI();
+  stopLoop();
+
+  if (m === 'patterns') {
+    initLevel();
+  } else if (m === 'infinite') {
+    infRound = 0;
+    updateDiffButtons();
+    initInfiniteRound();
+  } else if (m === 'machine') {
+    initMachine();
+  }
+}
+
+function backToModes() {
+  stopLoop();
+  machineLoop = false;
+  const btn = document.getElementById('btnMachinePlay');
+  if (btn) { btn.textContent = '▶ Play'; btn.classList.remove('playing'); }
+  document.getElementById('winOverlay').classList.remove('show');
+  document.getElementById('completeOverlay').classList.remove('show');
+  document.getElementById('gameArea').classList.add('hidden');
+  document.getElementById('modeSelect').classList.remove('hidden');
+  gameMode = null;
+}
+
+function applyModeUI() {
+  const p = gameMode === 'patterns';
+  const inf = gameMode === 'infinite';
+  const mac = gameMode === 'machine';
+
+  vis('progressWrap',    p);
+  vis('levelInfoBar',    !mac);
+  vis('diffBar',         inf);
+  vis('btnPrev',         p);
+  vis('btnNext2',        p);
+  vis('gameControls',    !mac);
+  vis('machineControls', mac);
+  vis('status',          !mac);
+
+  const titles = { patterns:'🎯 24 Patterns', infinite:'∞ Infinite', machine:'🎛️ Drum Machine' };
+  document.getElementById('modeTitle').textContent = titles[gameMode] || '';
+}
+
+function vis(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('hidden', !show);
+}
+
+// ═══════════════════════════════════════════
+// INFINITE MODE
+// ═══════════════════════════════════════════
+
+function initInfiniteRound() {
+  infRound++;
+  infLevel = generateBeat(infDifficulty, infRound);
+  misses = 0; phase = 'pre'; phStep = -1; feedback = null; soloingInst = null;
+  playerGrid = {};
+  for (const inst of infLevel.inst) playerGrid[inst] = new Array(infLevel.steps).fill(0);
+  buildGrid(); renderUI(); renderCells();
+}
+
+function setDifficulty(d) {
+  if (infDifficulty === d) return;
+  infDifficulty = d;
+  updateDiffButtons();
+  stopLoop();
+  infRound = 0;
+  initInfiniteRound();
+}
+
+function updateDiffButtons() {
+  document.getElementById('diffEasy').classList.toggle('active',   infDifficulty === 'easy');
+  document.getElementById('diffMedium').classList.toggle('active', infDifficulty === 'medium');
+  document.getElementById('diffHard').classList.toggle('active',   infDifficulty === 'hard');
+}
+
+// ═══════════════════════════════════════════
+// BEAT GENERATOR
+// ═══════════════════════════════════════════
+
+function generateBeat(difficulty, round) {
+  const ranges = { easy:[88,108], medium:[95,118], hard:[95,118] };
+  const [lo, hi] = ranges[difficulty];
+  const bpm = lo + Math.floor(Math.random() * (hi - lo + 1));
+
+  let inst, steps;
+  if (difficulty === 'easy') {
+    // kick + snare + hihat, 8 steps early then mix in 16
+    steps = round <= 3 ? 8 : (Math.random() > 0.5 ? 16 : 8);
+    inst  = ['kick','snare','hihat'];
+  } else if (difficulty === 'medium') {
+    // full kit (openhat likely), always 8 steps
+    steps = 8;
+    inst  = Math.random() > 0.35
+          ? ['kick','snare','hihat','openhat']
+          : ['kick','snare','hihat'];
+  } else {
+    // full kit, always 16 steps
+    steps = 16;
+    inst  = Math.random() > 0.35
+          ? ['kick','snare','hihat','openhat']
+          : ['kick','snare','hihat'];
+  }
+
+  const pat = {};
+  if (inst.includes('kick'))    pat.kick    = genKick(steps);
+  if (inst.includes('snare'))   pat.snare   = genSnare(steps);
+  if (inst.includes('hihat'))   pat.hihat   = genHihat(steps);
+  if (inst.includes('openhat')) pat.openhat = genOpenhat(steps, pat.hihat);
+
+  return { title:`Round ${round}`, bpm, steps, inst, pat };
+}
+
+function genKick(steps) {
+  const p = new Array(steps).fill(0);
+  p[0] = 1;
+  if (Math.random() > 0.3) p[steps >> 1] = 1;
+  const snareBeats = steps === 16 ? [4,12] : [2,6];
+  const cands = [];
+  for (let i = 1; i < steps; i++) {
+    if (!p[i] && !snareBeats.includes(i) && !snareBeats.map(s=>s-1).includes(i)) cands.push(i);
+  }
+  rndShuffle(cands);
+  const extras = Math.floor(Math.random() * 3);
+  for (let i = 0; i < extras && i < cands.length; i++) p[cands[i]] = 1;
+  return p;
+}
+
+function genSnare(steps) {
+  const p = new Array(steps).fill(0);
+  const b2 = steps === 16 ? 4 : 2, b4 = steps === 16 ? 12 : 6;
+  p[b2] = 1; p[b4] = 1;
+  if (Math.random() < 0.3) {
+    const ghosts = [b2-1,b2+1,b4-1,b4+1].filter(s => s > 0 && s < steps && !p[s]);
+    if (ghosts.length) p[ghosts[Math.floor(Math.random() * ghosts.length)]] = 1;
+  }
+  return p;
+}
+
+function genHihat(steps) {
+  const p = new Array(steps).fill(0);
+  const r = Math.random();
+  if (steps === 8) {
+    if (r < 0.4)       for (let i=0;i<steps;i++) p[i]=1;          // straight 8ths
+    else if (r < 0.7)  for (let i=1;i<steps;i+=2) p[i]=1;         // offbeats
+    else { p[0]=1; for (let i=1;i<steps;i++) if (Math.random()>0.45) p[i]=1; }
+  } else {
+    if (r < 0.3)       for (let i=0;i<steps;i++) p[i]=1;           // 16ths
+    else if (r < 0.6)  for (let i=0;i<steps;i+=2) p[i]=1;          // 8ths
+    else if (r < 0.78) for (let i=1;i<steps;i+=2) p[i]=1;          // offbeat 8ths
+    else { p[0]=1; for (let i=1;i<steps;i++) if (Math.random()>0.42) p[i]=1; }
+  }
+  return p;
+}
+
+function genOpenhat(steps, closed) {
+  const p = new Array(steps).fill(0);
+  const cands = [];
+  for (let i=1;i<steps;i++) if (!closed||!closed[i]) cands.push(i);
+  rndShuffle(cands);
+  const count = 1 + (Math.random() < 0.35 ? 1 : 0);
+  for (let i=0;i<count&&i<cands.length;i++) p[cands[i]]=1;
+  return p;
+}
+
+function rndShuffle(arr) {
+  for (let i=arr.length-1;i>0;i--) {
+    const j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+// ═══════════════════════════════════════════
+// DRUM MACHINE
+// ═══════════════════════════════════════════
+
+function initMachine() {
+  stopLoop();
+  machineLoop = false;
+  const btn = document.getElementById('btnMachinePlay');
+  btn.textContent = '▶ Play'; btn.classList.remove('playing');
+  machineBpm = parseInt(document.getElementById('bpmSlider').value);
+  playerGrid = {};
+  for (const inst of MACHINE_INST) playerGrid[inst] = new Array(MACHINE_STEPS).fill(0);
+  buildGrid(); renderCells();
+}
+
+function toggleMachinePlay() {
+  const btn = document.getElementById('btnMachinePlay');
+  if (loopRunning) {
+    stopLoop();
+    machineLoop = false;
+    btn.textContent = '▶ Play'; btn.classList.remove('playing');
+  } else {
+    machineLoop = true;
+    startLoop(MACHINE_INST, () => playerGrid, machineBpm, MACHINE_STEPS);
+    btn.textContent = '⏹ Stop'; btn.classList.add('playing');
+  }
+}
+
+function onBpmChange(val) {
+  machineBpm = parseInt(val);
+  document.getElementById('bpmDisplay').textContent = val;
+  if (loopRunning) {
+    stopLoop();
+    startLoop(MACHINE_INST, () => playerGrid, machineBpm, MACHINE_STEPS);
+    // keep button in playing state
+    const btn = document.getElementById('btnMachinePlay');
+    btn.textContent = '⏹ Stop'; btn.classList.add('playing');
+  }
+}
+
+function clearMachine() {
+  for (const inst of MACHINE_INST) playerGrid[inst] = new Array(MACHINE_STEPS).fill(0);
+  renderCells();
+}
+
+// ═══════════════════════════════════════════
+// EVENT HANDLERS
+// ═══════════════════════════════════════════
+
+document.getElementById('btnListen').addEventListener('click', onListen);
+document.getElementById('btnSubmit').addEventListener('click', onDropIt);
+
+document.getElementById('btnPrev').addEventListener('click', () => {
+  if (levelIdx > 0 && !isPlaying) { levelIdx--; initLevel(); }
+});
+document.getElementById('btnNext2').addEventListener('click', () => {
+  if (levelIdx < LEVELS.length - 1 && !isPlaying) { levelIdx++; initLevel(); }
+});
+
+document.getElementById('btnNext').addEventListener('click', () => {
+  stopLoop();
+  document.getElementById('winOverlay').classList.remove('show');
+  setTimeout(() => {
+    if (gameMode === 'patterns') { levelIdx++; initLevel(); }
+    else if (gameMode === 'infinite') { initInfiniteRound(); }
+  }, 300);
+});
+
+document.getElementById('btnRestart').addEventListener('click', () => {
+  stopLoop();
+  document.getElementById('completeOverlay').classList.remove('show');
+  levelIdx = 0; localStorage.setItem('bm_level', '0');
+  setTimeout(() => initLevel(), 300);
+});
+
+window.addEventListener('resize', () => {
+  if (gameMode) { buildGrid(); renderCells(); }
+});
+
+// ═══════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════
+animLoop();
+// Show mode select on load — no initLevel() until mode chosen
+</script>
+</body>
+</html>

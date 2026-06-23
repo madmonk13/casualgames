@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gears</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  background:#0d0d0f; color:#b0b0c8;
+  font-family:'Segoe UI',system-ui,sans-serif;
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; min-height:100vh; user-select:none;
+}
+#ui { display:flex; flex-direction:column; align-items:center; gap:14px; }
+#top { display:flex; align-items:baseline; gap:16px; }
+#lvl-num  { font-size:11px; letter-spacing:3px; color:#363646; text-transform:uppercase; }
+#lvl-name { font-size:19px; font-weight:300; }
+#canvas-wrap { position:relative; }
+canvas { display:block; cursor:pointer; }
+#win-overlay {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:rgba(13,13,15,0.88); opacity:0; pointer-events:none;
+  transition:opacity 0.3s;
+}
+#win-overlay.show { opacity:1; pointer-events:auto; }
+#win-text { font-size:26px; font-weight:200; letter-spacing:5px; color:#4aef8a; }
+#win-sub  { font-size:11px; color:#444; letter-spacing:2px; margin-top:10px; }
+#tray-row { display:flex; align-items:center; gap:12px; min-height:36px; }
+#tray-label { font-size:11px; letter-spacing:2px; color:#2e2e42; }
+#tray { display:flex; gap:6px; flex-wrap:wrap; max-width:360px; }
+.tg { width:30px; height:30px; border-radius:50%; border:1.5px solid #2c2c40; background:#131320; }
+#nav { display:flex; gap:10px; }
+button {
+  background:#101018; color:#404050; border:1px solid #20202e;
+  border-radius:6px; padding:5px 14px; font-size:11px;
+  cursor:pointer; letter-spacing:1px;
+}
+button:hover { color:#b0b0c8; border-color:#363656; }
+#hint { font-size:11px; color:#2a2a3e; min-height:14px; }
+#rules-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,0.75);
+  display:flex; align-items:center; justify-content:center;
+  opacity:0; pointer-events:none; transition:opacity 0.2s; z-index:10;
+}
+#rules-overlay.show { opacity:1; pointer-events:auto; }
+#rules-box {
+  background:#111120; border:1px solid #2a2a42; border-radius:12px;
+  padding:28px 32px; max-width:400px; display:flex; flex-direction:column; gap:18px;
+}
+#rules-title { font-size:12px; letter-spacing:4px; color:#363650; }
+#rules-body { display:flex; flex-direction:column; gap:10px; }
+#rules-body p { font-size:13px; color:#8888a8; line-height:1.6; }
+#rules-body strong { color:#c0c0d8; }
+.rl { display:inline-block; width:16px; text-align:center; margin-right:4px; }
+.rl.src { color:#3060ef; font-size:16px; }
+.rl.tgt { color:#7a6aaa; font-size:18px; }
+.rl.emp { color:#32324a; font-size:22px; font-weight:bold; }
+.rl.bad { color:#ef4a5a; font-size:16px; }
+#rules-close {
+  align-self:center; background:#1a1a30; color:#8888a8;
+  border:1px solid #30304a; border-radius:6px; padding:8px 24px;
+  font-size:11px; letter-spacing:2px; cursor:pointer;
+}
+#rules-close:hover { color:#c0c0d8; border-color:#5050a0; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="top">
+    <span id="lvl-num">LEVEL 1</span>
+    <span id="lvl-name">—</span>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="c" width="560" height="420"></canvas>
+    <div id="win-overlay">
+      <div id="win-text">SOLVED</div>
+      <div id="win-sub">CLICK TO CONTINUE</div>
+    </div>
+  </div>
+  <div id="tray-row">
+    <span id="tray-label">GEARS</span>
+    <div id="tray"></div>
+  </div>
+  <div id="nav">
+    <button id="btn-prev">← PREV</button>
+    <button id="btn-reset">RESET</button>
+    <button id="btn-next">NEXT →</button>
+    <button id="btn-help">?</button>
+  </div>
+  <div id="hint"></div>
+</div>
+
+<div id="rules-overlay">
+  <div id="rules-box">
+    <div id="rules-title">HOW TO PLAY</div>
+    <div id="rules-body">
+      <p><span class="rl src">●</span> <strong>Blue gears</strong> are sources — always spinning clockwise.</p>
+      <p><span class="rl tgt">○</span> <strong>Ring targets</strong> must spin in the shown direction (↻ or ↺) to light up green.</p>
+      <p><span class="rl emp">·</span> <strong>Dots</strong> are empty pegs. Click to place a gear, click again to remove it.</p>
+      <p>Adjacent gears always spin <strong>opposite ways</strong>. You have a limited supply — not every peg needs a gear.</p>
+      <p><span class="rl bad">●</span> <strong>Red gears</strong> mean conflict: two adjacent gears spinning the same way jam each other. Remove one.</p>
+      <p>Light all targets in the correct direction with no conflicts to <strong>solve the level</strong>.</p>
+    </div>
+    <button id="rules-close">GOT IT</button>
+  </div>
+</div>
+<script>
+// ── Constants ────────────────────────────────────────────────────────────────
+const CW=1, CCW=-1;
+const SRC='source', EMP='empty', TGT='target';
+const DIST=62, GR=19, PR=4, HITR=27;
+// Axial hex neighbours: right, down-right, down-left, left, up-left, up-right
+const HD=[[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]];
+
+const hpx=(q,r,ox,oy)=>[ox+DIST*(q+r*0.5), oy+DIST*r*0.8660254];
+const pk=(q,r)=>q+','+r;
+
+// ── Level builders ───────────────────────────────────────────────────────────
+const s=(q,r,d)=>({q,r,type:SRC,dir:d});
+const e=(q,r)  =>({q,r,type:EMP});
+const t=(q,r,d)=>({q,r,type:TGT,dir:d});
+
+/*
+  ADJACENCY FACTS (used in level design):
+  HD = [[1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]]  (indices 0-5)
+  Adjacent pairs from same node share an index gap of 1 (mod 6); non-adjacent share gap ≥ 2.
+
+  From source (0,0), safe (non-adjacent) arm pairs for branching:
+    [1,0]  and [-1,1]  — indices 0,2 ✓
+    [1,0]  and [-1,0]  — indices 0,3 ✓
+    [1,0]  and [0,-1]  — indices 0,4 ✓
+    [0,1]  and [-1,0]  — indices 1,3 ✓
+    [0,1]  and [0,-1]  — indices 1,4 ✓
+    [-1,1] and [0,-1]  — indices 2,4 ✓
+
+  Safe non-adjacent triples (all three mutually non-adj):
+    [1,0], [-1,1], [0,-1]   (indices 0,2,4)
+    [0,1], [-1,0], [1,-1]   (indices 1,3,5)
+
+  Parity: CW source at distance k → CW if k even, CCW if k odd.
+*/
+
+const LEVELS = [
+
+// ═══ TIER 1: Tutorial ═══════════════════════════════════════════════════════
+
+// 1. Simplest bridge
+{ name:'First Mesh', hint:'Connect source to target. Not every peg needs a gear.',
+  gears:1, pegs:[s(0,0,CW), e(1,0), e(0,1), t(2,0,CW)] },
+// Solution: (1,0). Decoy (0,1): adj source, dead end — target unreachable.
+// (0,0)CW → (1,0)CCW → (2,0)CW ✓
+
+// 2. Two-gear chain
+{ name:'Chain', hint:'Adjacent gears always spin opposite ways. Red means conflict — a dead end.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), e(2,0), e(0,1), t(3,0,CCW)] },
+// Solution: (1,0)+(2,0). Decoy (0,1): adj source and (1,0); (0,1)=CCW adj (1,0)=CCW → conflict ✗
+// CW,CCW,CW,CCW ✓
+
+// 3. Three-gear chain
+{ name:'Long Haul', hint:'One wrong gear jams the whole chain.',
+  gears:3, pegs:[s(0,0,CW), e(1,0), e(2,0), e(3,0), e(0,1), t(4,0,CW)] },
+// Solution: (1,0)+(2,0)+(3,0). Decoy (0,1): conflict with (1,0) ✗
+
+// 4. One bridge drives two targets — target drives a second via end-branch
+{ name:'Split', hint:'One gear can drive two targets.',
+  gears:1, pegs:[s(0,0,CW), e(1,0), t(2,0,CW), t(2,1,CCW)] },
+// (0,0)CW→(1,0)CCW→(2,0)CW ✓; (2,0)CW→(2,1)CCW ✓
+// (2,1)+HD={(3,1),(2,2),(1,2),(1,1),(2,0),(3,0)} → adj (2,0) only from level ✓
+
+// 5. Source with two independent arms (arm first-steps are non-adjacent)
+{ name:'Two Arms', hint:'Drive both targets from a single source.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), t(2,0,CW), e(-1,1), t(-2,2,CW), e(0,1)] },
+// Solution: (1,0)+(-1,1). Decoy (0,1): adj source + (1,0) + (-1,1) → conflict with either ✗
+// (1,0)↔(-1,1): not adj ✓; each arm: source→CCW→CW ✓
+
+// 6. Corner turn — path bends through two gears
+{ name:'Corner', hint:'Gears turn corners.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), e(1,1), e(0,1), t(0,2,CCW)] },
+// Solution: (1,0)+(1,1). Decoy (0,1): adj source + (1,0) → conflict ✗
+// (0,0)CW→(1,0)CCW→(1,1)CW→(0,2)CCW ✓
+
+// 7. Two sources agree on middle target
+{ name:'Pinch', hint:'Both sources must agree on direction.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), t(2,0,CW), s(4,0,CW), e(3,0), e(1,1)] },
+// Solution: (1,0)+(3,0). Decoy (1,1): adj (1,0)CCW and (2,0)TGT=CW → (1,1)=CW; (2,0)CW adj (1,1)CW → conflict ✗
+
+// 8. Extra decoy peg — pick the right spot
+{ name:'Shortcut', hint:'Not every empty peg needs a gear.',
+  gears:1, pegs:[s(0,0,CW), e(1,0), e(1,-1), t(2,0,CW)] },
+// Place (1,0): (2,0)=CW ✓
+// Place (1,-1): (1,-1)+HD={…,(2,0)∉} → target unreachable ✗
+// Place both: (1,0)↔(1,-1) adj → conflict ✗
+
+// ═══ TIER 2: Easy ════════════════════════════════════════════════════════════
+
+// 9. Triangle trap — must pick non-adjacent pair from three mutual neighbours
+{ name:'Triangle Trap', hint:'Three touching pegs cannot all hold gears.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), e(0,1), e(-1,1), t(2,0,CW), t(-2,2,CW)] },
+// Solution: place (1,0) and (-1,1)
+// (1,0)↔(-1,1): not adj ✓; (1,0)↔(0,1): adj → conflict ✗; (0,1)↔(-1,1): adj → conflict ✗
+
+// 10. Three-arm star (arms at HD indices 0,2,4 — mutually non-adjacent)
+{ name:'Star', hint:'Three arms — pick the right pegs for each.',
+  gears:3, pegs:[s(0,0,CW), e(1,0),t(2,0,CW), e(-1,1),t(-2,2,CW), e(0,-1),t(0,-2,CW), e(0,1)] },
+// Arms [1,0],[-1,1],[0,-1]: mutually non-adjacent ✓; each 2 hops → CW ✓
+// Decoy (0,1): adj source + (1,0) + (-1,1) → conflict with either arm peg ✗
+
+// 11. End-of-chain T branch
+{ name:'T-Junction', hint:'The chain forks at its far end.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), e(2,0), e(0,1), t(3,0,CCW), t(3,1,CW)] },
+// Solution: (1,0)+(2,0). Decoy (0,1): adj source + (1,0) → conflict ✗
+// Chain: CW,CCW,CW,CCW ✓; (3,1) adj (3,0) only ✓
+
+// 12. Longer end-of-chain fork
+{ name:'Double Fork', hint:'Two targets wait at the end of the chain.',
+  gears:3, pegs:[s(0,0,CW), e(1,0), e(2,0), e(3,0), e(0,1), t(4,0,CW), t(4,1,CCW)] },
+// Solution: (1,0)+(2,0)+(3,0). Decoy (0,1): conflict with (1,0) ✗
+// Chain: 0CW,1CCW,2CW,3CCW,4CW ✓; (4,1) adj (4,0) only ✓
+
+// 13. Two parallel arms — first steps must not be adjacent
+{ name:'Double Cross', hint:'Two arms, two directions — keep them separate.',
+  gears:4,
+  pegs:[s(0,0,CW), e(1,0),e(2,0),t(3,0,CCW), e(0,-1),e(0,-2),t(0,-3,CCW), e(1,-1)] },
+// Arm [1,0]: CCW,CW,CCW ✓; Arm [0,-1]: CCW,CW,CCW ✓
+// Decoy (1,-1): adj (0,0)SRC + (1,0) + (0,-1) → conflict ✗
+
+// 14. Single decoy adjacent to the solution path
+{ name:'Bypass', hint:'The direct route causes a jam.',
+  gears:1, pegs:[s(0,0,CW), e(1,0), e(0,1), t(2,0,CW)] },
+// Place (1,0): target reached ✓; Place (0,1): target unreachable ✗
+// (1,0)↔(0,1): adj → conflict if both placed ✗
+
+// 15. Chain passing through junction target, driving a second arm
+{ name:'Junction', hint:'A spinning target can drive the next chain.',
+  gears:2, pegs:[s(-2,0,CW), e(-1,0), t(0,0,CW), e(0,1), t(0,2,CW), e(-1,1)] },
+// Solution: (-1,0)+(0,1). Decoy (-1,1): adj (-1,0)CCW and (0,0)TGT → conflict ✗
+// (-2,0)CW→(-1,0)CCW→(0,0)CW ✓; (0,0)CW→(0,1)CCW→(0,2)CW ✓
+
+// 16. Two sources reinforce a chain; far source also drives a side target
+{ name:'Echo', hint:'Two sources both drive the shared target.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), t(2,0,CW), s(4,0,CW), e(3,0), t(4,1,CCW), e(2,1)] },
+// Solution: (1,0)+(3,0). Decoy (2,1): adj (2,0)TGT=CW and (3,0)CCW → (2,1)=CCW; (3,0)CCW adj (2,1)CCW → conflict ✗
+
+// ═══ TIER 3: Medium ═══════════════════════════════════════════════════════════
+
+// 17. Two arms of different lengths — parity determines target directions
+{ name:'Parity', hint:'Count your hops — direction flips each step.',
+  gears:3, pegs:[s(0,0,CW), e(1,0),e(2,0),t(3,0,CCW), e(-1,1),t(-2,2,CW), e(1,-1)] },
+// Arm [1,0]×2: 3 hops→CCW ✓; Arm [-1,1]×1: 2 hops→CW ✓; HD indices 0,2 non-adj ✓
+// Decoy (1,-1): adj (0,0)CW and (1,0)CCW → (1,-1)=CCW; (1,0)CCW adj (1,-1)CCW → conflict ✗
+
+// 18. Detour — middle peg is a trap between two valid arms
+{ name:'Detour', hint:'The obvious middle peg creates a conflict.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), e(0,1), e(-1,1), t(2,0,CW), t(-1,2,CW)] },
+// Solution: (1,0) for t(2,0); (-1,1) for t(-1,2)
+// (0,0)CW→(1,0)CCW→(2,0)CW ✓
+// (0,0)CW→(-1,1)CCW; (-1,1)+HD includes (-1,2) → (-1,2)=CW ✓
+// Trap (0,1): adj (1,0) → conflict ✗; adj (-1,1) → conflict ✗
+
+// 19. Two arms + decoy between them
+{ name:'No Return', hint:'',
+  gears:4,
+  pegs:[s(0,0,CW), e(1,0),e(2,0),t(3,0,CCW), e(0,-1),e(0,-2),t(0,-3,CCW), e(1,-1)] },
+// Solution: (1,0),(2,0),(0,-1),(0,-2)
+// (1,-1) decoy: adj (1,0) → conflict if both; adj (0,-1) → conflict if both
+
+// 20. Three arms of varying length, tight gear budget
+{ name:'Cascade', hint:'Three arms, different lengths — count each path.',
+  gears:5,
+  pegs:[s(0,0,CW), e(1,0),e(2,0),e(3,0),t(4,0,CW), e(-1,1),t(-2,2,CW), e(0,-1),t(0,-2,CW), e(1,-1)] },
+// Arm [1,0]×3: 4 hops→CW ✓; Arm [-1,1]×1: 2 hops→CW ✓; Arm [0,-1]×1: 2 hops→CW ✓
+// HD indices 0,2,4: mutually non-adjacent ✓
+// Decoy (1,-1): adj (0,0)CW and (1,0)CCW → conflict ✗
+
+// 21. Two paths to one target — one pair of placements always conflicts
+{ name:'Two Roads', hint:'Two paths lead to the target, but one pair causes a jam.',
+  gears:2, pegs:[s(0,0,CW), e(1,0), e(0,1), e(1,1), t(2,1,CCW)] },
+// t(2,1): (2,1)+HD includes (1,1) → reached when (1,1) placed
+// Valid: (1,0)+(1,1) — (0,0)CW→(1,0)CCW→(1,1)CW→(2,1)CCW ✓
+// Valid: (0,1)+(1,1) — (0,0)CW→(0,1)CCW→(1,1)CW→(2,1)CCW ✓
+// Invalid: (1,0)+(0,1) — both adj to source→both CCW→adj each other→conflict ✗
+
+// 22. Long arms — three arms of different lengths
+{ name:'Long Arms', hint:'',
+  gears:6,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),t(4,0,CW),
+        e(-1,1),e(-2,2),t(-3,3,CCW),
+        e(0,-1),t(0,-2,CW), e(1,-1)] },
+// Arm [1,0]×3: 4 hops→CW ✓; Arm [-1,1]×2: 3 hops→CCW ✓; Arm [0,-1]×1: 2 hops→CW ✓
+// Arms at HD indices 0,2,4 → mutually non-adjacent ✓
+// Decoy (1,-1): adj (0,0)SRC + (1,0) + (0,-1) → conflict ✗
+
+// 23. Two sources, separate arms, different directions
+{ name:'Clockwork', hint:'Two sources, each driving their own network.',
+  gears:3,
+  pegs:[s(0,0,CW), e(1,0),e(2,0),t(3,0,CCW),
+        s(0,-3,CCW), e(0,-2),t(0,-1,CCW), e(1,-1)] },
+// S1 arm [1,0]×2: 3→CCW ✓; S2 arm [0,1]×2: (0,-3)CCW→(0,-2)CW→(0,-1)CCW ✓
+// (0,-1) adj (0,0)=SRC: BFS gives CCW from source first, then S2 also gives CCW — agree ✓
+// (0,-2) adj (1,0)? (0,-2)+HD={(1,-2),(0,-1),(-1,-1),(-1,-2),(0,-3),(1,-3)} → (1,0)∉ ✓
+// Decoy (1,-1): adj (0,0)=CW and (1,0)=CCW → BFS gives (1,-1)=CCW; (1,0)CCW adj (1,-1)CCW → conflict ✗
+
+// 24. Web — three arms with decoy
+{ name:'Web', hint:'',
+  gears:6,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),t(3,0,CCW),
+        e(-1,1),e(-2,2),t(-3,3,CCW),
+        e(0,-1),e(0,-2),t(0,-3,CCW), e(1,-1)] },
+// Three arms at indices 0,2,4: each 3 hops→CCW ✓
+// Decoy (1,-1): adj (1,0) and adj (0,-1) [HD+(1,-1)={(2,-1),(1,0),(0,0),(0,-1),(1,-2),(2,-2)}] → conflict with either ✗
+
+// ═══ TIER 4: Hard ═════════════════════════════════════════════════════════════
+
+// 25. Grand Design — three long arms, tight gear budget
+{ name:'Grand Design', hint:'',
+  gears:8,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),e(4,0),t(5,0,CCW),
+        e(-1,1),t(-2,2,CW),
+        e(0,-1),e(0,-2),e(0,-3),t(0,-4,CW), e(1,-1)] },
+// Arm [1,0]×4: 5 hops→CCW ✓
+// Arm [-1,1]×1: 2 hops→CW ✓
+// Arm [0,-1]×3: 4 hops→CW ✓
+// Arms at HD indices 0,2,4: mutually non-adjacent ✓
+// Decoy (1,-1): adj (1,0) and (0,-1) → conflict trap ✗
+// gears: (1,0)(2,0)(3,0)(4,0) + (-1,1) + (0,-1)(0,-2)(0,-3) = 8 ✓
+
+// 26. Summit — three arms, mixed lengths
+{ name:'Summit', hint:'Three arms of different reach.',
+  gears:6,
+  pegs:[s(0,0,CW), e(1,0),e(2,0),e(3,0),t(4,0,CW),
+        e(-1,1),t(-2,2,CW),
+        e(0,-1),e(0,-2),t(0,-3,CCW), e(1,-1)] },
+// Arm [1,0]×3: 4→CW ✓; Arm [-1,1]×1: 2→CW ✓; Arm [0,-1]×2: 3→CCW ✓
+// HD indices 0,2,4: mutually non-adjacent ✓
+// Decoy (1,-1): adj (0,0)CW and (1,0)CCW → conflict ✗
+// gears: (1,0)(2,0)(3,0)+(-1,1)+(0,-1)(0,-2) = 6 ✓
+
+// 27. Rivals — two independent sources, separate arms
+{ name:'Rivals', hint:'Two rivals drive their own networks.',
+  gears:4,
+  pegs:[s(0,0,CW), e(1,0),e(2,0),e(3,0),t(4,0,CW),
+        s(0,-4,CW), e(0,-3),t(0,-2,CW), e(4,-1)] },
+// S1: 0CW,1CCW,2CW,3CCW,4CW ✓; S2: (0,-4)CW→(0,-3)CCW→(0,-2)CW ✓
+// (0,-3)+HD → (0,0)∉,(1,0)∉ — networks non-adjacent ✓
+// Decoy (4,-1): (3,0)+HD={(4,0),(3,1),(2,1),(2,0),(3,-1),(4,-1)} → (4,-1)∈; (3,0)CCW adj (4,-1)CCW → conflict ✗
+// gears: (1,0)(2,0)(3,0)+(0,-3) = 4 ✓
+
+// 28. Overlap — chains from two sources, targets need right parity
+{ name:'Overlap', hint:'',
+  gears:7,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),t(4,0,CW),
+        e(-1,1),e(-2,2),t(-3,3,CCW),
+        e(0,-1),e(0,-2),t(0,-3,CCW), e(-1,0)] },
+// Three arms at indices 0,2,4: 4 hops→CW ✓; 3 hops→CCW ✓; 3 hops→CCW ✓
+// Decoy (-1,0): adj (0,0) source [direct CCW]; adj (0,-1)? (-1,0)+HD={0,0),(-1,1),(-2,1),(-2,0),(-1,-1),(0,-1)} → (0,-1)∈ → adj!
+// Placing (-1,0) and (0,-1): (-1,0)=CCW (from source), (0,-1)=CCW (from source). They're adj → conflict ✗ nice decoy!
+
+// 29. Clockwork II — three arms + end-branch on the long arm
+{ name:'Clockwork II', hint:'',
+  gears:7,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),t(4,0,CW),
+        e(4,1),t(4,2,CW),
+        e(-1,1),e(-2,2),t(-3,3,CCW),
+        e(0,-1),t(0,-2,CW), e(1,-1)] },
+// Arm [1,0]×3: 4→CW ✓; end-branch: (4,1)+HD adj (4,0) only [(3,0)∉] ✓
+// (4,0)CW→(4,1)CCW→(4,2)CW ✓; t(4,2,CW) ✓
+// Arm [-1,1]×2: 3→CCW ✓; Arm [0,-1]×1: 2→CW ✓; indices 0,2,4 non-adj ✓
+// Decoy (1,-1): adj (0,0)CW and (1,0)CCW → conflict ✗
+// gears: (1,0)(2,0)(3,0)+(4,1)+(-1,1)(-2,2)+(0,-1) = 7 ✓
+
+// 30. Tightrope — long chain + end-branch + side arm
+{ name:'Tightrope', hint:'Walk the long chain before branching.',
+  gears:7,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),e(4,0),t(5,0,CCW),
+        e(5,1),t(5,2,CCW),
+        e(-1,1),e(-2,2),t(-3,3,CCW), e(1,-1)] },
+// Arm [1,0]×4: 5→CCW ✓; end-branch: (5,1)+HD={(6,1),(5,2),(4,2),(4,1),(5,0),(6,0)} adj (5,0) only ✓
+// (5,0)CCW→(5,1)CW→(5,2)CCW ✓; t(5,2,CCW) ✓
+// Arm [-1,1]×2: 3→CCW ✓; HD indices 0,2 non-adj ✓
+// Decoy (1,-1): adj (0,0)CW and (1,0)CCW → conflict ✗
+// gears: (1,0)(2,0)(3,0)(4,0)+(5,1)+(-1,1)(-2,2) = 7 ✓
+
+// 31. Grand Finale I
+{ name:'Grand Finale I', hint:'',
+  gears:9,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),e(4,0),t(5,0,CCW),
+        e(-1,1),e(-2,2),e(-3,3),t(-4,4,CW),
+        e(0,-1),e(0,-2),t(0,-3,CCW),
+        e(1,-1),e(2,-2)] },
+// Arm [1,0]×4: 5 hops→CCW ✓
+// Arm [-1,1]×3: 4 hops→CW ✓
+// Arm [0,-1]×2: 3 hops→CCW ✓
+// Arms at indices 0,2,4: mutually non-adjacent ✓
+// Decoys (1,-1) and (2,-2): (1,-1) adj (1,0) and (0,-1) → conflict; (2,-2) adj (2,0) and (1,-1) and (1,-2)...
+// (1,-1)↔(0,-1): HD+(1,-1)={(2,-1),(1,0),(0,0),(0,-1),(1,-2),(2,-2)} → (0,-1)∈ → adj → conflict ✗
+// gears: (1,0)(2,0)(3,0)(4,0) + (-1,1)(-2,2)(-3,3) + (0,-1)(0,-2) = 9 ✓
+
+// 32. Grand Finale II — three long arms + end-branch, two decoys
+{ name:'Grand Finale II', hint:'Everything you\'ve learned.',
+  gears:10,
+  pegs:[s(0,0,CW),
+        e(1,0),e(2,0),e(3,0),t(4,0,CW),
+        e(4,1),t(4,2,CW),
+        e(-1,1),e(-2,2),e(-3,3),t(-4,4,CW),
+        e(0,-1),e(0,-2),e(0,-3),t(0,-4,CW),
+        e(1,-1),e(2,1)] },
+// Arm [1,0]×3: 4→CW ✓; end-branch: (4,1)+HD adj (4,0) only [(3,0)∉] ✓
+// (4,0)CW→(4,1)CCW→(4,2)CW ✓; t(4,2,CW) ✓
+// Arm [-1,1]×3: 4→CW ✓; Arm [0,-1]×3: 4→CW ✓; indices 0,2,4 non-adj ✓
+// Decoy (1,-1): adj (0,0)CW and (1,0)CCW → conflict ✗
+// Decoy (2,1): adj (2,0)CW and (3,0)CCW → (2,1)=CCW; (3,0)CCW adj (2,1)CCW → conflict ✗
+// gears: (1,0)(2,0)(3,0)+(4,1)+(-1,1)(-2,2)(-3,3)+(0,-1)(0,-2)(0,-3) = 10 ✓
+
+];
+
+// ── Engine ───────────────────────────────────────────────────────────────────
+function buildMap(pegs){ const m=new Map(); for(const p of pegs) m.set(pk(p.q,p.r),p); return m; }
+function hasGear(p,pl){ return p.type===SRC||p.type===TGT||pl.has(pk(p.q,p.r)); }
+
+function computeState(pegs, pl) {
+  const pm=buildMap(pegs), dirs=new Map(), q=[];
+  for(const p of pegs) if(p.type===SRC){ dirs.set(pk(p.q,p.r),p.dir); q.push(p); }
+  let i=0;
+  while(i<q.length){
+    const c=q[i++]; const cd=dirs.get(pk(c.q,c.r));
+    for(const [dq,dr] of HD){
+      const nb=pm.get(pk(c.q+dq,c.r+dr));
+      if(!nb||!hasGear(nb,pl)) continue;
+      const key=pk(nb.q,nb.r);
+      if(!dirs.has(key)){ dirs.set(key,-cd); q.push(nb); }
+    }
+  }
+  const conflicts=new Set();
+  for(const p of pegs){
+    if(!hasGear(p,pl)) continue;
+    const d=dirs.get(pk(p.q,p.r)); if(d===undefined) continue;
+    for(const [dq,dr] of HD){
+      const nb=pm.get(pk(p.q+dq,p.r+dr));
+      if(!nb||!hasGear(nb,pl)) continue;
+      const nd=dirs.get(pk(nb.q,nb.r));
+      if(nd!==undefined&&nd===d){ conflicts.add(pk(p.q,p.r)); conflicts.add(pk(nb.q,nb.r)); }
+    }
+  }
+  return {dirs,conflicts};
+}
+
+function checkWin(pegs,dirs,conflicts){
+  if(conflicts.size>0) return false;
+  for(const p of pegs){
+    if(p.type!==TGT) continue;
+    if(dirs.get(pk(p.q,p.r))!==p.dir) return false;
+  }
+  return true;
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────────
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+const W=canvas.width, H=canvas.height;
+let OX=W/2, OY=H/2;
+
+function centreOrigin(pegs){
+  const xs=pegs.map(p=>hpx(p.q,p.r,0,0)[0]);
+  const ys=pegs.map(p=>hpx(p.q,p.r,0,0)[1]);
+  OX=W/2-(Math.min(...xs)+Math.max(...xs))/2;
+  OY=H/2-(Math.min(...ys)+Math.max(...ys))/2;
+}
+
+function arcArrow(x,y,r,dir,col,alpha){
+  ctx.save();
+  ctx.globalAlpha=alpha; ctx.strokeStyle=col; ctx.lineWidth=1.5; ctx.lineCap='round';
+  const sa=-Math.PI*0.55, ea=sa+dir*Math.PI*1.5;
+  ctx.beginPath(); ctx.arc(x,y,r,sa,ea,dir<0); ctx.stroke();
+  const tx=x+Math.cos(ea)*r, ty=y+Math.sin(ea)*r;
+  const ta=ea+dir*Math.PI/2, hs=5;
+  ctx.beginPath();
+  ctx.moveTo(tx,ty); ctx.lineTo(tx-Math.cos(ta-0.45)*hs,ty-Math.sin(ta-0.45)*hs);
+  ctx.moveTo(tx,ty); ctx.lineTo(tx-Math.cos(ta+0.45)*hs,ty-Math.sin(ta+0.45)*hs);
+  ctx.stroke(); ctx.restore();
+}
+
+function drawGear(x,y,fill,stroke,dir,spin,t,glow){
+  ctx.save();
+  if(glow){ctx.shadowColor=glow;ctx.shadowBlur=14;}
+  ctx.beginPath(); ctx.arc(x,y,GR,0,Math.PI*2);
+  ctx.fillStyle=fill; ctx.fill();
+  ctx.strokeStyle=stroke; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.shadowBlur=0;
+  const a=spin?dir*t*(Math.PI*2/4):-Math.PI/2;
+  ctx.beginPath(); ctx.moveTo(x,y);
+  ctx.lineTo(x+Math.cos(a)*(GR-5),y+Math.sin(a)*(GR-5));
+  ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=2; ctx.lineCap='round'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.fill();
+  ctx.restore();
+}
+
+function draw(t){
+  const lv=LEVELS[curLevel];
+  const {dirs,conflicts}=computeState(lv.pegs,placed);
+  const pm=buildMap(lv.pegs);
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#0d0d0f'; ctx.fillRect(0,0,W,H);
+
+  // Edges
+  for(const p of lv.pegs){
+    const [px,py]=hpx(p.q,p.r,OX,OY);
+    for(const [dq,dr] of HD){
+      const nq=p.q+dq,nr=p.r+dr;
+      if(nq<p.q||(nq===p.q&&nr<p.r)) continue;
+      const nb=pm.get(pk(nq,nr)); if(!nb) continue;
+      const [nx,ny]=hpx(nq,nr,OX,OY);
+      const bothGear=hasGear(p,placed)&&hasGear(nb,placed);
+      const active=bothGear&&!conflicts.has(pk(p.q,p.r))&&!conflicts.has(pk(nq,nr))
+                   &&dirs.has(pk(p.q,p.r))&&dirs.has(pk(nq,nr));
+      ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(nx,ny);
+      ctx.strokeStyle=active?'#252838':'#181820'; ctx.lineWidth=active?2:1; ctx.stroke();
+    }
+  }
+
+  // Gears & pegs
+  for(const p of lv.pegs){
+    const [x,y]=hpx(p.q,p.r,OX,OY);
+    const key=pk(p.q,p.r);
+    const d=dirs.get(key);
+    const spin=d!==undefined&&!conflicts.has(key);
+    const bad=conflicts.has(key);
+
+    if(p.type===SRC){
+      drawGear(x,y, bad?'#8a1a26':'#1e3a8a', bad?'rgba(239,74,90,0.6)':'rgba(80,120,255,0.45)',
+               p.dir, spin, t, bad?'#ef4a5a':'#3060ef');
+
+    } else if(p.type===TGT){
+      const lit=spin&&d===p.dir;
+      if(lit){
+        drawGear(x,y,'#112a1a','#3adf7a',p.dir,true,t,'#3adf7a');
+      } else {
+        // Ring with direction arrow
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x,y,GR,0,Math.PI*2);
+        ctx.strokeStyle=bad?'#ef4a5a':'#4a3a7a'; ctx.lineWidth=2;
+        ctx.setLineDash([4,3]); ctx.stroke(); ctx.setLineDash([]);
+        ctx.restore();
+        arcArrow(x,y,GR-6,p.dir,bad?'#ef4a5a':'#7a6aaa',0.8);
+      }
+
+    } else { // EMP
+      if(placed.has(key)){
+        const fill=bad?'#6a1a20':(spin?'#404860':'#282838');
+        const stroke=bad?'rgba(239,74,90,0.6)':(spin?'rgba(120,135,180,0.4)':'rgba(70,70,100,0.3)');
+        drawGear(x,y,fill,stroke,d||CW,spin,t,bad?'#ef4a5a':(spin?'#5a6a90':null));
+      } else {
+        ctx.beginPath(); ctx.arc(x,y,PR,0,Math.PI*2);
+        ctx.fillStyle='#1e1e2e'; ctx.fill();
+        ctx.strokeStyle='#32324a'; ctx.lineWidth=1; ctx.stroke();
+      }
+    }
+  }
+}
+
+// ── Game state ────────────────────────────────────────────────────────────────
+let curLevel=0, placed=new Set(), gearsLeft=0, won=false;
+
+function updateTray(){
+  const tray=document.getElementById('tray');
+  tray.innerHTML='';
+  for(let i=0;i<gearsLeft;i++){const d=document.createElement('div');d.className='tg';tray.appendChild(d);}
+}
+
+function loadLevel(){
+  const lv=LEVELS[curLevel];
+  placed=new Set(); gearsLeft=lv.gears; won=false;
+  document.getElementById('win-overlay').classList.remove('show');
+  document.getElementById('lvl-num').textContent='LEVEL '+(curLevel+1);
+  document.getElementById('lvl-name').textContent=lv.name;
+  document.getElementById('hint').textContent=lv.hint||'';
+  centreOrigin(lv.pegs); updateTray();
+}
+
+canvas.addEventListener('click',ev=>{
+  if(won){if(curLevel<LEVELS.length-1){curLevel++;loadLevel();}return;}
+  const rc=canvas.getBoundingClientRect();
+  const mx=ev.clientX-rc.left, my=ev.clientY-rc.top;
+  const lv=LEVELS[curLevel]; let best=null,bd=Infinity;
+  for(const p of lv.pegs){
+    if(p.type!==EMP) continue;
+    const [px,py]=hpx(p.q,p.r,OX,OY);
+    const d=Math.hypot(mx-px,my-py);
+    if(d<bd&&d<HITR){bd=d;best=p;}
+  }
+  if(!best) return;
+  const key=pk(best.q,best.r);
+  if(placed.has(key)){placed.delete(key);gearsLeft++;}
+  else if(gearsLeft>0){placed.add(key);gearsLeft--;}
+  updateTray();
+  const lv2=LEVELS[curLevel];
+  const {dirs,conflicts}=computeState(lv2.pegs,placed);
+  won=checkWin(lv2.pegs,dirs,conflicts);
+  document.getElementById('win-overlay').classList.toggle('show',won);
+});
+
+document.getElementById('btn-prev').onclick=()=>{if(curLevel>0){curLevel--;loadLevel();}};
+document.getElementById('btn-next').onclick=()=>{if(curLevel<LEVELS.length-1){curLevel++;loadLevel();}};
+document.getElementById('btn-reset').onclick=()=>loadLevel();
+
+const rulesOverlay=document.getElementById('rules-overlay');
+document.getElementById('btn-help').onclick=()=>rulesOverlay.classList.add('show');
+document.getElementById('rules-close').onclick=()=>rulesOverlay.classList.remove('show');
+rulesOverlay.addEventListener('click',e=>{if(e.target===rulesOverlay)rulesOverlay.classList.remove('show');});
+
+(function loop(ts){draw(ts/1000);requestAnimationFrame(loop);})(0);
+loadLevel();
+</script>
+</body>
+</html>

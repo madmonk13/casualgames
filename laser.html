@@ -45,6 +45,18 @@ main {
 }
 .level-name {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.level-num {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.level-title {
   font-size: 1em;
   font-weight: 700;
   color: #f0e0a0;
@@ -169,16 +181,6 @@ main {
   background: rgba(255,50,50,0.3);
 }
 
-/* ── Instructions ── */
-.instructions {
-  font-size: 0.78em;
-  color: rgba(255,255,255,0.35);
-  line-height: 1.6;
-  background: #1a2534;
-  border-radius: 10px;
-  padding: 10px 14px;
-}
-.instructions strong { color: rgba(255,255,255,0.6); }
 
 /* ── Win overlay ── */
 .win-overlay {
@@ -229,6 +231,50 @@ main {
   width: 100%;
 }
 .btn-replay:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ── Tutorial modal ── */
+.tutorial-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.tutorial-overlay.show { display: flex; }
+.tutorial-box {
+  background: #162030;
+  border-radius: 20px;
+  padding: 28px 30px;
+  max-width: 380px;
+  width: 100%;
+  border: 1px solid rgba(240,192,64,0.3);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+}
+.tutorial-box h2 { font-size: 1.25em; color: #f0c040; margin-bottom: 14px; }
+.tutorial-body { font-size: 0.87em; color: rgba(255,255,255,0.75); line-height: 1.65; }
+.tutorial-body p { margin-bottom: 8px; }
+.tutorial-body .icon-row {
+  display: flex; align-items: flex-start; gap: 10px; margin: 7px 0;
+}
+.tutorial-body .icon-row .icon { font-size: 1.1em; flex-shrink: 0; line-height: 1.4; }
+.tutorial-body strong { color: #f0e0a0; }
+.tutorial-body em { color: rgba(255,255,255,0.9); font-style: normal; font-weight: 600; }
+.color-r { color: #ff5555; font-weight: 700; }
+.color-g { color: #55ff88; font-weight: 700; }
+.color-b { color: #5599ff; font-weight: 700; }
+.color-y { color: #ffee00; font-weight: 700; }
+.color-m { color: #ff44ff; font-weight: 700; }
+.color-c { color: #00ffee; font-weight: 700; }
+.btn-tutorial-close {
+  display: block; width: 100%; margin-top: 20px; padding: 11px 0;
+  background: linear-gradient(135deg,#f0c040,#d4a010);
+  color: #2a1800; font-weight: 800; font-size: 0.95em;
+  border: none; border-radius: 10px; cursor: pointer;
+}
+.btn-tutorial-close:hover { background: linear-gradient(135deg,#ffe060,#e8b820); }
 </style>
 </head>
 <body>
@@ -236,8 +282,16 @@ main {
 <header>
   <a href="index.html">← Games</a>
   <h1>🔴 Laser Lab</h1>
-  <div class="hdr-level">Level <span id="hdr-num">1</span>/30</div>
+  <div class="hdr-level">Level <span id="hdr-num">1</span>/<span id="hdr-total">35</span></div>
 </header>
+
+<div class="tutorial-overlay" id="tutorial-overlay">
+  <div class="tutorial-box">
+    <h2 id="tutorial-title"></h2>
+    <div class="tutorial-body" id="tutorial-body"></div>
+    <button class="btn-tutorial-close" onclick="closeTutorial()">Got it! ›</button>
+  </div>
+</div>
 
 <div class="win-overlay" id="win-overlay">
   <div class="win-box">
@@ -250,7 +304,10 @@ main {
 
 <main>
   <div class="level-bar">
-    <div class="level-name" id="level-name">Level 1</div>
+    <div class="level-name">
+      <div class="level-num" id="level-num">Level 1</div>
+      <div class="level-title" id="level-title">—</div>
+    </div>
     <button class="btn-sm" onclick="resetLevel()">↺ Reset</button>
     <button class="btn-sm" id="btn-prev" onclick="changeLevel(-1)">‹ Prev</button>
     <button class="btn-sm primary" id="btn-next-bar" onclick="changeLevel(1)">Next ›</button>
@@ -269,13 +326,6 @@ main {
     <div class="tray" id="tray"></div>
   </div>
 
-  <div class="instructions">
-    <strong>Mirrors</strong> (╱ ╲) reflect the beam 90°. &nbsp;
-    <strong>Splitter</strong> (✦) creates 3 beams: straight, ╱, and ╲ simultaneously. &nbsp;
-    <strong>Filters</strong> (🔴🟢🔵) only pass matching laser color.
-    Mix colors: R+G=Yellow, R+B=Magenta, G+B=Cyan. &nbsp;
-    Aim every beam at its matching <strong>target</strong>.
-  </div>
 </main>
 
 <script>
@@ -342,7 +392,8 @@ const W = { type: WALL };
 const LEVELS = [
   // ── EASY ──────────────────────────────────────
   {
-    name: 'Straight Shot',
+    name: 'Mr. Blue Sky',
+    tutorialKey: 'how-to-play',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -355,7 +406,8 @@ const LEVELS = [
     pieces: [],
   },
   {
-    name: 'First Bounce',
+    name: 'Shine a Little Love',
+    tutorialKey: 'mirrors',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -368,7 +420,7 @@ const LEVELS = [
     pieces: [{type:MIRROR_F, count:1}],
   },
   {
-    name: 'Corner Turn',
+    name: 'Strange Magic',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -381,33 +433,47 @@ const LEVELS = [
     pieces: [{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
   },
   {
-    name: 'Two Mirrors',
+    // NEW — two-bounce, no wall; beam must go right→down→left to reach same-column target
+    name: 'Telephone Line',
     grid: [
-      [0,0,0,0,0,0,0],
       [E(B,0),0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+      [T(B),0,0,0,0,0,0],
     ],
-    pieces: [{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+    pieces: [{type:MIRROR_F,count:1},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Zigzag',
+    name: '10538 Overture',
     grid: [
-      [E(R,0),0,0,0,0,0,0],
+      [E(B,0),0,0,W,0,0,T(B)],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
     ],
     pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Wall Around',
+    name: 'Ma-Ma-Ma Belle',
+    grid: [
+      [0,0,0,E(R,1),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(R),0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Evil Woman',
     grid: [
       [E(G,0),0,0,0,0,0,0],
       [0,0,0,W,0,0,0],
@@ -420,7 +486,8 @@ const LEVELS = [
     pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Split Intro',
+    name: 'Rock \'n\' Roll Is King',
+    tutorialKey: 'splitter',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -433,12 +500,12 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
   },
   {
-    name: 'Green Split',
+    name: 'Turn to Stone',
     grid: [
-      [0,0,0,T(G),0,0,0],
+      [T(G),0,0,0,0,0,T(G)],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [E(G,0),0,0,0,0,0,T(G)],
+      [0,0,0,E(G,1),0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,T(G),0,0,0],
@@ -446,12 +513,13 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
   },
   {
-    name: 'Red Filter',
+    name: 'Fire on High',
+    tutorialKey: 'filters',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [E(R,0),0,0,0,0,0,T(R)],
+      [E(R|G|B,0),0,0,0,0,0,T(R)],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -459,22 +527,37 @@ const LEVELS = [
     pieces: [{type:FILTER_R,count:1}],
   },
   {
-    name: 'Color Block',
+    // NEW — filter alone won't reach the target; mirror also required
+    name: 'Rockaria!',
+    grid: [
+      [0,0,0,E(R|G|B,1),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:FILTER_R,count:1},{type:MIRROR_B,count:1},{type:MIRROR_F,count:1}],
+  },
+  {
+    name: 'Don\'t Bring Me Down',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,T(R)],
-      [E(R,0),0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,0],
       [0,0,0,0,0,0,T(B)],
       [0,0,0,0,0,0,0],
-      [0,0,0,E(B,3),0,0,0],
+      [0,0,0,E(R|G|B,3),0,0,0],
     ],
     pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:FILTER_R,count:1},{type:FILTER_B,count:1}],
   },
 
   // ── MEDIUM ────────────────────────────────────
   {
-    name: 'Yellow Mix',
+    name: 'Can\'t Get It Out of My Head',
+    tutorialKey: 'mixing',
     grid: [
       [0,0,0,0,0,0,0],
       [E(R,1),0,0,0,0,0,0],
@@ -487,46 +570,34 @@ const LEVELS = [
     pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
   },
   {
-    name: 'Cyan Target',
+    name: 'Twilight',
     grid: [
+      [0,0,0,T(G|B),0,0,0],
       [0,0,0,0,0,0,0],
-      [E(G,0),0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(G|B)],
+      [E(G,0),0,0,W,0,0,E(B,2)],
       [0,0,0,0,0,0,0],
-      [E(B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
     ],
     pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
   },
   {
-    name: 'Magenta Mix',
+    name: 'Wild West Hero',
     grid: [
       [0,0,0,T(R|B),0,0,0],
       [0,0,0,0,0,0,0],
-      [E(R,0),0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [E(B,0),0,0,0,0,0,0],
+      [E(R,0),0,0,0,0,0,E(B,3)],
+      [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
     ],
     pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
   },
   {
-    name: 'Duo Filter',
-    grid: [
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-      [E(R,0),0,0,0,0,0,T(R)],
-      [0,0,0,0,0,0,0],
-      [E(G,0),0,0,0,0,0,T(G)],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-    ],
-    pieces: [{type:MIRROR_F,count:2},{type:FILTER_R,count:1},{type:FILTER_G,count:1}],
-  },
-  {
-    name: 'Filter Wall',
+    // Filter Wall moved earlier — single filter, teaches concept cleanly before Duo Filter
+    name: 'Livin\' Thing',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -539,7 +610,21 @@ const LEVELS = [
     pieces: [{type:FILTER_G,count:1}],
   },
   {
-    name: 'Three Targets',
+    // Duo Filter now after the simpler single-filter level
+    name: 'The Diary of Horace Wimp',
+    grid: [
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(R)],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(G)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:FILTER_R,count:1},{type:FILTER_G,count:1}],
+  },
+  {
+    name: 'Showdown',
     grid: [
       [0,0,0,T(R),0,0,0],
       [0,0,0,0,0,0,0],
@@ -552,7 +637,7 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:2},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
   },
   {
-    name: 'Blue Maze',
+    name: 'Bluebird',
     grid: [
       [E(B,1),0,0,0,0,0,0],
       [0,W,0,W,0,W,0],
@@ -565,7 +650,7 @@ const LEVELS = [
     pieces: [{type:MIRROR_F,count:3},{type:MIRROR_B,count:3}],
   },
   {
-    name: 'RGB Trio',
+    name: 'All Over the World',
     grid: [
       [0,0,0,T(R),0,0,0],
       [0,0,0,0,0,0,0],
@@ -578,7 +663,7 @@ const LEVELS = [
     pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
   },
   {
-    name: 'Redirect',
+    name: 'Sweet Talkin\' Woman',
     grid: [
       [0,0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
@@ -591,7 +676,7 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Color Cross',
+    name: 'Hold On Tight',
     grid: [
       [0,0,0,T(R|G),0,0,0],
       [0,0,0,0,0,0,0],
@@ -606,33 +691,7 @@ const LEVELS = [
 
   // ── HARD ──────────────────────────────────────
   {
-    name: 'Prism',
-    grid: [
-      [0,0,0,T(R),0,0,0],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(G)],
-      [E(R|G|B,0),0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(B)],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-    ],
-    pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
-  },
-  {
-    name: 'Crisscross',
-    grid: [
-      [E(R,1),0,0,0,0,0,E(G,1)],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0],
-      [T(G),0,0,0,0,0,T(R)],
-    ],
-    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
-  },
-  {
-    name: 'White Light',
+    name: 'Don\'t Walk Away',
     grid: [
       [0,0,0,0,0,0,0],
       [E(R,0),0,0,0,0,0,0],
@@ -645,7 +704,33 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Filter Maze',
+    name: 'Here Is the News',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(G)],
+      [E(R|G|B,0),0,0,0,0,0,0],
+      [0,0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+    ],
+    pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
+  },
+  {
+    name: 'Secret Messages',
+    grid: [
+      [E(R,1),0,0,0,0,0,E(G,1)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(G),0,0,0,0,0,T(R)],
+    ],
+    pieces: [{type:MIRROR_F,count:2},{type:MIRROR_B,count:2},{type:SPLITTER,count:1}],
+  },
+  {
+    name: 'Calling America',
     grid: [
       [0,0,0,T(R),0,0,0],
       [0,0,0,0,0,0,0],
@@ -658,20 +743,20 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:1},{type:FILTER_R,count:1},{type:FILTER_G,count:1}],
   },
   {
-    name: 'Cascade',
+    name: 'Boy Blue',
     grid: [
-      [E(R,0),0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(R)],
-      [E(G,0),0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(G)],
-      [E(B,0),0,0,0,0,0,0],
-      [0,0,0,0,0,0,T(B)],
+      [0,0,0,E(R|G|B,1),0,0,0],
       [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(R),0,0,T(G),0,0,T(B)],
     ],
-    pieces: [{type:MIRROR_F,count:3},{type:MIRROR_B,count:3}],
+    pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1},{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1}],
   },
   {
-    name: 'Split and Filter',
+    name: 'Do Ya',
     grid: [
       [0,0,0,T(R),0,0,0],
       [0,0,0,0,0,0,0],
@@ -684,7 +769,7 @@ const LEVELS = [
     pieces: [{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:SPLITTER,count:2},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Labyrinth',
+    name: 'Xanadu',
     grid: [
       [E(R,0),0,W,0,W,0,0],
       [0,0,W,0,W,0,0],
@@ -697,20 +782,20 @@ const LEVELS = [
     pieces: [{type:MIRROR_F,count:4},{type:MIRROR_B,count:4}],
   },
   {
-    name: 'Full Spectrum',
+    name: 'Wishing',
     grid: [
-      [E(R,0),0,0,0,0,0,0],
+      [E(R,0),0,0,T(B),0,0,E(G,1)],
       [0,0,0,0,0,0,0],
-      [E(G,0),0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [E(B,0),0,0,0,0,0,0],
       [0,0,0,0,0,0,0],
-      [0,0,0,T(R|G|B),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(G),0,0,E(B,3),0,0,T(R)],
     ],
-    pieces: [{type:SPLITTER,count:3},{type:MIRROR_F,count:3},{type:MIRROR_B,count:3}],
+    pieces: [{type:SPLITTER,count:1},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Starburst',
+    name: 'Four Little Diamonds',
     grid: [
       [0,0,0,T(R),0,0,0],
       [0,0,0,0,0,0,0],
@@ -723,7 +808,49 @@ const LEVELS = [
     pieces: [{type:SPLITTER,count:3},{type:MIRROR_F,count:2},{type:MIRROR_B,count:2}],
   },
   {
-    name: 'Grand Finale',
+    // NEW — white emitter fires right, SPL in center sends arms to 3 filtered targets
+    name: 'Ticket to the Moon',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,T(G),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:1},{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1}],
+  },
+  {
+    // NEW — 3 emitters (R↓, B→, G←), 3 mixed-color targets; each needs 2 colors
+    name: 'Confusion',
+    grid: [
+      [E(R,1),0,0,0,0,T(G|B),0],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [E(B,0),0,0,0,0,0,T(R|B)],
+      [0,0,0,0,0,0,0],
+      [0,0,0,0,0,0,0],
+      [T(R|G),0,0,0,0,0,E(G,2)],
+    ],
+    pieces: [{type:SPLITTER,count:3},{type:MIRROR_B,count:1},{type:MIRROR_F,count:1}],
+  },
+  {
+    // NEW — white emitter blocked by walls from using obvious center hub; must shift SPL
+    name: 'Tightrope',
+    grid: [
+      [0,0,0,T(R),0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [E(R|G|B,0),0,0,0,0,0,T(B)],
+      [0,0,0,W,0,0,0],
+      [0,0,0,W,0,0,0],
+      [0,0,0,T(G),0,0,0],
+    ],
+    pieces: [{type:SPLITTER,count:1},{type:FILTER_R,count:1},{type:FILTER_G,count:1},{type:FILTER_B,count:1},{type:MIRROR_F,count:1},{type:MIRROR_B,count:1}],
+  },
+  {
+    name: 'Afterglow',
     grid: [
       [E(R,0),0,0,0,0,0,E(B,2)],
       [0,0,0,0,0,0,0],
@@ -738,6 +865,79 @@ const LEVELS = [
 ];
 
 // ═══════════════════════════════════════════════
+// TUTORIALS
+// ═══════════════════════════════════════════════
+const TUTORIALS = {
+  'how-to-play': {
+    title: '🔴 Welcome to Laser Lab!',
+    body: `
+      <p>Route the laser beam from its <strong>emitter</strong> to every glowing <strong>target</strong> to solve the level.</p>
+      <div class="icon-row"><span class="icon">⚡</span><span>Tap <strong>Laser OFF</strong> to fire the beam. Tap it again to switch off.</span></div>
+      <div class="icon-row"><span class="icon">📦</span><span>Tap a <strong>piece in the tray</strong> to select it, then tap any empty grid cell to place it.</span></div>
+      <div class="icon-row"><span class="icon">↺</span><span>Tap a <strong>placed piece</strong> to remove it and return it to the tray.</span></div>
+      <p style="margin-top:8px">When all targets glow with the correct color — you win! ✨</p>
+    `
+  },
+  'mirrors': {
+    title: '╱ ╲  Mirrors',
+    body: `
+      <p>Mirrors deflect the laser 90° — use them to steer the beam around corners.</p>
+      <div class="icon-row"><span class="icon">╱</span><span><strong>Forward mirror</strong> — a beam going right goes UP; a beam going down goes LEFT.</span></div>
+      <div class="icon-row"><span class="icon">╲</span><span><strong>Back mirror</strong> — a beam going right goes DOWN; a beam going up goes RIGHT.</span></div>
+      <p style="margin-top:8px">Two mirrors together can reach any corner of the grid!</p>
+    `
+  },
+  'splitter': {
+    title: '✦  Prism',
+    body: `
+      <p>The <em>✦ Prism</em> creates <strong>three beams</strong> from one:</p>
+      <div class="icon-row"><span class="icon">→</span><span>The beam <strong>continues straight</strong> through.</span></div>
+      <div class="icon-row"><span class="icon">╱</span><span>A copy reflects off the <strong>╱ face</strong>.</span></div>
+      <div class="icon-row"><span class="icon">╲</span><span>A copy reflects off the <strong>╲ face</strong>.</span></div>
+      <p style="margin-top:8px">Place a Prism to light <strong>multiple targets</strong> with a single emitter!</p>
+    `
+  },
+  'filters': {
+    title: '🔴🟢🔵  White Light & Filters',
+    body: `
+      <p>Some emitters fire <strong>white light</strong> — a mix of all three colors combined.</p>
+      <div class="icon-row"><span class="icon">🔴</span><span><strong>Red filter</strong> — passes only red light; absorbs green and blue.</span></div>
+      <div class="icon-row"><span class="icon">🟢</span><span><strong>Green filter</strong> — passes only green light.</span></div>
+      <div class="icon-row"><span class="icon">🔵</span><span><strong>Blue filter</strong> — passes only blue light.</span></div>
+      <p style="margin-top:8px">Place a filter anywhere on the beam path to <strong>extract</strong> exactly one color from white light.</p>
+    `
+  },
+  'mixing': {
+    title: '🎨  Color Mixing',
+    body: `
+      <p>When two beams meet at the same cell, their colors <strong>add together</strong>!</p>
+      <div class="icon-row"><span class="color-r">●</span><span>+</span><span class="color-g">●</span><span>=</span><span class="color-y">●</span><span><strong>Red + Green = Yellow</strong></span></div>
+      <div class="icon-row"><span class="color-r">●</span><span>+</span><span class="color-b">●</span><span>=</span><span class="color-m">●</span><span><strong>Red + Blue = Magenta</strong></span></div>
+      <div class="icon-row"><span class="color-g">●</span><span>+</span><span class="color-b">●</span><span>=</span><span class="color-c">●</span><span><strong>Green + Blue = Cyan</strong></span></div>
+      <p style="margin-top:8px">Some targets require a <strong>mixed color</strong> — route two different-colored beams to the same spot!</p>
+    `
+  },
+};
+
+let _pendingTutKey = null;
+
+function showTutorial(key) {
+  const tut = TUTORIALS[key];
+  if (!tut) return;
+  document.getElementById('tutorial-title').textContent = tut.title;
+  document.getElementById('tutorial-body').innerHTML = tut.body;
+  document.getElementById('tutorial-overlay').classList.add('show');
+}
+
+function closeTutorial() {
+  document.getElementById('tutorial-overlay').classList.remove('show');
+  if (_pendingTutKey) {
+    try { localStorage.setItem('laser_tut_' + _pendingTutKey, '1'); } catch(e) {}
+    _pendingTutKey = null;
+  }
+}
+
+// ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
 let levelIdx   = 0;
@@ -747,6 +947,7 @@ let trayPieces = [];       // [{type, count, used}]
 let selectedPiece = null;  // type string or null
 let beams      = [];       // computed laser segments for drawing
 let laserActive = false;   // laser starts off
+let _laserAnimId = null;   // requestAnimationFrame handle for glow pulse
 
 // ═══════════════════════════════════════════════
 // CANVAS SETUP
@@ -766,7 +967,9 @@ function loadLevel(idx) {
   levelIdx = idx;
   const lvl = LEVELS[idx];
   document.getElementById('hdr-num').textContent  = idx + 1;
-  document.getElementById('level-name').textContent = `Level ${idx+1} — ${lvl.name}`;
+  document.getElementById('hdr-total').textContent = LEVELS.length;
+  document.getElementById('level-num').textContent   = `Level ${idx+1}`;
+  document.getElementById('level-title').textContent = lvl.name;
   document.getElementById('btn-prev').disabled = idx === 0;
   document.getElementById('btn-next-bar').disabled = idx === LEVELS.length - 1;
   document.getElementById('btn-next').textContent =
@@ -784,6 +987,7 @@ function loadLevel(idx) {
 
   // Reset laser to OFF
   laserActive = false;
+  stopLaserAnim();
   beams = [];
   const btnLaser = document.getElementById('btn-laser');
   if (btnLaser) { btnLaser.textContent = '◉ Laser OFF'; btnLaser.className = 'btn-laser off'; }
@@ -791,6 +995,17 @@ function loadLevel(idx) {
   renderTray();
   traceBeams();
   draw();
+
+  // Show tutorial if this level introduces a new concept
+  const tKey = lvl.tutorialKey;
+  if (tKey) {
+    let shown = false;
+    try { shown = !!localStorage.getItem('laser_tut_' + tKey); } catch(e) {}
+    if (!shown) {
+      _pendingTutKey = tKey;
+      setTimeout(() => showTutorial(tKey), 350);
+    }
+  }
 }
 
 function resetLevel() {
@@ -808,6 +1023,19 @@ function nextLevel() {
   }
 }
 
+function startLaserAnim() {
+  if (_laserAnimId !== null) return;
+  function loop() {
+    if (!laserActive) { _laserAnimId = null; return; }
+    draw();
+    _laserAnimId = requestAnimationFrame(loop);
+  }
+  _laserAnimId = requestAnimationFrame(loop);
+}
+function stopLaserAnim() {
+  if (_laserAnimId !== null) { cancelAnimationFrame(_laserAnimId); _laserAnimId = null; }
+}
+
 function toggleLaser() {
   laserActive = !laserActive;
   const btn = document.getElementById('btn-laser');
@@ -815,10 +1043,12 @@ function toggleLaser() {
     btn.textContent = '◉ Laser ON';
     btn.className = 'btn-laser on';
     traceBeams();
+    startLaserAnim();
   } else {
     btn.textContent = '◉ Laser OFF';
     btn.className = 'btn-laser off';
     beams = [];
+    stopLaserAnim();
   }
   draw();
 }
@@ -838,7 +1068,21 @@ function renderTray() {
     div.className = 'tray-piece' +
       (selectedPiece === p.type ? ' selected' : '') +
       ((p.count - p.used) <= 0 ? ' used' : '');
-    div.textContent = PIECE_GLYPH[p.type] || p.type;
+    // All player pieces get canvas glyphs (matches the grid drawing exactly)
+    {
+      const cvs = document.createElement('canvas');
+      cvs.width = 46; cvs.height = 46;
+      cvs.style.display = 'block';
+      const tc = cvs.getContext('2d');
+      if      (p.type === SPLITTER)  drawPrismGlyph(tc, 23, 23);
+      else if (p.type === MIRROR_F)  drawMirrorGlyph(tc, 23, 23, MIRROR_F);
+      else if (p.type === MIRROR_B)  drawMirrorGlyph(tc, 23, 23, MIRROR_B);
+      else if (p.type === FILTER_R)  drawFilterGlyph(tc, 23, 23, COLOR_HEX[R]);
+      else if (p.type === FILTER_G)  drawFilterGlyph(tc, 23, 23, COLOR_HEX[G]);
+      else if (p.type === FILTER_B)  drawFilterGlyph(tc, 23, 23, COLOR_HEX[B]);
+      else { cvs.remove(); div.textContent = PIECE_GLYPH[p.type] || p.type; }
+      if (cvs.parentNode !== div) div.appendChild(cvs);
+    }
     const rem = p.count - p.used;
     if (p.count > 1) {
       const cnt = document.createElement('span');
@@ -877,78 +1121,154 @@ function traceBeams() {
   beams = [];
   const lit = Array.from({length:ROWS}, () => Array(COLS).fill(0));
 
-  // Seed queue from emitters; draw a half-segment on the emitter cell itself
+  // ── Prism (SPLITTER) model ────────────────────────────────────────────────
+  // The prism routes beams based on which of its 4 sides receive inputs:
+  //   • Every side that receives NO input becomes an output.
+  //   • All inputs are OR-combined into one output color.
+  //   • 1 input → 3 outputs, 2 inputs → 2 outputs, 3 inputs → 1 output.
+  //
+  // Because outputs depend on the full set of inputs (which may arrive at
+  // different BFS times), we use an iterative approach:
+  //   1. BFS runs until the queue drains, collecting prism inputs.
+  //   2. Prism outputs are computed and enqueued.
+  //   3. Repeat until no new prism inputs appear.
+  //
+  // Direction encoding: a beam arriving at a prism in direction d (e.g. d=0
+  // means it is traveling RIGHT) enters through the opposite side (LEFT).
+  // The output direction for an unused side whose "would-be input dir" is d′
+  // is (d′+2)%4 (i.e. the beam exits going the other way through that side).
+
+  // prismInputs: for each prism cell "r,c" → [color0, color1, color2, color3]
+  // where index d holds the OR-combined color of beams entering in direction d.
+  const prismInputs = new Map();
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c]?.type === SPLITTER) {
+        prismInputs.set(`${r},${c}`, [0, 0, 0, 0]);
+      }
+    }
+  }
+
   const queue = [];
+  const visited = new Set();
+
+  // Seed from emitters
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const cell = grid[r][c];
       if (cell && cell.type === EMITTER) {
-        // inDir=null means "starts at center" — half-segment outward
         beams.push({r, c, inDir: null, outDir: cell.dir, color: cell.color});
         queue.push({r: r + DY[cell.dir], c: c + DX[cell.dir], dir: cell.dir, color: cell.color});
       }
     }
   }
 
-  const visited = new Set();
-  let iters = 0;
-  while (queue.length && iters < 2000) {
-    iters++;
-    const {r, c, dir, color} = queue.shift();
+  // Iterative BFS — loops only when prism inputs change (cascade through prisms)
+  let prismChanged = true;
+  let outerIters = 0;
+  while (prismChanged && outerIters < 20) {
+    prismChanged = false;
+    outerIters++;
 
-    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+    let iters = 0;
+    while (queue.length && iters < 2000) {
+      iters++;
+      const {r, c, dir, color} = queue.shift();
+      if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
 
-    const key = `${r},${c},${dir},${color}`;
-    if (visited.has(key)) continue;
-    visited.add(key);
+      const key = `${r},${c},${dir},${color}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
 
-    lit[r][c] |= color;
-    const cell = grid[r][c];
+      lit[r][c] |= color;
+      const cell = grid[r][c];
 
-    if (!cell) {
-      // Empty: straight through
-      beams.push({r, c, inDir: dir, outDir: dir, color});
-      queue.push({r: r + DY[dir], c: c + DX[dir], dir, color});
-    } else if (cell.type === WALL) {
-      // No beam segment drawn — beam terminates at the wall face (entry edge of this cell)
-    } else if (cell.type === TARGET) {
-      beams.push({r, c, inDir: dir, outDir: null, color}); // enters target, stops at center
-    } else if (cell.type === EMITTER) {
-      // No beam segment — hits emitter face and stops
-    } else if (cell.type === MIRROR_F) {
-      // / : right→up, down→left, left→down, up→right
-      const outDir = [3, 2, 1, 0][dir];
-      beams.push({r, c, inDir: dir, outDir, color});
-      queue.push({r: r + DY[outDir], c: c + DX[outDir], dir: outDir, color});
-    } else if (cell.type === MIRROR_B) {
-      // \ : right→down, down→right, left→up, up→left
-      const outDir = [1, 0, 3, 2][dir];
-      beams.push({r, c, inDir: dir, outDir, color});
-      queue.push({r: r + DY[outDir], c: c + DX[outDir], dir: outDir, color});
-    } else if (cell.type === SPLITTER) {
-      // True 3-way split: straight + reflects like / + reflects like \
-      const outF = [3, 2, 1, 0][dir]; // / reflection
-      const outB = [1, 0, 3, 2][dir]; // \ reflection
-      beams.push({r, c, inDir: dir, outDir: dir,  color}); // straight
-      beams.push({r, c, inDir: dir, outDir: outF, color}); // / branch
-      beams.push({r, c, inDir: dir, outDir: outB, color}); // \ branch
-      queue.push({r: r + DY[dir],  c: c + DX[dir],  dir,       color});
-      queue.push({r: r + DY[outF], c: c + DX[outF], dir: outF, color});
-      queue.push({r: r + DY[outB], c: c + DX[outB], dir: outB, color});
-    } else if (cell.type === FILTER_R) {
-      const passed = color & R;
-      if (passed) { beams.push({r, c, inDir: dir, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
-      else          beams.push({r, c, inDir: dir, outDir: null, color}); // absorbed
-    } else if (cell.type === FILTER_G) {
-      const passed = color & G;
-      if (passed) { beams.push({r, c, inDir: dir, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
-      else          beams.push({r, c, inDir: dir, outDir: null, color});
-    } else if (cell.type === FILTER_B) {
-      const passed = color & B;
-      if (passed) { beams.push({r, c, inDir: dir, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
-      else          beams.push({r, c, inDir: dir, outDir: null, color});
+      if (!cell) {
+        beams.push({r, c, inDir: dir, outDir: dir, color});
+        queue.push({r: r + DY[dir], c: c + DX[dir], dir, color});
+      } else if (cell.type === WALL) {
+        // absorbed — no segment
+      } else if (cell.type === TARGET) {
+        beams.push({r, c, inDir: dir, outDir: null, color});
+      } else if (cell.type === EMITTER) {
+        // absorbed — no segment
+      } else if (cell.type === MIRROR_F) {
+        const outDir = [3, 2, 1, 0][dir];
+        beams.push({r, c, inDir: dir, outDir, color});
+        queue.push({r: r + DY[outDir], c: c + DX[outDir], dir: outDir, color});
+      } else if (cell.type === MIRROR_B) {
+        const outDir = [1, 0, 3, 2][dir];
+        beams.push({r, c, inDir: dir, outDir, color});
+        queue.push({r: r + DY[outDir], c: c + DX[outDir], dir: outDir, color});
+      } else if (cell.type === SPLITTER) {
+        // Accumulate input; outputs are computed after the queue drains.
+        const inputs = prismInputs.get(`${r},${c}`);
+        const old = inputs[dir];
+        inputs[dir] |= color;
+        if (inputs[dir] !== old) prismChanged = true;
+      } else if (cell.type === FILTER_R) {
+        const passed = color & R;
+        beams.push({r, c, inDir: dir, outDir: null, color});          // input half: original color → centre
+        if (passed) { beams.push({r, c, inDir: null, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
+      } else if (cell.type === FILTER_G) {
+        const passed = color & G;
+        beams.push({r, c, inDir: dir, outDir: null, color});
+        if (passed) { beams.push({r, c, inDir: null, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
+      } else if (cell.type === FILTER_B) {
+        const passed = color & B;
+        beams.push({r, c, inDir: dir, outDir: null, color});
+        if (passed) { beams.push({r, c, inDir: null, outDir: dir, color: passed}); queue.push({r: r + DY[dir], c: c + DX[dir], dir, color: passed}); }
+      }
+    }
+
+    // After BFS drains: compute prism outputs and enqueue beams for next pass.
+    for (const [pk, inputs] of prismInputs) {
+      const combinedColor = inputs[0] | inputs[1] | inputs[2] | inputs[3];
+      if (!combinedColor) continue;
+      for (let d = 0; d < 4; d++) {
+        if (inputs[d]) continue; // side d is an input — skip
+        // Side d is unused → output. Exit direction = (d+2)%4.
+        const outDir = (d + 2) % 4;
+        const [pr, pc] = pk.split(',').map(Number);
+        const nr = pr + DY[outDir], nc = pc + DX[outDir];
+        const outKey = `${nr},${nc},${outDir},${combinedColor}`;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !visited.has(outKey)) {
+          queue.push({r: nr, c: nc, dir: outDir, color: combinedColor});
+          prismChanged = true;
+        }
+      }
     }
   }
+
+  // Add beam segments for prism cells (drawn separately so inputs and outputs
+  // each show their own color — inputs in source color, outputs in combined).
+  for (const [pk, inputs] of prismInputs) {
+    const combinedColor = inputs[0] | inputs[1] | inputs[2] | inputs[3];
+    if (!combinedColor) continue;
+    const [pr, pc] = pk.split(',').map(Number);
+    for (let d = 0; d < 4; d++) {
+      if (inputs[d]) {
+        // Input arm: beam arrives in direction d, terminates at prism centre.
+        beams.push({r: pr, c: pc, inDir: d, outDir: null, color: inputs[d]});
+      } else {
+        // Output arm: beam originates at centre, exits in direction (d+2)%4.
+        beams.push({r: pr, c: pc, inDir: null, outDir: (d + 2) % 4, color: combinedColor});
+      }
+    }
+  }
+
+  // Merge co-directional segments in the same cell (e.g. two beams both going
+  // RIGHT through an empty cell show as their combined color).
+  const segMap = new Map();
+  for (const seg of beams) {
+    const key = `${seg.r},${seg.c},${seg.inDir},${seg.outDir}`;
+    if (segMap.has(key)) {
+      segMap.get(key).color |= seg.color;
+    } else {
+      segMap.set(key, {...seg});
+    }
+  }
+  beams = Array.from(segMap.values());
 
   window._litMap = lit;
   if (laserActive) checkWin(lit);
@@ -1015,55 +1335,256 @@ function draw() {
 }
 
 function drawBeams() {
-  // Group by color for glow effect
+  // Direction-lane renderer.
+  //
+  // Every beam segment is drawn with a small lateral offset that is fixed for
+  // its direction of travel:
+  //   RIGHT (0) → above center  (dy = -off)
+  //   DOWN  (1) → left of center (dx = -off)
+  //   LEFT  (2) → below center  (dy = +off)
+  //   UP    (3) → right of center(dx = +off)
+  //
+  // Because the offset depends only on direction, all segments of the same
+  // beam share the same lane throughout their path — connections are seamless
+  // across cell boundaries.  Counter-propagating beams (e.g. R going down,
+  // G going up in the same column) always land on opposite lanes (dx=-off vs
+  // dx=+off) so both colors are visible with no paint-order conflicts or
+  // christmas-stripe artifacts.
+  //
+  // For bent segments (mirror / prism), the two half-segments (entry and exit)
+  // each use their own direction's offset and meet at the cell center, creating
+  // a small visual elbow — acceptable since a piece glyph is drawn there anyway.
+
+  const half = CELL / 2;
+  const off  = 0;  // beams run through exact cell centre
+
+  // Perpendicular offset per direction of travel.
+  // perp[d] = {dx, dy} to apply to the midpoint of the edge in that direction.
+  const perp = [
+    { dx:  0,   dy: -off }, // 0 RIGHT  → shift up
+    { dx: -off, dy:  0   }, // 1 DOWN   → shift left
+    { dx:  0,   dy:  off }, // 2 LEFT   → shift down
+    { dx:  off, dy:  0   }, // 3 UP     → shift right
+  ];
+
+  // Unit vector from cell centre toward each exit edge (= same as dir vector).
+  const edgeDX = [1,  0, -1,  0]; // right, down, left, up
+  const edgeDY = [0,  1,  0, -1];
+
   const byColor = {};
-  for (const b of beams) {
-    if (!byColor[b.color]) byColor[b.color] = [];
-    byColor[b.color].push(b);
+  const addSeg = (color, x1, y1, x2, y2) => {
+    if (!byColor[color]) byColor[color] = [];
+    byColor[color].push([x1, y1, x2, y2]);
+  };
+
+  for (const seg of beams) {
+    const { r, c, inDir, outDir, color } = seg;
+    const x  = c * CELL, y = r * CELL;
+    const cx = x + half,  cy = y + half;
+
+    // ── Entry point ───────────────────────────────────────────────────────
+    let x1, y1;
+    if (inDir === null) {
+      // Emitter: originate at the glyph centre so the beam visually emerges
+      // from the emitter dot.  The short diagonal to the lane within this cell
+      // is hidden under the emitter art.
+      x1 = cx; y1 = cy;
+    } else {
+      // Edge midpoint the beam arrives from + direction-lane offset.
+      // The entry edge is opposite to inDir, so subtract the dir vector.
+      const p = perp[inDir];
+      x1 = cx - edgeDX[inDir] * half + p.dx;
+      y1 = cy - edgeDY[inDir] * half + p.dy;
+    }
+
+    // ── Exit point ────────────────────────────────────────────────────────
+    let x2, y2;
+    if (outDir === null) {
+      // Terminator: beam ends at cell centre (absorbed by wall / target).
+      x2 = cx; y2 = cy;
+    } else {
+      const p = perp[outDir];
+      x2 = cx + edgeDX[outDir] * half + p.dx;
+      y2 = cy + edgeDY[outDir] * half + p.dy;
+    }
+
+    // ── Draw ─────────────────────────────────────────────────────────────
+    if (inDir !== null && outDir !== null && inDir !== outDir) {
+      // Bent segment (mirror): meet at the intersection of the two offset
+      // lanes rather than at the cell centre.  For e.g. DOWN→RIGHT the
+      // incoming lane runs at x = cx-off and the outgoing lane at y = cy-off;
+      // they meet at (cx-off, cy-off) — a clean right-angle corner with no jog.
+      const pi = perp[inDir], po = perp[outDir];
+      const kx = cx + pi.dx + po.dx;
+      const ky = cy + pi.dy + po.dy;
+      addSeg(color, x1, y1, kx, ky);
+      addSeg(color, kx, ky, x2, y2);
+    } else {
+      addSeg(color, x1, y1, x2, y2);
+    }
   }
 
-  for (const [colorKey, segs] of Object.entries(byColor)) {
+  // Animated glow pulse (uses Date.now so the animation loop keeps it alive)
+  const _t     = Date.now() / 600;
+  const _pulse = 0.5 + 0.5 * Math.sin(_t);   // 0 → 1
+  const outerBlur = 10 + _pulse * 12;          // 10 → 22
+
+  // Layer 1 — wide soft outer halo
+  for (const [colorKey, lines] of Object.entries(byColor)) {
     const hex = COLOR_HEX[colorKey] || '#ffffff';
     ctx.save();
+    ctx.globalAlpha = 0.5;
     ctx.strokeStyle = hex;
     ctx.shadowColor = hex;
-    ctx.shadowBlur = 10;
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    for (const seg of segs) {
-      const cx = seg.c * CELL + CELL/2;
-      const cy = seg.r * CELL + CELL/2;
-
-      // Entry point: edge the beam enters from.
-      // inDir=null means emitter — beam starts at center going outward.
-      let sx = cx, sy = cy;
-      if (seg.inDir !== null) {
-        sx = cx - DX[seg.inDir] * CELL/2;
-        sy = cy - DY[seg.inDir] * CELL/2;
-      }
-
-      // Exit point: edge the beam exits to.
-      // outDir=null means the beam terminates at center (wall/target).
-      let ex = cx, ey = cy;
-      if (seg.outDir !== null) {
-        ex = cx + DX[seg.outDir] * CELL/2;
-        ey = cy + DY[seg.outDir] * CELL/2;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      // Bent beam (mirror/splitter): route through center so the laser
-      // visually contacts the diagonal and doesn't bleed behind it.
-      if (seg.inDir !== null && seg.outDir !== null && seg.inDir !== seg.outDir) {
-        ctx.lineTo(cx, cy);
-      }
-      ctx.lineTo(ex, ey);
-      ctx.stroke();
-    }
+    ctx.shadowBlur  = outerBlur;
+    ctx.lineWidth   = 7;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2] of lines) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+    ctx.stroke();
     ctx.restore();
   }
+
+  // Layer 2 — thin bright white core
+  for (const [colorKey, lines] of Object.entries(byColor)) {
+    const hex = COLOR_HEX[colorKey] || '#ffffff';
+    ctx.save();
+    ctx.strokeStyle = '#ffffff';
+    ctx.shadowColor = hex;
+    ctx.shadowBlur  = 4;
+    ctx.lineWidth   = 1.5;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+    ctx.beginPath();
+    for (const [x1, y1, x2, y2] of lines) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+// ── Shared: mirror plate glyph (3D angled slab) ─────────────────────────────
+function drawMirrorGlyph(c, cx, cy, type) {
+  const angle = (type === MIRROR_F) ? -Math.PI / 4 : Math.PI / 4;
+  const mLen = 17;   // half-length along the mirror face
+  const mH   = 7;    // plate thickness (perpendicular to face)
+
+  c.save();
+  c.translate(cx, cy);
+  c.rotate(angle);
+
+  // Gradient across thickness: bright mirror face → dark back edge
+  const grad = c.createLinearGradient(0, -mH / 2, 0, mH / 2);
+  grad.addColorStop(0,    '#c8dff0');
+  grad.addColorStop(0.2,  '#7090b0');
+  grad.addColorStop(0.55, '#3a5060');
+  grad.addColorStop(1,    '#18262e');
+  roundRect(c, -mLen, -mH / 2, mLen * 2, mH, 3);
+  c.fillStyle = grad;
+  c.fill();
+
+  // Outer rim
+  c.strokeStyle = 'rgba(160,200,230,0.4)';
+  c.lineWidth = 1;
+  c.stroke();
+
+  // Specular highlight along the bright face
+  c.strokeStyle = 'rgba(230,245,255,0.8)';
+  c.lineWidth = 1.5;
+  c.lineCap = 'round';
+  c.beginPath();
+  c.moveTo(-mLen + 4, -mH / 2 + 1.5);
+  c.lineTo( mLen - 4, -mH / 2 + 1.5);
+  c.stroke();
+
+  c.restore();
+}
+
+// ── Shared: filter glyph (metallic ring + colored lens) ───────────────────────
+function drawFilterGlyph(c, cx, cy, colorHex) {
+  const outerR = 15;
+  const innerR = 10;
+
+  c.save();
+  c.translate(cx, cy);
+
+  // Metallic outer ring
+  const ringGrad = c.createRadialGradient(-3, -3, 0, 0, 0, outerR);
+  ringGrad.addColorStop(0,    '#7a8a9a');
+  ringGrad.addColorStop(0.4,  '#4a5a6a');
+  ringGrad.addColorStop(0.75, '#2a3a4a');
+  ringGrad.addColorStop(1,    '#18262e');
+  c.fillStyle = ringGrad;
+  c.beginPath(); c.arc(0, 0, outerR, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = 'rgba(160,195,220,0.55)';
+  c.lineWidth = 1;
+  c.stroke();
+
+  // Dark inset recess
+  c.fillStyle = '#0a1520';
+  c.beginPath(); c.arc(0, 0, innerR + 1, 0, Math.PI * 2); c.fill();
+
+  // Colored lens with glow
+  c.shadowColor = colorHex;
+  c.shadowBlur  = 12;
+  const lGrad = c.createRadialGradient(-innerR * 0.3, -innerR * 0.3, 0, 0, 0, innerR);
+  lGrad.addColorStop(0,    '#ffffff');
+  lGrad.addColorStop(0.3,  colorHex);
+  lGrad.addColorStop(0.7,  colorHex + '88');
+  lGrad.addColorStop(1,    colorHex + '33');
+  c.fillStyle = lGrad;
+  c.beginPath(); c.arc(0, 0, innerR, 0, Math.PI * 2); c.fill();
+
+  c.restore();
+}
+
+// ── Shared: 4-way tube junction glyph (prism) ────
+// Works on any canvas context; cx/cy are the glyph centre.
+function drawPrismGlyph(c, cx, cy) {
+  const hubR = 5, armLen = 14, armW = 9;
+  const rim  = 'rgba(160,195,220,0.55)';
+
+  c.save();
+  c.translate(cx, cy);
+
+  // Gradient helpers — cylindrical highlight per arm orientation
+  const mkH = () => {          // horizontal arms: lighter top → darker bottom
+    const g = c.createLinearGradient(0, -armW/2, 0, armW/2);
+    g.addColorStop(0,    '#6e7e8e');
+    g.addColorStop(0.35, '#3e4e5e');
+    g.addColorStop(1,    '#18262e');
+    return g;
+  };
+  const mkV = () => {          // vertical arms: lighter left → darker right
+    const g = c.createLinearGradient(-armW/2, 0, armW/2, 0);
+    g.addColorStop(0,    '#6e7e8e');
+    g.addColorStop(0.35, '#3e4e5e');
+    g.addColorStop(1,    '#18262e');
+    return g;
+  };
+
+  // Four arms radiating from hub
+  const arms = [
+    { rx: hubR,            ry: -armW/2, rw: armLen, rh: armW,   grad: mkH },  // right
+    { rx: -(hubR+armLen),  ry: -armW/2, rw: armLen, rh: armW,   grad: mkH },  // left
+    { rx: -armW/2,         ry: hubR,    rw: armW,   rh: armLen, grad: mkV },  // down
+    { rx: -armW/2,         ry: -(hubR+armLen), rw: armW, rh: armLen, grad: mkV }, // up
+  ];
+  for (const a of arms) {
+    roundRect(c, a.rx, a.ry, a.rw, a.rh, 3);
+    c.fillStyle = a.grad(); c.fill();
+    c.strokeStyle = rim; c.lineWidth = 1; c.stroke();
+  }
+
+  // Hub circle drawn on top so it overlaps arm bases cleanly
+  const hubGrad = c.createRadialGradient(-2, -2, 0, 0, 0, hubR + 2);
+  hubGrad.addColorStop(0, '#8a9aaa');
+  hubGrad.addColorStop(1, '#2a3a4a');
+  c.fillStyle = hubGrad;
+  c.beginPath(); c.arc(0, 0, hubR, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = rim; c.lineWidth = 1; c.stroke();
+
+  c.restore();
 }
 
 // ── Pass 1: backgrounds ──────────────────────────
@@ -1123,39 +1644,39 @@ function drawCellFg(r, c) {
   if (cell.type === EMITTER) {
     const hex = COLOR_HEX[cell.color] || '#ffffff';
     ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.atan2(DY[cell.dir], DX[cell.dir]));
 
-    // Glowing circle
-    ctx.shadowColor = hex;
-    ctx.shadowBlur = 14;
-    ctx.fillStyle = hex;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 11, 0, Math.PI*2);
+    // ── Barrel body (local coords: +X = beam direction) ──────────────────────
+    const bH = 15, bW = 24, bX = -20, bY = -bH / 2, bR = 4;
+    const barGrad = ctx.createLinearGradient(0, bY, 0, bY + bH);
+    barGrad.addColorStop(0,    '#6e7e8e');
+    barGrad.addColorStop(0.3,  '#3e4e5e');
+    barGrad.addColorStop(0.75, '#28383e');
+    barGrad.addColorStop(1,    '#18262e');
+    roundRect(ctx, bX, bY, bW, bH, bR);
+    ctx.fillStyle = barGrad;
     ctx.fill();
-
-    // Direction indicator: a small notch/chevron on the edge of the circle
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    const edgeX = cx + DX[cell.dir] * 11;
-    const edgeY = cy + DY[cell.dir] * 11;
-    const tipX  = cx + DX[cell.dir] * 19;
-    const tipY  = cy + DY[cell.dir] * 19;
-    // Perpendicular unit for chevron wings
-    const px = DY[cell.dir], py = -DX[cell.dir];
-    ctx.beginPath();
-    ctx.moveTo(edgeX + px*5, edgeY + py*5);
-    ctx.lineTo(tipX, tipY);
-    ctx.lineTo(edgeX - px*5, edgeY - py*5);
+    // Subtle rim highlight
+    ctx.strokeStyle = 'rgba(160,195,220,0.5)';
+    ctx.lineWidth = 1;
     ctx.stroke();
 
+    // ── Lens aperture ─────────────────────────────────────────────────────────
+    const lX = 7, lR = 9;
+    ctx.shadowColor = hex;
+    ctx.shadowBlur  = 16;
+    const lGrad = ctx.createRadialGradient(lX, 0, 0, lX, 0, lR);
+    lGrad.addColorStop(0,    '#ffffff');
+    lGrad.addColorStop(0.35, hex);
+    lGrad.addColorStop(0.7,  hex + '88');
+    lGrad.addColorStop(1,    hex + '00');
+    ctx.fillStyle = lGrad;
+    ctx.beginPath();
+    ctx.arc(lX, 0, lR, 0, Math.PI * 2);
+    ctx.fill();
+
     ctx.restore();
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = 'bold 9px system-ui';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillText('LASER', cx, y + S - 2);
     return;
   }
 
@@ -1165,22 +1686,43 @@ function drawCellFg(r, c) {
     const isLit = laserActive && lit && (lit[r][c] & cell.color) === cell.color;
 
     ctx.save();
-    ctx.strokeStyle = hex;
-    ctx.lineWidth = isLit ? 3 : 2;
-    ctx.shadowColor = hex;
-    ctx.shadowBlur = isLit ? 20 : 5;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 14, 0, Math.PI*2);
-    ctx.stroke();
+    ctx.translate(cx, cy);
 
-    if (isLit) {
-      ctx.fillStyle = hex;
+    // Three concentric rings: outer → inner
+    const radii = [16, 11, 6];
+    radii.forEach((radius, i) => {
+      ctx.save();
       ctx.beginPath();
-      ctx.arc(cx, cy, 7, 0, Math.PI*2);
+      ctx.arc(0, 0, radius, 0, Math.PI * 2);
+      ctx.strokeStyle = hex;
+      ctx.shadowColor = hex;
+      if (isLit) {
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 16 - i * 4;  // outer ring glows most
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.lineWidth = 1.5;
+        ctx.shadowBlur = 3;
+        ctx.globalAlpha = 0.28 + i * 0.1;  // inner rings slightly more visible
+      }
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // Filled bullseye when hit
+    if (isLit) {
+      ctx.save();
+      ctx.shadowColor = hex;
+      ctx.shadowBlur  = 18;
+      ctx.fillStyle   = hex;
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
     }
 
     ctx.restore();
+
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.font = 'bold 9px system-ui';
     ctx.textAlign = 'center';
@@ -1195,36 +1737,16 @@ function drawCellFg(r, c) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  if (cell.type === MIRROR_F) {
-    // Draw the / diagonal as a canvas line (crisper than a text glyph)
-    ctx.strokeStyle = '#a0c8ff';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = '#a0c8ff';
-    ctx.shadowBlur = 6;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + 10, y + CELL - 10);
-    ctx.lineTo(x + CELL - 10, y + 10);
-    ctx.stroke();
-  } else if (cell.type === MIRROR_B) {
-    ctx.strokeStyle = '#a0c8ff';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = '#a0c8ff';
-    ctx.shadowBlur = 6;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(x + 10, y + 10);
-    ctx.lineTo(x + CELL - 10, y + CELL - 10);
-    ctx.stroke();
+  if (cell.type === MIRROR_F || cell.type === MIRROR_B) {
+    drawMirrorGlyph(ctx, cx, cy, cell.type);
   } else if (cell.type === SPLITTER) {
-    ctx.fillStyle = '#ffd080';
-    ctx.fillText('✦', cx, cy);
+    drawPrismGlyph(ctx, cx, cy);  // drawPrismGlyph manages its own save/restore
   } else if (cell.type === FILTER_R) {
-    ctx.fillText('🔴', cx, cy);
+    drawFilterGlyph(ctx, cx, cy, COLOR_HEX[R]);
   } else if (cell.type === FILTER_G) {
-    ctx.fillText('🟢', cx, cy);
+    drawFilterGlyph(ctx, cx, cy, COLOR_HEX[G]);
   } else if (cell.type === FILTER_B) {
-    ctx.fillText('🔵', cx, cy);
+    drawFilterGlyph(ctx, cx, cy, COLOR_HEX[B]);
   }
 
   ctx.restore();
