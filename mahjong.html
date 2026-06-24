@@ -323,6 +323,55 @@ select:hover { background-color: #ffe060; }
   font-size: 1em;
 }
 
+/* ── Background themes ── */
+body.bg-jade     { background: #1a472a; background-image: radial-gradient(ellipse at center, #2d6a40 0%, #0f2d1a 100%); }
+body.bg-ocean    { background: #0a2a4a; background-image: radial-gradient(ellipse at center, #1a4a7a 0%, #051525 100%); }
+body.bg-midnight { background: #0d0d1a; background-image: radial-gradient(ellipse at center, #1a1a3d 0%, #050508 100%); }
+body.bg-temple   { background: #3d0a0a; background-image: radial-gradient(ellipse at center, #6a1a1a 0%, #1a0505 100%); }
+body.bg-desert   { background: #3d2a08; background-image: radial-gradient(ellipse at center, #6a4a15 0%, #1a0a02 100%); }
+body.bg-forest   { background: #0a1f05; background-image: radial-gradient(ellipse at center, #183010 0%, #030a01 100%); }
+
+/* ── Settings modal ── */
+#settings-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 16px;
+}
+#settings-modal.show { display: flex; }
+#settings-box {
+  background: linear-gradient(145deg, #2d6a40, #1a3d24);
+  border: 3px solid #f0c040;
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  color: #fff;
+}
+#settings-box h2 {
+  font-size: 1.4em;
+  color: #f0c040;
+  text-align: center;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+.setting-row { margin-bottom: 14px; }
+.setting-label {
+  font-size: 0.82em;
+  font-weight: 700;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+.setting-row select { width: 100%; }
+#close-settings { margin-top: 16px; width: 100%; padding: 10px; font-size: 1em; }
+
 /* ── Landscape: collapse everything into one row ── */
 @media (max-height: 500px) {
   body { padding: 3px 8px 4px; }
@@ -348,31 +397,12 @@ select:hover { background-color: #ffe060; }
   </div>
   <h1>🀄 Mahjong Solitaire</h1>
   <div id="controls">
-    <select id="layout-select" onchange="newGame()">
-      <optgroup label="Classic">
-        <option value="turtle">🐢 Turtle</option>
-        <option value="dragon">🐉 Dragon</option>
-        <option value="pyramid">🔺 Pyramid</option>
-        <option value="cross">✚ Cross</option>
-        <option value="fortress">🏰 Fortress</option>
-        <option value="crab">🦀 Crab</option>
-      </optgroup>
-      <optgroup label="Mobile-friendly (vertical)">
-        <option value="pagodav">🏯 Pagoda</option>
-        <option value="tower">🗼 Tower</option>
-        <option value="hourglass">⌛ Hourglass</option>
-      </optgroup>
-      <optgroup label="✨ Generative">
-        <option value="mandala">🔮 Mandala</option>
-        <option value="mirror">🪞 Mirror</option>
-        <option value="snowflake">❄️ Snowflake</option>
-      </optgroup>
-    </select>
     <button onclick="newGame()">🔀 New</button>
     <button onclick="showHint()">💡 Hint</button>
     <button onclick="undoMove()">↩ Undo</button>
     <button onclick="shuffleTiles()" id="shuffle-btn" style="display:none">🎲 Shuffle</button>
     <button onclick="showInstructions()" title="How to Play" style="min-width:unset;padding:7px 12px">?</button>
+    <button onclick="openSettings()" title="Settings" style="min-width:unset;padding:7px 12px">⚙️</button>
     <span id="status">Loading…</span>
   </div>
 </div>
@@ -405,14 +435,14 @@ select:hover { background-color: #ffe060; }
       <p>There are two bonus groups that play differently. Any tile within a group matches <em>any other tile in that same group</em> — they don't need to be identical.</p>
       <div class="bonus-grid">
         <div class="bonus-group">
-          <div class="bonus-group-name">🌸 Flowers (4 tiles)</div>
-          <div class="bonus-tiles">🌸 🌺 🌼 🌻</div>
-          <div class="bonus-rule">Any flower matches any other flower.</div>
+          <div id="instr-flower-name" class="bonus-group-name">🌸 Flowers (4 tiles)</div>
+          <div id="instr-flower-tiles" class="bonus-tiles">🌸 🌺 🌼 🌻</div>
+          <div class="bonus-rule">Any tile in the group matches any other in the group.</div>
         </div>
         <div class="bonus-group">
-          <div class="bonus-group-name">🍂 Seasons (4 tiles)</div>
-          <div class="bonus-tiles">🌱 🌞 🍂 ❄️</div>
-          <div class="bonus-rule">Any season matches any other season.</div>
+          <div id="instr-season-name" class="bonus-group-name">🍂 Seasons (4 tiles)</div>
+          <div id="instr-season-tiles" class="bonus-tiles">🌤️ 🌞 🌕 ❄️</div>
+          <div class="bonus-rule">Any tile in the group matches any other in the group.</div>
         </div>
       </div>
     </div>
@@ -428,6 +458,56 @@ select:hover { background-color: #ffe060; }
   </div>
 </div>
 
+<div id="settings-modal">
+  <div id="settings-box">
+    <h2>⚙️ Settings</h2>
+    <div class="setting-row">
+      <div class="setting-label">🗺️ Layout</div>
+      <select id="layout-select">
+        <optgroup label="Classic">
+          <option value="turtle">🐢 Turtle</option>
+          <option value="dragon">🐉 Dragon</option>
+          <option value="pyramid">🔺 Pyramid</option>
+          <option value="cross">✚ Cross</option>
+          <option value="fortress">🏰 Fortress</option>
+          <option value="crab">🦀 Crab</option>
+        </optgroup>
+        <optgroup label="Mobile-friendly (vertical)">
+          <option value="pagodav">🏯 Pagoda</option>
+          <option value="tower">🗼 Tower</option>
+          <option value="hourglass">⌛ Hourglass</option>
+        </optgroup>
+        <optgroup label="✨ Generative">
+          <option value="mandala">🔮 Mandala</option>
+          <option value="mirror">🪞 Mirror</option>
+          <option value="snowflake">❄️ Snowflake</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">🎨 Tile Theme</div>
+      <select id="theme-select" onchange="applyTheme(this.value)">
+        <option value="classic">🀄 Classic</option>
+        <option value="animals">🐾 Animals</option>
+        <option value="food">🍕 Food</option>
+        <option value="sports">⚽ Sports</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">🖼️ Background</div>
+      <select id="bg-select" onchange="applyBg(this.value)">
+        <option value="jade">🌿 Jade Garden</option>
+        <option value="ocean">🌊 Ocean Deep</option>
+        <option value="midnight">🌙 Midnight</option>
+        <option value="temple">🏮 Temple</option>
+        <option value="desert">🏜️ Desert</option>
+        <option value="forest">🌲 Forest</option>
+      </select>
+    </div>
+    <button id="close-settings" onclick="closeSettings()">Done</button>
+  </div>
+</div>
+
 <div id="overlay">
   <div id="overlay-box">
     <h2 id="overlay-title"></h2>
@@ -438,61 +518,156 @@ select:hover { background-color: #ffe060; }
 </div>
 
 <script>
-// ─── Tile Definitions ────────────────────────────────────────────────────────
-// Unicode mahjong emoji for all 34 standard tile types + 4 flowers + 4 seasons
-const STD_TILES = [
-  // Man (Characters 1–9) — Japanese/Asian cultural icons (very distinct shapes)
-  {id:'m1',emoji:'🏯',group:'man'},  // castle
-  {id:'m2',emoji:'⛩️',group:'man'}, // shrine gate
-  {id:'m3',emoji:'🎎',group:'man'}, // kokeshi dolls
-  {id:'m4',emoji:'🪭',group:'man'}, // folding fan
-  {id:'m5',emoji:'🎏',group:'man'}, // carp streamers
-  {id:'m6',emoji:'🎐',group:'man'}, // wind chimes
-  {id:'m7',emoji:'🏺',group:'man'}, // decorative urn
-  {id:'m8',emoji:'🎴',group:'man'}, // hanafuda card
-  {id:'m9',emoji:'🪆',group:'man'}, // matryoshka
-  // Pin (Circles 1–9) — Fruits (round theme, each visually distinct)
-  {id:'p1',emoji:'🍎',group:'pin'}, // red apple
-  {id:'p2',emoji:'🍊',group:'pin'}, // orange
-  {id:'p3',emoji:'🍋',group:'pin'}, // lemon
-  {id:'p4',emoji:'🍇',group:'pin'}, // grapes
-  {id:'p5',emoji:'🫐',group:'pin'}, // blueberries
-  {id:'p6',emoji:'🍓',group:'pin'}, // strawberry
-  {id:'p7',emoji:'🍒',group:'pin'}, // cherries
-  {id:'p8',emoji:'🍑',group:'pin'}, // peach
-  {id:'p9',emoji:'🍉',group:'pin'}, // watermelon
-  // Sou (Bamboo 1–9) — Wildlife & nature (distinct shapes)
-  {id:'s1',emoji:'🎋',group:'sou'}, // bamboo stalks
-  {id:'s2',emoji:'🌿',group:'sou'}, // herb sprig
-  {id:'s3',emoji:'🍀',group:'sou'}, // four-leaf clover
-  {id:'s4',emoji:'🌴',group:'sou'}, // palm tree
-  {id:'s5',emoji:'🦎',group:'sou'}, // lizard
-  {id:'s6',emoji:'🌵',group:'sou'}, // cactus
-  {id:'s7',emoji:'🦜',group:'sou'}, // parrot
-  {id:'s8',emoji:'🌾',group:'sou'}, // grain sheaf
-  {id:'s9',emoji:'🍄',group:'sou'}, // mushroom
-  // Winds — cardinal directions (distinct sky scenes)
-  {id:'we',emoji:'🌅',group:'wind'}, // sunrise (East)
-  {id:'ws',emoji:'☀️',group:'wind'},  // noon sun (South)
-  {id:'ww',emoji:'🌇',group:'wind'}, // sunset (West)
-  {id:'wn',emoji:'🌨️',group:'wind'}, // snowstorm (North)
-  // Dragons — elemental forces
-  {id:'dc',emoji:'🔥',group:'dragon'}, // fire (red dragon)
-  {id:'dg',emoji:'🌊',group:'dragon'}, // wave (green dragon)
-  {id:'dw',emoji:'💨',group:'dragon'}, // gust (white dragon)
-];
-const BONUS_TILES = [
-  {id:'f1',emoji:'🌸',group:'flower'},{id:'f2',emoji:'🌺',group:'flower'},
-  {id:'f3',emoji:'🌼',group:'flower'},{id:'f4',emoji:'🌻',group:'flower'},
-  {id:'se1',emoji:'🌱',group:'season'},{id:'se2',emoji:'🌞',group:'season'},
-  {id:'se3',emoji:'🍂',group:'season'},{id:'se4',emoji:'❄️',group:'season'},
-];
+// ─── Tile Themes ─────────────────────────────────────────────────────────────
+const THEMES = {
+  classic: {
+    name: '🀄 Classic', flowerName: '🌸 Flowers', seasonName: '🍂 Seasons',
+    std: [
+      {id:'m1',emoji:'🏯',group:'man'},{id:'m2',emoji:'⛩️',group:'man'},
+      {id:'m3',emoji:'🎎',group:'man'},{id:'m4',emoji:'🪭',group:'man'},
+      {id:'m5',emoji:'🎏',group:'man'},{id:'m6',emoji:'🎐',group:'man'},
+      {id:'m7',emoji:'🏺',group:'man'},{id:'m8',emoji:'🎴',group:'man'},
+      {id:'m9',emoji:'🪆',group:'man'},
+      {id:'p1',emoji:'🍎',group:'pin'},{id:'p2',emoji:'🍊',group:'pin'},
+      {id:'p3',emoji:'🍋',group:'pin'},{id:'p4',emoji:'🍇',group:'pin'},
+      {id:'p5',emoji:'🫐',group:'pin'},{id:'p6',emoji:'🍓',group:'pin'},
+      {id:'p7',emoji:'🍒',group:'pin'},{id:'p8',emoji:'🍑',group:'pin'},
+      {id:'p9',emoji:'🍉',group:'pin'},
+      {id:'s1',emoji:'🎋',group:'sou'},{id:'s2',emoji:'🌿',group:'sou'},
+      {id:'s3',emoji:'🍀',group:'sou'},{id:'s4',emoji:'🌴',group:'sou'},
+      {id:'s5',emoji:'🦎',group:'sou'},{id:'s6',emoji:'🌵',group:'sou'},
+      {id:'s7',emoji:'🦜',group:'sou'},{id:'s8',emoji:'🌾',group:'sou'},
+      {id:'s9',emoji:'🍄',group:'sou'},
+      {id:'we',emoji:'🌅',group:'wind'},{id:'ws',emoji:'☀️',group:'wind'},
+      {id:'ww',emoji:'🌇',group:'wind'},{id:'wn',emoji:'🌨️',group:'wind'},
+      {id:'dc',emoji:'🔥',group:'dragon'},{id:'dg',emoji:'🌊',group:'dragon'},
+      {id:'dw',emoji:'💨',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🌸',group:'flower'},{id:'f2',emoji:'🌺',group:'flower'},
+      {id:'f3',emoji:'🌼',group:'flower'},{id:'f4',emoji:'🌻',group:'flower'},
+      {id:'se1',emoji:'🌤️',group:'season'},{id:'se2',emoji:'🌞',group:'season'},
+      {id:'se3',emoji:'🌕',group:'season'},{id:'se4',emoji:'❄️',group:'season'},
+    ],
+  },
+  animals: {
+    name: '🐾 Animals', flowerName: '🐾 Pets', seasonName: '🦌 Wild',
+    std: [
+      // Land mammals
+      {id:'m1',emoji:'🦁',group:'man'},{id:'m2',emoji:'🐯',group:'man'},
+      {id:'m3',emoji:'🐻',group:'man'},{id:'m4',emoji:'🦊',group:'man'},
+      {id:'m5',emoji:'🐺',group:'man'},{id:'m6',emoji:'🦝',group:'man'},
+      {id:'m7',emoji:'🦬',group:'man'},{id:'m8',emoji:'🐗',group:'man'},
+      {id:'m9',emoji:'🐘',group:'man'},
+      // Sea creatures
+      {id:'p1',emoji:'🐬',group:'pin'},{id:'p2',emoji:'🦈',group:'pin'},
+      {id:'p3',emoji:'🐙',group:'pin'},{id:'p4',emoji:'🦑',group:'pin'},
+      {id:'p5',emoji:'🐡',group:'pin'},{id:'p6',emoji:'🐠',group:'pin'},
+      {id:'p7',emoji:'🦞',group:'pin'},{id:'p8',emoji:'🦀',group:'pin'},
+      {id:'p9',emoji:'🦐',group:'pin'},
+      // Birds
+      {id:'s1',emoji:'🦅',group:'sou'},{id:'s2',emoji:'🦉',group:'sou'},
+      {id:'s3',emoji:'🦜',group:'sou'},{id:'s4',emoji:'🐧',group:'sou'},
+      {id:'s5',emoji:'🦩',group:'sou'},{id:'s6',emoji:'🦢',group:'sou'},
+      {id:'s7',emoji:'🦚',group:'sou'},{id:'s8',emoji:'🐦',group:'sou'},
+      {id:'s9',emoji:'🦆',group:'sou'},
+      // Winds — insects
+      {id:'we',emoji:'🐝',group:'wind'},{id:'ws',emoji:'🦋',group:'wind'},
+      {id:'ww',emoji:'🪲',group:'wind'},{id:'wn',emoji:'🐛',group:'wind'},
+      // Dragons — reptiles
+      {id:'dc',emoji:'🐊',group:'dragon'},{id:'dg',emoji:'🦎',group:'dragon'},
+      {id:'dw',emoji:'🐍',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🐱',group:'flower'},{id:'f2',emoji:'🐶',group:'flower'},
+      {id:'f3',emoji:'🐰',group:'flower'},{id:'f4',emoji:'🐹',group:'flower'},
+      {id:'se1',emoji:'🐣',group:'season'},{id:'se2',emoji:'🐢',group:'season'},
+      {id:'se3',emoji:'🦔',group:'season'},{id:'se4',emoji:'🐻‍❄️',group:'season'},
+    ],
+  },
+  food: {
+    name: '🍕 Food', flowerName: '🌿 Herbs', seasonName: '🌱 Harvest',
+    std: [
+      // Savory dishes
+      {id:'m1',emoji:'🍕',group:'man'},{id:'m2',emoji:'🌮',group:'man'},
+      {id:'m3',emoji:'🍣',group:'man'},{id:'m4',emoji:'🍜',group:'man'},
+      {id:'m5',emoji:'🥗',group:'man'},{id:'m6',emoji:'🍛',group:'man'},
+      {id:'m7',emoji:'🍔',group:'man'},{id:'m8',emoji:'🥙',group:'man'},
+      {id:'m9',emoji:'🫔',group:'man'},
+      // Fruits
+      {id:'p1',emoji:'🍎',group:'pin'},{id:'p2',emoji:'🍊',group:'pin'},
+      {id:'p3',emoji:'🍋',group:'pin'},{id:'p4',emoji:'🍇',group:'pin'},
+      {id:'p5',emoji:'🫐',group:'pin'},{id:'p6',emoji:'🍓',group:'pin'},
+      {id:'p7',emoji:'🍒',group:'pin'},{id:'p8',emoji:'🍑',group:'pin'},
+      {id:'p9',emoji:'🍉',group:'pin'},
+      // Sweets & desserts
+      {id:'s1',emoji:'🍰',group:'sou'},{id:'s2',emoji:'🎂',group:'sou'},
+      {id:'s3',emoji:'🍩',group:'sou'},{id:'s4',emoji:'🍪',group:'sou'},
+      {id:'s5',emoji:'🧁',group:'sou'},{id:'s6',emoji:'🍫',group:'sou'},
+      {id:'s7',emoji:'🍬',group:'sou'},{id:'s8',emoji:'🍭',group:'sou'},
+      {id:'s9',emoji:'🍮',group:'sou'},
+      // Winds — hot & cold drinks
+      {id:'we',emoji:'☕',group:'wind'},{id:'ws',emoji:'🍵',group:'wind'},
+      {id:'ww',emoji:'🍹',group:'wind'},{id:'wn',emoji:'🧋',group:'wind'},
+      // Dragons — spice & fire
+      {id:'dc',emoji:'🌶️',group:'dragon'},{id:'dg',emoji:'🔥',group:'dragon'},
+      {id:'dw',emoji:'🧄',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🌿',group:'flower'},{id:'f2',emoji:'🍃',group:'flower'},
+      {id:'f3',emoji:'🧅',group:'flower'},{id:'f4',emoji:'🫒',group:'flower'},
+      {id:'se1',emoji:'🥕',group:'season'},{id:'se2',emoji:'🌽',group:'season'},
+      {id:'se3',emoji:'🎃',group:'season'},{id:'se4',emoji:'🧊',group:'season'},
+    ],
+  },
+  sports: {
+    name: '⚽ Sports', flowerName: '🏸 Gear', seasonName: '⛅ Seasons',
+    std: [
+      // Ball sports
+      {id:'m1',emoji:'⚽',group:'man'},{id:'m2',emoji:'🏀',group:'man'},
+      {id:'m3',emoji:'🏈',group:'man'},{id:'m4',emoji:'⚾',group:'man'},
+      {id:'m5',emoji:'🎾',group:'man'},{id:'m6',emoji:'🏐',group:'man'},
+      {id:'m7',emoji:'🏉',group:'man'},{id:'m8',emoji:'🎱',group:'man'},
+      {id:'m9',emoji:'🏓',group:'man'},
+      // Athlete / body sports
+      {id:'p1',emoji:'🏊',group:'pin'},{id:'p2',emoji:'🤿',group:'pin'},
+      {id:'p3',emoji:'🏄',group:'pin'},{id:'p4',emoji:'🪂',group:'pin'},
+      {id:'p5',emoji:'🧗',group:'pin'},{id:'p6',emoji:'🏋️',group:'pin'},
+      {id:'p7',emoji:'🚴',group:'pin'},{id:'p8',emoji:'🤸',group:'pin'},
+      {id:'p9',emoji:'🏇',group:'pin'},
+      // Precision & winter
+      {id:'s1',emoji:'⛷️',group:'sou'},{id:'s2',emoji:'🏂',group:'sou'},
+      {id:'s3',emoji:'🥊',group:'sou'},{id:'s4',emoji:'🤺',group:'sou'},
+      {id:'s5',emoji:'🏹',group:'sou'},{id:'s6',emoji:'🎯',group:'sou'},
+      {id:'s7',emoji:'🎳',group:'sou'},{id:'s8',emoji:'♟️',group:'sou'},
+      {id:'s9',emoji:'🎣',group:'sou'},
+      // Winds — games of chance / skill
+      {id:'we',emoji:'🎲',group:'wind'},{id:'ws',emoji:'🃏',group:'wind'},
+      {id:'ww',emoji:'🎴',group:'wind'},{id:'wn',emoji:'⛳',group:'wind'},
+      // Dragons — awards
+      {id:'dc',emoji:'🥇',group:'dragon'},{id:'dg',emoji:'🥈',group:'dragon'},
+      {id:'dw',emoji:'🏆',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🥅',group:'flower'},{id:'f2',emoji:'🎿',group:'flower'},
+      {id:'f3',emoji:'🪁',group:'flower'},{id:'f4',emoji:'🏸',group:'flower'},
+      {id:'se1',emoji:'🌱',group:'season'},{id:'se2',emoji:'☀️',group:'season'},
+      {id:'se3',emoji:'🍂',group:'season'},{id:'se4',emoji:'❄️',group:'season'},
+    ],
+  },
+};
+
+let currentTheme  = localStorage.getItem('mj-theme')  || 'classic';
+let currentBg     = localStorage.getItem('mj-bg')     || 'jade';
+let currentLayout = localStorage.getItem('mj-layout') || 'turtle';
+const BG_CLASSES  = ['jade','ocean','midnight','temple','desert','forest'].map(b => 'bg-' + b);
 
 function createDeck() {
   // 34 standard × 4 = 136, plus 4 flowers + 4 seasons = 144
+  const theme = THEMES[currentTheme];
   const deck = [];
-  for (const t of STD_TILES) for (let i = 0; i < 4; i++) deck.push({...t});
-  for (const t of BONUS_TILES) deck.push({...t});
+  for (const t of theme.std)   for (let i = 0; i < 4; i++) deck.push({...t});
+  for (const t of theme.bonus) deck.push({...t});
   return deck; // 144 tiles
 }
 
@@ -814,8 +989,7 @@ function buildSnowflakeLayout() {
 }
 
 function getLayout() {
-  const val = document.getElementById('layout-select').value;
-  switch (val) {
+  switch (currentLayout) {
     case 'dragon':   return buildDragonLayout();
     case 'pyramid':  return buildPyramidLayout();
     case 'cross':    return buildCrossLayout();
@@ -834,7 +1008,7 @@ function getLayout() {
 // ─── Tile Dimensions ─────────────────────────────────────────────────────────
 const TW = 52, TH = 66;       // tile width/height in px
 const UX = TW / 2, UY = TH / 2; // px per half-tile unit
-const OX = 5, OY = 5;          // px offset per z-layer (3-D illusion)
+const OX = 3, OY = 3;          // px offset per z-layer (3-D illusion)
 
 // ─── Game State ──────────────────────────────────────────────────────────────
 let tiles = [];
@@ -898,6 +1072,7 @@ function shuffleTiles() {
   renderBoard();
   const remaining2 = tiles.filter(t => !t.removed).length;
   setStatus(`${remaining2} tiles remaining`);
+  saveState();
 }
 
 // ─── New Game ────────────────────────────────────────────────────────────────
@@ -918,6 +1093,7 @@ function newGame() {
   document.getElementById('shuffle-btn').style.display = 'none';
   renderBoard();
   setStatus(`${tiles.length} tiles remaining`);
+  saveState();
 }
 
 // ─── Render ──────────────────────────────────────────────────────────────────
@@ -1049,15 +1225,18 @@ function removePair(a, b) {
     renderBoard();
     const remaining = tiles.filter(t => !t.removed).length;
     if (remaining === 0) {
+      saveState();
       showOverlay('🎉 You Win!', 'Congratulations — all tiles cleared!');
       return;
     }
     if (!hasMoves()) {
       document.getElementById('shuffle-btn').style.display = '';
       setStatus(`${remaining} tiles — no moves left!`);
+      saveState();
       setTimeout(() => showOverlay('😔 No Moves Left', `${remaining} tiles remain. Shuffle, Undo, or New Game.`), 800);
     } else {
       setStatus(`${remaining} tiles remaining`);
+      saveState();
     }
   }, 360);
 }
@@ -1072,6 +1251,7 @@ function undoMove() {
   renderBoard();
   const remaining = tiles.filter(t => !t.removed).length;
   setStatus(`${remaining} tiles remaining`);
+  saveState();
 }
 
 // ─── Hint ────────────────────────────────────────────────────────────────────
@@ -1113,7 +1293,7 @@ function showOverlay(title, msg) {
   document.getElementById('overlay-title').textContent = title;
   document.getElementById('overlay-msg').textContent   = msg;
   // Track wins per layout
-  const layout = document.getElementById('layout-select').value;
+  const layout = currentLayout;
   const isWin  = title.includes('Win');
   let bestMsg  = '';
   if (isWin) {
@@ -1136,9 +1316,93 @@ function closeInstructions() {
   document.getElementById('instructions-modal').classList.remove('show');
 }
 
+// ─── Settings ────────────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('layout-select').value = currentLayout;
+  document.getElementById('theme-select').value  = currentTheme;
+  document.getElementById('bg-select').value     = currentBg;
+  document.getElementById('settings-modal').classList.add('show');
+}
+function closeSettings() {
+  const newLayout = document.getElementById('layout-select').value;
+  document.getElementById('settings-modal').classList.remove('show');
+  if (newLayout !== currentLayout) {
+    currentLayout = newLayout;
+    localStorage.setItem('mj-layout', newLayout);
+    newGame();
+  }
+}
+// Theme switches emoji in-place — no new game needed
+function applyTheme(theme) {
+  if (!THEMES[theme] || theme === currentTheme) return;
+  currentTheme = theme;
+  localStorage.setItem('mj-theme', theme);
+  const lookup = {};
+  for (const t of [...THEMES[theme].std, ...THEMES[theme].bonus]) lookup[t.id] = t.emoji;
+  for (const t of tiles) { if (lookup[t.id]) t.emoji = lookup[t.id]; }
+  updateBonusTileDisplay();
+  renderBoard();
+  saveState();
+}
+function applyBg(bg) {
+  currentBg = bg;
+  localStorage.setItem('mj-bg', bg);
+  document.body.classList.remove(...BG_CLASSES);
+  document.body.classList.add('bg-' + bg);
+}
+function updateBonusTileDisplay() {
+  const theme = THEMES[currentTheme];
+  const flowers = theme.bonus.filter(t => t.group === 'flower');
+  const seasons = theme.bonus.filter(t => t.group === 'season');
+  document.getElementById('instr-flower-name').textContent  = theme.flowerName + ' (4 tiles)';
+  document.getElementById('instr-flower-tiles').textContent = flowers.map(t => t.emoji).join(' ');
+  document.getElementById('instr-season-name').textContent  = theme.seasonName + ' (4 tiles)';
+  document.getElementById('instr-season-tiles').textContent = seasons.map(t => t.emoji).join(' ');
+}
+
+// ─── Board State Persistence ─────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem('mj-board', JSON.stringify({
+      layout:  currentLayout,
+      theme:   currentTheme,
+      tiles:   tiles.map(t => ({
+        id: t.id, emoji: t.emoji, group: t.group,
+        x: t.x, y: t.y, z: t.z, removed: t.removed,
+      })),
+      history: history.map(([a, b]) => [tiles.indexOf(a), tiles.indexOf(b)]),
+    }));
+  } catch(e) {}
+}
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem('mj-board');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!Array.isArray(s.tiles) || s.tiles.length !== 144) return false;
+    if (s.layout) { currentLayout = s.layout; localStorage.setItem('mj-layout', s.layout); }
+    if (s.theme && THEMES[s.theme]) { currentTheme = s.theme; localStorage.setItem('mj-theme', s.theme); }
+    tiles   = s.tiles.map(t => ({ ...t, el: null }));
+    history = (s.history || [])
+      .map(([ai, bi]) => [tiles[ai], tiles[bi]])
+      .filter(([a, b]) => a && b);
+    selected = null;
+    return true;
+  } catch(e) { return false; }
+}
+
 // ─── Start ───────────────────────────────────────────────────────────────────
 window.addEventListener('resize', scaleBoard);
-newGame();
+applyBg(currentBg);
+if (loadSavedState()) {
+  updateBonusTileDisplay();
+  renderBoard();
+  const rem = tiles.filter(t => !t.removed).length;
+  setStatus(`${rem} tiles remaining`);
+  if (!hasMoves() && rem > 0) document.getElementById('shuffle-btn').style.display = '';
+} else {
+  newGame();
+}
 </script>
 </body>
 </html>
