@@ -16,7 +16,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 20px 16px 48px;
+  padding: 12px 16px 32px;
   user-select: none;
 }
 
@@ -27,7 +27,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 .back-btn {
   color: rgba(255,255,255,0.35);
@@ -53,7 +53,7 @@ body {
   height: 3px;
   background: rgba(255,255,255,0.07);
   border-radius: 2px;
-  margin-bottom: 22px;
+  margin-bottom: 12px;
   overflow: hidden;
 }
 .progress-fill {
@@ -70,7 +70,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 .level-left .level-name {
   font-size: 1.05em;
@@ -123,8 +123,10 @@ body {
   width: 100%;
   max-width: 800px;
   overflow-x: auto;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  justify-content: center;
 }
 .step-grid {
   display: inline-flex;
@@ -134,7 +136,6 @@ body {
   background: rgba(0,0,0,0.28);
   border-radius: 14px;
   border: 1px solid rgba(255,255,255,0.06);
-  min-width: 100%;
 }
 
 /* Step numbers */
@@ -382,8 +383,258 @@ body {
   .ov-emoji { font-size: 2.8em; }
 }
 
+/* ── LANDSCAPE MOBILE — NO SCROLL ── */
+@media (orientation: landscape) and (max-height: 520px) {
+  body {
+    padding: 5px 12px 4px;
+    height: 100dvh;
+    min-height: unset;
+    overflow: hidden;
+    justify-content: flex-start;
+  }
+
+  /* Mode select */
+  #modeSelect {
+    padding-top: 6px;
+    gap: 5px;
+    height: 100%;
+    justify-content: center;
+  }
+  .ms-logo { font-size: 1.5em; margin-bottom: 0; letter-spacing: 2px; }
+  .ms-cards { gap: 8px; flex-wrap: nowrap; }
+  .ms-card {
+    flex-direction: row; text-align: left;
+    padding: 10px 14px; gap: 10px;
+    min-width: unset; max-width: unset; flex: 1;
+  }
+  .ms-icon { font-size: 1.6em; flex-shrink: 0; }
+  .ms-name { font-size: 0.9em; }
+  .ms-desc { font-size: 0.7em; }
+  .ms-tag  { font-size: 0.62em; padding: 1px 8px; }
+
+  /* Game header */
+  .game-header { margin-bottom: 3px; }
+  .game-title  { font-size: 1em; letter-spacing: 1px; }
+
+  /* Progress bar */
+  .progress-wrap { margin-bottom: 3px; height: 2px; }
+
+  /* Level info */
+  .level-info { margin-bottom: 3px; }
+  .level-left .level-name { font-size: 0.88em; }
+  .level-left .level-num  { font-size: 0.68em; margin-top: 1px; }
+  .miss-dot { width: 9px; height: 9px; }
+  .nav-btn  { width: 24px; height: 24px; font-size: 1em; }
+
+  /* Diff bar */
+  .diff-bar  { margin-bottom: 3px; gap: 6px; }
+  .diff-btn  { padding: 3px 14px; font-size: 0.76em; }
+
+  /* Grid */
+  .grid-wrapper { margin-bottom: 3px; }
+  .step-grid    { padding: 5px 10px; gap: 3px; }
+  .step-nums    { margin-left: 54px; }
+  .step-num-cell { height: 12px !important; font-size: 0.55em; }
+  .inst-label   { width: 48px; font-size: 0.57em; }
+  .inst-row     { gap: 6px; }
+
+  /* Controls */
+  .controls      { margin-bottom: 3px; gap: 6px; }
+  .btn           { padding: 6px 14px; font-size: 0.8em; }
+  .btn-submit    { min-width: 100px; }
+
+  /* Status */
+  .status    { min-height: 16px; font-size: 0.76em; }
+  .solo-hint { margin-top: 3px; padding: 4px 10px; font-size: 0.72em; }
+
+  /* Machine controls */
+  .machine-controls { row-gap: 4px; }
+  .btn-mplay  { min-width: 90px; }
+  .bpm-slider { width: 70px; }
+  .bpm-wrap   { padding: 5px 10px; gap: 7px; }
+  .bpm-label  { font-size: 0.7em; }
+  .bpm-val    { font-size: 0.82em; }
+
+  /* How-to-play banner */
+  #modeSelect > button[onclick="openTutorial()"] {
+    padding: 8px;
+    font-size: 0.82em;
+  }
+}
+
+/* ── ROTATE PROMPT ── */
+#rotatePrompt {
+  display: none;
+  position: fixed; inset: 0;
+  background: #0a1018;
+  z-index: 9999;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  text-align: center;
+  padding: 32px;
+}
+.rotate-icon {
+  font-size: 3.5em;
+  animation: rotatePhone 1.8s ease-in-out infinite;
+  display: inline-block;
+}
+@keyframes rotatePhone {
+  0%   { transform: rotate(0deg); }
+  35%  { transform: rotate(90deg); }
+  65%  { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+}
+.rotate-title {
+  font-size: 1.25em; font-weight: 800; color: #f0e0a0; letter-spacing: 1px;
+}
+.rotate-sub {
+  font-size: 0.88em; color: rgba(255,255,255,0.4); line-height: 1.6;
+}
+@media (orientation: portrait) and (max-width: 768px) {
+  #rotatePrompt { display: flex; }
+}
+
 /* ── UTILITY ── */
 .hidden { display: none !important; }
+
+/* ── TUTORIAL MODAL ── */
+#tutModal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 300;
+  backdrop-filter: blur(10px);
+  transition: opacity 0.3s;
+  opacity: 0; pointer-events: none;
+}
+#tutModal.show { opacity: 1; pointer-events: all; }
+.tut-box {
+  background: linear-gradient(145deg, #1a2535, #111c29);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 22px;
+  width: min(530px, 94vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 38px 36px 28px;
+  display: flex; flex-direction: column; gap: 18px;
+  position: relative;
+}
+.tut-skip {
+  position: absolute; top: 16px; right: 16px;
+  background: none; border: none;
+  color: rgba(255,255,255,0.25); font-size: 0.8em; cursor: pointer;
+  transition: color 0.15s; padding: 4px 8px;
+}
+.tut-skip:hover { color: rgba(255,255,255,0.6); }
+.tut-emoji { font-size: 2.8em; text-align: center; line-height: 1; }
+.tut-title {
+  font-size: 1.5em; font-weight: 800; text-align: center;
+  background: linear-gradient(135deg, #f59e0b, #fde68a);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  line-height: 1.25;
+}
+.tut-body {
+  color: rgba(255,255,255,0.65); font-size: 0.91em; line-height: 1.72; text-align: center;
+}
+.tut-body p + p { margin-top: 11px; }
+.tut-body strong { color: #fde68a; }
+/* Demo grid */
+.tut-demo-grid {
+  display: flex; flex-direction: column; gap: 5px;
+  align-items: center; margin: 10px 0;
+}
+.tut-demo-row { display: flex; gap: 4px; align-items: center; }
+.tut-demo-label {
+  width: 52px; font-size: 0.64em; font-weight: 700; text-align: right;
+  padding-right: 6px;
+  color: rgba(255,255,255,0.45); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.tut-demo-cell {
+  width: 28px; height: 28px; border-radius: 5px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+}
+.tut-demo-cell.on {
+  background: var(--dc);
+  border-color: var(--dc);
+  box-shadow: 0 0 8px var(--dc);
+}
+/* Instrument preview list */
+.tut-inst-list { display: flex; flex-direction: column; gap: 7px; width: 100%; }
+.tut-inst-row {
+  display: flex; align-items: center;
+  padding: 9px 12px; border-radius: 9px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  gap: 10px;
+}
+.tut-inst-name { font-size: 0.84em; font-weight: 700; min-width: 60px; }
+.tut-inst-desc { font-size: 0.76em; color: rgba(255,255,255,0.42); flex: 1; text-align: left; line-height: 1.4; }
+.tut-hear-btn {
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.13);
+  color: rgba(255,255,255,0.6); border-radius: 6px; padding: 5px 11px;
+  font-size: 0.77em; font-weight: 600; cursor: pointer; white-space: nowrap;
+  transition: all 0.15s; min-width: 64px; text-align: center;
+}
+.tut-hear-btn:hover { background: rgba(255,255,255,0.17); color: #fff; }
+.tut-hear-btn.playing { border-color: rgba(245,158,11,0.5); color: #fde68a; background: rgba(245,158,11,0.12); }
+/* Navigation */
+.tut-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 4px;
+}
+.tut-dots { display: flex; gap: 7px; }
+.tut-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(255,255,255,0.18); transition: background 0.2s, transform 0.2s;
+}
+.tut-dot.active { background: #f59e0b; transform: scale(1.25); }
+.tut-nav-btn {
+  padding: 10px 22px; border-radius: 9px; border: none;
+  font-size: 0.88em; font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.tut-btn-prev {
+  background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.tut-btn-prev:hover:not(:disabled) { background: rgba(255,255,255,0.14); color: #fff; }
+.tut-btn-prev:disabled { opacity: 0.25; cursor: default; }
+.tut-btn-next { background: linear-gradient(135deg, #f59e0b, #d97706); color: #1a0a00; }
+.tut-btn-next:hover { background: linear-gradient(135deg, #fbbf24, #f59e0b); }
+/* Help button */
+.help-btn {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.45); font-size: 1em; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.help-btn:hover { background: rgba(255,255,255,0.14); color: #fff; border-color: rgba(255,255,255,0.35); }
+@media (max-width: 540px) {
+  .tut-box { padding: 30px 20px 22px; }
+  .tut-title { font-size: 1.25em; }
+  .tut-body { font-size: 0.86em; }
+  .tut-demo-cell { width: 22px; height: 22px; }
+  .tut-demo-label { width: 44px; font-size: 0.6em; }
+}
+
+/* ── SOLO HINT ── */
+.solo-hint {
+  width: 100%; max-width: 800px;
+  margin-top: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(245,158,11,0.08);
+  border: 1px solid rgba(245,158,11,0.22);
+  color: rgba(255,255,255,0.55);
+  font-size: 0.82em;
+  text-align: center;
+  line-height: 1.5;
+}
+.solo-hint strong { color: #fde68a; }
 
 /* ── MODE SELECT ── */
 #modeSelect {
@@ -435,7 +686,7 @@ body {
 /* ── DIFF BAR ── */
 .diff-bar {
   width: 100%; max-width: 800px;
-  display: flex; gap: 8px; justify-content: center; margin-bottom: 14px;
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 10px;
 }
 .diff-btn {
   padding: 6px 22px; border-radius: 20px;
@@ -481,10 +732,32 @@ body {
 </head>
 <body>
 
+<!-- ════ ROTATE PROMPT ════ -->
+<div id="rotatePrompt">
+  <div class="rotate-icon">📱</div>
+  <div class="rotate-title">Rotate Your Device</div>
+  <div class="rotate-sub">Beat Match plays best in landscape mode.<br>Please turn your phone sideways.</div>
+</div>
+
+<!-- ════ TUTORIAL MODAL ════ -->
+<div id="tutModal">
+  <div class="tut-box">
+    <button class="tut-skip" onclick="closeTutorial()">Skip ✕</button>
+    <div class="tut-emoji" id="tutEmoji"></div>
+    <div class="tut-title" id="tutTitle"></div>
+    <div class="tut-body" id="tutBody"></div>
+    <div class="tut-nav">
+      <button class="tut-nav-btn tut-btn-prev" id="tutPrev" onclick="tutNav(-1)" disabled>← Back</button>
+      <div class="tut-dots" id="tutDots"></div>
+      <button class="tut-nav-btn tut-btn-next" id="tutNext" onclick="tutNav(1)">Next →</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════ MODE SELECT ════ -->
 <div id="modeSelect">
   <div class="ms-logo">🥁 Beat Match</div>
-  <p class="ms-tagline">Choose your mode</p>
+  <button onclick="openTutorial()" style="width:100%;max-width:780px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.13);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-size:0.92em;font-weight:600;cursor:pointer;letter-spacing:0.3px;transition:all 0.15s;margin-bottom:10px" onmouseover="this.style.background='rgba(255,255,255,0.11)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='rgba(255,255,255,0.6)'">📖 How to Play — New to Beat Match? Start here</button>
   <div class="ms-cards">
     <button class="ms-card" onclick="selectMode('patterns')">
       <div class="ms-icon">🎯</div>
@@ -511,7 +784,6 @@ body {
       </div>
     </button>
   </div>
-  <a class="ms-back" href="index.html">← Back to Game Center</a>
 </div>
 
 <!-- ════ GAME AREA ════ -->
@@ -520,7 +792,7 @@ body {
 <header class="game-header">
   <button class="back-btn" onclick="backToModes()" style="background:none;border:none;cursor:pointer;padding:0">← Modes</button>
   <div class="game-title" id="modeTitle">🥁 Beat Match</div>
-  <div style="width:60px"></div>
+  <button class="help-btn" onclick="openTutorial()" title="How to Play">?</button>
 </header>
 
 <div class="progress-wrap" id="progressWrap">
@@ -566,6 +838,7 @@ body {
 </div>
 
 <div class="status hidden" id="status"></div>
+<div class="solo-hint hidden" id="soloHint">💡 <strong>HINT:</strong> Clicking the instrument name will allow you to hear it in isolation.</div>
 
 <!-- Win overlay -->
 <div class="overlay" id="winOverlay">
@@ -619,8 +892,8 @@ function playKick(ctx, when) {
   const g = ctx.createGain();
   osc.connect(g); g.connect(ctx.destination);
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(75, when);
-  osc.frequency.exponentialRampToValueAtTime(0.01, when + 0.55);
+  osc.frequency.setValueAtTime(52, when);
+  osc.frequency.exponentialRampToValueAtTime(0.01, when + 0.58);
   g.gain.setValueAtTime(1.1, when);
   g.gain.exponentialRampToValueAtTime(0.001, when + 0.55);
   osc.start(when); osc.stop(when + 0.58);
@@ -695,7 +968,7 @@ function playCrash(ctx, when) {
   const nb = ctx.createBufferSource();
   nb.buffer = getNoiseBuf(ctx);
   const hp = ctx.createBiquadFilter();
-  hp.type = 'highpass'; hp.frequency.value = 2500;
+  hp.type = 'highpass'; hp.frequency.value = 1700;
   const g = ctx.createGain();
   nb.connect(hp); hp.connect(g); g.connect(pan);
   g.gain.setValueAtTime(0.75, when);
@@ -705,7 +978,7 @@ function playCrash(ctx, when) {
   // Metallic shimmer ring
   const ring = ctx.createOscillator();
   const rg = ctx.createGain();
-  ring.type = 'sawtooth'; ring.frequency.value = 5800;
+  ring.type = 'sawtooth'; ring.frequency.value = 4000;
   ring.connect(rg); rg.connect(pan);
   rg.gain.setValueAtTime(0.07, when);
   rg.gain.exponentialRampToValueAtTime(0.001, when + 0.4);
@@ -748,7 +1021,7 @@ function playSound(inst, ctx, when) {
     else if (inst === 'openhat') playHiHat(ctx, when, true);
     else if (inst === 'crash')   playCrash(ctx, when);
     else if (inst === 'hiTom')   playTom(ctx, when, 280, 0.22, 0.4);
-    else if (inst === 'loTom')   playTom(ctx, when, 110, 0.42, -0.4);
+    else if (inst === 'loTom')   playTom(ctx, when, 200, 0.34, -0.4);
   } catch(e) { /* ignore audio errors */ }
 }
 
@@ -763,7 +1036,7 @@ const INST = {
   openhat: { label: 'Open HH', color: '#a855f7', alpha: 'rgba(168,85,247,0.3)' },
   crash:   { label: 'Crash',   color: '#f43f5e', alpha: 'rgba(244,63,94,0.3)'  },
   hiTom:   { label: 'Hi Tom',  color: '#06b6d4', alpha: 'rgba(6,182,212,0.3)'  },
-  loTom:   { label: 'Lo Tom',  color: '#fb923c', alpha: 'rgba(251,146,60,0.3)' },
+  loTom:   { label: 'Lo Tom',  color: '#84cc16', alpha: 'rgba(132,204,22,0.3)' },
 };
 
 // Step label sets
@@ -952,15 +1225,32 @@ function currentLevel() {
 // CELL SIZE CALCULATION
 // ═══════════════════════════════════════════
 
-function cellSize(steps) {
-  const mobile = window.innerWidth < 540;
-  const labelCol = mobile ? 62 : 76; // label + gap
-  const gridPad  = mobile ? 20 : 36; // left+right padding inside .step-grid
-  const avail = Math.min(window.innerWidth - (mobile ? 20 : 32), 780) - labelCol - gridPad;
+function isLandscapeMobile() {
+  return window.innerHeight < 520 && window.innerWidth > window.innerHeight;
+}
+
+function cellSize(steps, instCount) {
+  const lmob   = isLandscapeMobile();
+  const mobile  = window.innerWidth < 540 && !lmob;
+  const labelCol = lmob ? 54 : (mobile ? 62 : 76);
+  const gridPad  = lmob ? 20 : (mobile ? 20 : 36);
+  const bodyPad  = lmob ? 24 : (mobile ? 20 : 32);
+  const avail = Math.min(window.innerWidth - bodyPad, 780) - labelCol - gridPad;
   const beatEvery = steps === 8 ? 2 : 4;
   const gaps = (steps - 1) * 3 + (steps / beatEvery - 1) * 4;
+  const widthBased = Math.floor((avail - gaps) / steps);
+
+  if (lmob && instCount) {
+    // Also constrain by viewport height so rows don't overflow
+    // 190px accounts for all chrome (header, progress, level info, diff bar, controls, status, padding)
+    const rowGaps  = (instCount - 1) * 3;
+    const availH   = window.innerHeight - 190 - rowGaps;
+    const heightBased = Math.floor(availH / instCount);
+    return Math.max(18, Math.min(widthBased, heightBased));
+  }
+
   const minSize = mobile ? 32 : 24;
-  return Math.max(minSize, Math.floor((avail - gaps) / steps));
+  return Math.max(minSize, widthBased);
 }
 
 // ═══════════════════════════════════════════
@@ -973,7 +1263,7 @@ function buildGrid() {
     : currentLevel();
   const grid = document.getElementById('stepGrid');
   grid.innerHTML = '';
-  const cs = cellSize(lv.steps);
+  const cs = cellSize(lv.steps, lv.inst.length);
   const labels = lv.steps === 8 ? LABELS_8 : LABELS_16;
   const beatEvery = lv.steps === 8 ? 2 : 4;
 
@@ -1019,7 +1309,7 @@ function buildGrid() {
       cell.dataset.inst = inst;
       cell.dataset.step = s;
       cell.style.width  = cs + 'px';
-      cell.style.height = Math.max(32, cs) + 'px';
+      cell.style.height = (isLandscapeMobile() ? cs : Math.max(32, cs)) + 'px';
       cell.style.setProperty('--ic', meta.color);
       cell.style.setProperty('--ic-alpha', meta.alpha);
 
@@ -1364,6 +1654,7 @@ function onDropIt() {
 
   if (allCorrect) {
     phase = 'playback';
+    document.getElementById('soloHint').classList.add('hidden');
     const st = document.getElementById('status');
     st.textContent = '✅ Perfect! Playing back…';
     st.className = 'status s-ok';
@@ -1380,8 +1671,9 @@ function onDropIt() {
       phase = 'program';
 
       if (misses >= MAX_MISSES) {
-        // Third strike — show feedback briefly
+        // Third strike — show feedback and solo hint
         feedback = fb;
+        document.getElementById('soloHint').classList.remove('hidden');
         renderCells();
         renderUI();
         if (gameMode === 'patterns') {
@@ -1727,9 +2019,146 @@ window.addEventListener('resize', () => {
 });
 
 // ═══════════════════════════════════════════
+// TUTORIAL
+// ═══════════════════════════════════════════
+
+const TUTE_INST_INFO = [
+  { id: 'kick',    desc: 'The deep thud that drives the pulse of the beat.' },
+  { id: 'snare',   desc: 'A sharp crack — usually on beats 2 and 4.' },
+  { id: 'hihat',   desc: 'A quick metallic tick that keeps steady time.' },
+  { id: 'openhat', desc: 'Like the hi-hat but rings out longer — a sizzle.' },
+  { id: 'crash',   desc: 'A loud splash cymbal that marks phrase beginnings.' },
+  { id: 'hiTom',   desc: 'A higher-pitched drum hit used for accents and fills.' },
+  { id: 'loTom',   desc: 'A deeper, heavier drum hit for low accents and fills.' },
+];
+
+const TUTE_PAGES = [
+  {
+    emoji: '🥁',
+    title: 'Welcome to Beat Match',
+    body: () => `<p>This game trains your ears to recognize drum patterns.</p>
+<p>You'll hear a rhythm, then try to <strong>recreate it on a grid</strong> — one column per beat, one row per instrument.</p>
+<p>No musical experience needed. Your ears are better than you think.</p>`,
+  },
+  {
+    emoji: '🎛️',
+    title: 'The Step Grid',
+    body: () => {
+      const demo = {
+        kick:  [1,0,0,0,1,0,0,0],
+        snare: [0,0,1,0,0,0,1,0],
+        hihat: [1,1,1,1,1,1,1,1],
+      };
+      const cols = { kick: '#f59e0b', snare: '#3b82f6', hihat: '#10b981' };
+      const labels = { kick: 'Kick', snare: 'Snare', hihat: 'Hi-Hat' };
+      let rows = '';
+      for (const [inst, pat] of Object.entries(demo)) {
+        const cells = pat.map(on =>
+          `<div class="tut-demo-cell${on ? ' on' : ''}" style="--dc:${cols[inst]}"></div>`
+        ).join('');
+        rows += `<div class="tut-demo-row"><div class="tut-demo-label">${labels[inst]}</div>${cells}</div>`;
+      }
+      return `<p>Each <strong>row</strong> is one instrument. Each <strong>column</strong> is one moment in time (called a "step").</p>
+<div class="tut-demo-grid">${rows}</div>
+<p>A <strong>lit cell</strong> means that instrument plays on that step. Dark = silent. Click any cell to toggle it on or off.</p>`;
+    },
+  },
+  {
+    emoji: '🥁',
+    title: 'Meet the Instruments',
+    body: () => {
+      const rows = TUTE_INST_INFO.map(({ id, desc }) => {
+        const col   = INST[id] ? INST[id].color : '#fff';
+        const label = INST[id] ? INST[id].label : id;
+        return `<div class="tut-inst-row">
+          <span class="tut-inst-name" style="color:${col}">${label}</span>
+          <span class="tut-inst-desc">${desc}</span>
+          <button class="tut-hear-btn" onclick="tutPlayInst('${id}', this)">▶ Hear it</button>
+        </div>`;
+      }).join('');
+      return `<div class="tut-inst-list">${rows}</div>`;
+    },
+  },
+  {
+    emoji: '👂',
+    title: 'How to Listen',
+    body: () => `<p>When the beat plays, focus on <strong>one sound at a time</strong>:</p>
+<p><strong>1. Kick first</strong> — the deep thud. It usually hits on the very first step and drives the pulse forward.</p>
+<p><strong>2. Then Snare</strong> — the sharp crack. Listen for it in the middle of the bar (step 3 in an 8-step loop).</p>
+<p><strong>3. Last, Hi-Hat</strong> — the fast metallic tick that fills the gaps between kick and snare.</p>
+<p>You can listen as many times as you want. Click any <strong>instrument name</strong> on the grid to hear just that part in isolation.</p>`,
+  },
+  {
+    emoji: '🎯',
+    title: 'How to Play',
+    body: () => `<p><strong>1. Press Listen</strong> to hear the beat. It loops so you can absorb it fully.</p>
+<p><strong>2. Click cells</strong> on the grid to match what you heard — light them up on the steps where you hear each sound.</p>
+<p><strong>3. Press Drop It</strong> to check your answer.</p>
+<p>You get <strong>3 tries</strong> per pattern. After the third miss, the grid shows exactly where you went wrong so you can learn from it.</p>`,
+  },
+  {
+    emoji: '🎉',
+    title: "You're Ready!",
+    body: () => `<p>Start with <strong>Easy</strong> in Infinite Mode — those patterns use just 3 instruments.</p>
+<p>Or jump into <strong>24 Patterns</strong> for hand-crafted beats that get progressively more complex.</p>
+<p>Want to experiment with no pressure? <strong>Drum Machine</strong> lets you build your own grooves freely.</p>
+<p style="margin-top:18px;font-size:0.88em;color:rgba(255,255,255,0.35)">Come back anytime via the <strong style="color:rgba(255,255,255,0.55)">How to Play</strong> button on the home screen.</p>`,
+  },
+];
+
+let tutPage = 0;
+
+function openTutorial() {
+  tutPage = 0;
+  document.getElementById('tutModal').classList.add('show');
+  renderTutPage();
+}
+
+function closeTutorial() {
+  document.getElementById('tutModal').classList.remove('show');
+  localStorage.setItem('bm_tutdone', '1');
+}
+
+function tutNav(dir) {
+  if (dir === 1 && tutPage === TUTE_PAGES.length - 1) { closeTutorial(); return; }
+  tutPage = Math.max(0, Math.min(TUTE_PAGES.length - 1, tutPage + dir));
+  renderTutPage();
+}
+
+function renderTutPage() {
+  const p = TUTE_PAGES[tutPage];
+  document.getElementById('tutEmoji').textContent = p.emoji;
+  document.getElementById('tutTitle').textContent = p.title;
+  document.getElementById('tutBody').innerHTML = p.body();
+  // Dots
+  document.getElementById('tutDots').innerHTML = TUTE_PAGES.map((_, i) =>
+    `<div class="tut-dot${i === tutPage ? ' active' : ''}"></div>`
+  ).join('');
+  // Buttons
+  document.getElementById('tutPrev').disabled = tutPage === 0;
+  document.getElementById('tutNext').textContent =
+    tutPage === TUTE_PAGES.length - 1 ? "Let's Go! 🥁" : 'Next →';
+}
+
+function tutPlayInst(inst, btn) {
+  const ctx = getCtx();
+  playSound(inst, ctx, ctx.currentTime + 0.05);
+  btn.classList.add('playing');
+  btn.textContent = '♪ …';
+  setTimeout(() => {
+    btn.classList.remove('playing');
+    btn.textContent = '▶ Hear it';
+  }, 1000);
+}
+
+// ═══════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════
 animLoop();
+// Attempt landscape lock (Android Chrome / some browsers); iOS falls back to CSS overlay
+if (screen.orientation && screen.orientation.lock) {
+  screen.orientation.lock('landscape').catch(() => {});
+}
 // Show mode select on load — no initLevel() until mode chosen
 </script>
 </body>
