@@ -228,6 +228,97 @@ select:hover { background-color: #ffe060; }
 }
 #back-link:hover { color: #f0c040; }
 
+/* ── Instructions Modal ── */
+#instructions-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 16px;
+}
+#instructions-modal.show { display: flex; }
+#instructions-box {
+  background: linear-gradient(145deg, #2d6a40, #1a3d24);
+  border: 3px solid #f0c040;
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  color: #fff;
+  position: relative;
+}
+#instructions-box h2 {
+  font-size: 1.5em;
+  color: #f0c040;
+  text-align: center;
+  margin-bottom: 18px;
+  letter-spacing: 1px;
+}
+.instr-section {
+  margin-bottom: 16px;
+}
+.instr-section h3 {
+  font-size: 0.95em;
+  font-weight: 700;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(240,192,64,0.25);
+  padding-bottom: 4px;
+}
+.instr-section p {
+  font-size: 0.88em;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.82);
+}
+.instr-section p + p { margin-top: 6px; }
+.bonus-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.bonus-group {
+  flex: 1;
+  min-width: 200px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(240,192,64,0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.bonus-group-name {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.bonus-tiles {
+  font-size: 1.6em;
+  letter-spacing: 4px;
+  line-height: 1.2;
+}
+.bonus-rule {
+  font-size: 0.75em;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+#close-instructions {
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px;
+  font-size: 1em;
+}
+
 /* ── Landscape: collapse everything into one row ── */
 @media (max-height: 500px) {
   body { padding: 3px 8px 4px; }
@@ -267,16 +358,70 @@ select:hover { background-color: #ffe060; }
         <option value="tower">🗼 Tower</option>
         <option value="hourglass">⌛ Hourglass</option>
       </optgroup>
+      <optgroup label="✨ Generative">
+        <option value="mandala">🔮 Mandala</option>
+        <option value="mirror">🪞 Mirror</option>
+        <option value="snowflake">❄️ Snowflake</option>
+      </optgroup>
     </select>
     <button onclick="newGame()">🔀 New</button>
     <button onclick="showHint()">💡 Hint</button>
     <button onclick="undoMove()">↩ Undo</button>
     <button onclick="shuffleTiles()" id="shuffle-btn" style="display:none">🎲 Shuffle</button>
+    <button onclick="showInstructions()" title="How to Play" style="min-width:unset;padding:7px 12px">?</button>
     <span id="status">Loading…</span>
   </div>
 </div>
 <div id="board-container">
   <div id="board"></div>
+</div>
+
+<div id="instructions-modal">
+  <div id="instructions-box">
+    <h2>🀄 How to Play</h2>
+
+    <div class="instr-section">
+      <h3>Goal</h3>
+      <p>Clear all 144 tiles from the board by removing them in matched pairs. Match every tile to win.</p>
+    </div>
+
+    <div class="instr-section">
+      <h3>Free Tiles</h3>
+      <p>You can only select a tile that is <strong>free</strong> — meaning nothing is stacked on top of it, and it has at least one open side (left or right). Tiles buried in the stack or fully flanked by neighbors cannot be selected.</p>
+    </div>
+
+    <div class="instr-section">
+      <h3>Matching</h3>
+      <p>Most tiles match only their <strong>identical twin</strong> — there are 4 copies of each tile in the deck, so you'll always find at least one pair.</p>
+      <p>Select one free tile, then select another. If they match, both are removed. If not, the second becomes the new selection.</p>
+    </div>
+
+    <div class="instr-section">
+      <h3>🌸 Bonus Tiles — Special Matching Rule</h3>
+      <p>There are two bonus groups that play differently. Any tile within a group matches <em>any other tile in that same group</em> — they don't need to be identical.</p>
+      <div class="bonus-grid">
+        <div class="bonus-group">
+          <div class="bonus-group-name">🌸 Flowers (4 tiles)</div>
+          <div class="bonus-tiles">🌸 🌺 🌼 🌻</div>
+          <div class="bonus-rule">Any flower matches any other flower.</div>
+        </div>
+        <div class="bonus-group">
+          <div class="bonus-group-name">🍂 Seasons (4 tiles)</div>
+          <div class="bonus-tiles">🌱 🌞 🍂 ❄️</div>
+          <div class="bonus-rule">Any season matches any other season.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="instr-section">
+      <h3>Stuck?</h3>
+      <p><strong>💡 Hint</strong> — flashes a valid matching pair on the board.</p>
+      <p><strong>↩ Undo</strong> — puts the last removed pair back.</p>
+      <p><strong>🎲 Shuffle</strong> — appears when no moves remain; reshuffles remaining tiles in place so you can keep playing.</p>
+    </div>
+
+    <button id="close-instructions" onclick="closeInstructions()">Got it!</button>
+  </div>
 </div>
 
 <div id="overlay">
@@ -514,6 +659,156 @@ function buildHourglassLayout() {
   return pos; // 144
 }
 
+function buildMandalaLayout() {
+  // 4-way reflection symmetry (±dx, ±dy) around center.
+  // Fixed inner core (92 tiles) + 13 randomly chosen outer seeds × 4 = 52 tiles → 144 total.
+  const pos = [];
+  const cx = 16, cy = 12;
+
+  // Fixed Q1 inner seeds (d ≤ 4 only; d=6 quadrant ring replaced by cross arms below)
+  // 1×16 + 3×12 = 52 tiles
+  const fixed = [
+    [2,2,3],
+    [2,4,2],[4,2,2],[4,4,2],
+  ];
+
+  // Cross spine: fills both axis channels (x=cx and y=cy) with heights
+  // matched to the adjacent quadrant ring at the same distance d.
+  // d=2→maxZ=3, d=4→maxZ=2, d=6→maxZ=1 (mirrors the Q1 ring assignments).
+  // Tile count: center(4) + d=2 arms(16) + d=4 arms(12) + d=6 arms(8) = 40 tiles
+  for (let z = 0; z <= 3; z++) pos.push([cx, cy, z]);            // center: 4
+  for (const [d, maxZ] of [[2,3],[4,2],[6,1]]) {
+    for (const s of [-1, 1]) {
+      for (let z = 0; z <= maxZ; z++) {
+        pos.push([cx,      cy + s*d, z]);   // vertical arm
+        pos.push([cx + s*d, cy,      z]);   // horizontal arm
+      }
+    }
+  }
+
+  // Outer pool: Q1 seeds with max(dx,dy) ≥ 8 — 27 candidates; pick 13
+  // 13 × 4 × 1 = 52 tiles → total 52 + 40 + 52 = 144
+  const pool = [];
+  for (let dx = 2; dx <= 12; dx += 2)
+    for (let dy = 2; dy <= 12; dy += 2)
+      if (Math.max(dx, dy) >= 8) pool.push([dx, dy, 0]);
+
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  for (const [dx, dy, maxZ] of [...fixed, ...pool.slice(0, 13)]) {
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1])
+        for (let z = 0; z <= maxZ; z++)
+          pos.push([cx + sx*dx, cy + sy*dy, z]);
+  }
+  return pos; // always 144
+}
+
+function buildMirrorLayout() {
+  // 2-way left-right reflection around x=cx.
+  // Fixed inner pillars (80 tiles) + 32 randomly chosen outer wing seeds × 2 = 64 tiles → 144 total.
+  const pos = [];
+  const cx = 16;
+
+  // Fixed inner — always the same stacked gateway pillars
+  const fixedInnerY2 = new Set([6,8,10,12,14,16]);
+  const fixed = [
+    ...[8,10,12,14].map(y   => [2, y, 3]),  // 4y × 2 × 4z = 32 tiles
+    ...[6,16].map(y          => [2, y, 2]),  // 2y × 2 × 3z = 12 tiles
+    ...[6,8,10,12,14,16].map(y=> [4, y, 2]),// 6y × 2 × 3z = 36 tiles
+  ]; // 80 tiles
+
+  // Center spine at dx=0 (axis tiles, no mirroring) — fills the channel.
+  // Stacked to match the height of the adjacent dx=2 pillar at the same y-row.
+  // y∈{8,10,12,14}→maxZ=3 (matches dx=2 z=3 pillars)
+  // y∈{6,16}→maxZ=2 (matches dx=2 z=2 rows)
+  // Tile count: 4×4 + 2×3 = 16+6 = 22 tiles
+  for (const [ys, maxZ] of [[[8,10,12,14],3],[[6,16],2]])
+    for (const y of ys)
+      for (let z = 0; z <= maxZ; z++) pos.push([cx, y, z]);
+
+  // Outer pool: (dx, y) not already in fixed, z=0 only
+  // dx=2,4: only y values NOT used above; dx=6..12: all y values
+  // Pool size: 6+6+12+12+12+12 = 60; pick 21 → 21×2 = 42 tiles
+  // Total: 80 + 22 + 42 = 144
+  const pool = [];
+  for (let y = 0; y <= 22; y += 2) if (!fixedInnerY2.has(y)) pool.push([2, y, 0]);
+  for (let y = 0; y <= 22; y += 2) if (!fixedInnerY2.has(y)) pool.push([4, y, 0]);
+  for (let dx = 6; dx <= 12; dx += 2)
+    for (let y = 0; y <= 22; y += 2) pool.push([dx, y, 0]);
+
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  for (const [dx, y, maxZ] of [...fixed, ...pool.slice(0, 21)]) {
+    for (const sx of [-1, 1])
+      for (let z = 0; z <= maxZ; z++)
+        pos.push([cx + sx*dx, y, z]);
+  }
+  return pos; // always 144
+}
+
+function buildSnowflakeLayout() {
+  // 8-way D4 dihedral symmetry.
+  // Fixed inner peak (32) + channel fills all 8 directional gaps (76) +
+  // 4 random outer octet seeds × 8 + 1 random outer diagonal × 4 = 36 → 144 total.
+  const pos = [];
+  const cx = 16, cy = 12;
+
+  // 8 D4 reflections for off-diagonal seeds (dx > dy > 0)
+  function octet(dx, dy, maxZ) {
+    for (const [rx, ry] of [
+      [ dx,  dy], [-dx,  dy], [ dx, -dy], [-dx, -dy],
+      [ dy,  dx], [-dy,  dx], [ dy, -dx], [-dy, -dx],
+    ])
+      for (let z = 0; z <= maxZ; z++) pos.push([cx + rx, cy + ry, z]);
+  }
+
+  // Fixed inner peak — 8 × 4z = 32 tiles
+  octet(4, 2, 3);
+
+  // Channel — fills all 8 directional gaps with heights matched to adjacent ring
+  // Center: 4 tiles (z=0..3)
+  for (let z = 0; z <= 3; z++) pos.push([cx, cy, z]);
+  // Cross arms (horizontal + vertical): 16 + 12 + 8 = 36 tiles
+  for (const [d, maxZ] of [[2,3],[4,2],[6,1]]) {
+    for (const s of [-1, 1]) {
+      for (let z = 0; z <= maxZ; z++) {
+        pos.push([cx + s*d, cy,       z]);
+        pos.push([cx,       cy + s*d, z]);
+      }
+    }
+  }
+  // Diagonal arms (±45°): 16 + 12 + 8 = 36 tiles
+  for (const [d, maxZ] of [[2,3],[4,2],[6,1]]) {
+    for (const sx of [-1, 1]) for (const sy of [-1, 1])
+      for (let z = 0; z <= maxZ; z++) pos.push([cx + sx*d, cy + sy*d, z]);
+  }
+  // Channel total: 4 + 36 + 36 = 76 tiles
+
+  // Outer — 4 random off-diagonal octets (32) + 1 random diagonal quad (4) = 36 tiles
+  const octetPool = [];
+  for (let dx = 8; dx <= 12; dx += 2)
+    for (let dy = 2; dy < dx; dy += 2)
+      octetPool.push([dx, dy]); // 12 seeds
+
+  for (let i = octetPool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [octetPool[i], octetPool[j]] = [octetPool[j], octetPool[i]];
+  }
+  for (const [dx, dy] of octetPool.slice(0, 4)) octet(dx, dy, 0);
+
+  const dd = [8, 10, 12][Math.floor(Math.random() * 3)];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) pos.push([cx + sx*dd, cy + sy*dd, 0]);
+
+  return pos; // 32 + 76 + 36 = 144
+}
+
 function getLayout() {
   const val = document.getElementById('layout-select').value;
   switch (val) {
@@ -525,6 +820,9 @@ function getLayout() {
     case 'pagodav':  return buildPagodaVLayout();
     case 'tower':    return buildTowerLayout();
     case 'hourglass':return buildHourglassLayout();
+    case 'mandala':  return buildMandalaLayout();
+    case 'mirror':   return buildMirrorLayout();
+    case 'snowflake':return buildSnowflakeLayout();
     default:         return buildTurtleLayout();
   }
 }
@@ -546,10 +844,14 @@ function tilesMatch(a, b) {
 }
 
 function isCovered(tile) {
+  // A tile is covered only when another tile is stacked directly on top at
+  // the same (x, y). The old ±2-unit perspective-edge checks (left/bottom)
+  // caused "trapping" in dense generative layouts where stacked channel
+  // columns would cover adjacent tiles via a 5 px 3-D offset alone.
   return tiles.some(t => !t.removed && t !== tile
     && t.z === tile.z + 1
-    && Math.abs(t.x - tile.x) < 2
-    && Math.abs(t.y - tile.y) < 2);
+    && t.x === tile.x
+    && t.y === tile.y);
 }
 function isLeftBlocked(tile) {
   return tiles.some(t => !t.removed && t !== tile
@@ -821,6 +1123,13 @@ function showOverlay(title, msg) {
 }
 function closeOverlay() {
   document.getElementById('overlay').classList.remove('show');
+}
+
+function showInstructions() {
+  document.getElementById('instructions-modal').classList.add('show');
+}
+function closeInstructions() {
+  document.getElementById('instructions-modal').classList.remove('show');
 }
 
 // ─── Start ───────────────────────────────────────────────────────────────────
