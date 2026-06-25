@@ -150,6 +150,78 @@ const COLORS = [
   '#ff5722','#607d8b','#ff9800','#673ab7',
 ];
 
+// ── Board Shapes ──────────────────────────────────────────────────────────────
+const SHAPE_DEFS = [
+  { name: 'rectangle', fn: () => true },
+  { name: 'cross', fn: (r, c) => {
+    const hr = Math.floor(ROWS * 0.30), hc = Math.floor(COLS * 0.30);
+    return Math.abs(r - (ROWS-1)/2) < hr + 0.5 || Math.abs(c - (COLS-1)/2) < hc + 0.5;
+  }},
+  { name: 'diamond', fn: (r, c) => {
+    return Math.abs(r+0.5 - ROWS/2) / (ROWS/2) + Math.abs(c+0.5 - COLS/2) / (COLS/2) < 1.05;
+  }},
+  { name: 'circle', fn: (r, c) => {
+    const dr = r+0.5 - ROWS/2, dc = c+0.5 - COLS/2;
+    return dr*dr / (ROWS/2)**2 + dc*dc / (COLS/2)**2 < 1.0;
+  }},
+  { name: 'L', fn: (r, c) => {    // cuts upper-right corner
+    return c <= Math.floor(COLS * 0.55) || r >= Math.floor(ROWS * 0.45);
+  }},
+  { name: 'chevron', fn: (r, c) => {          // ► right-pointing triangle
+    const mr = (ROWS-1) / 2;
+    return c + 1 >= Math.abs(r - mr) * COLS / ROWS;
+  }},
+  { name: 'T', fn: (r, c) => {
+    return r <= Math.floor(ROWS * 0.4) ||
+           (c >= Math.floor(COLS * 0.33) && c < Math.floor(COLS * 0.67));
+  }},
+];
+
+let shapeFn   = () => true;
+let shapeName = 'rectangle';
+let distGrid  = [];   // BFS depth from shape boundary — used for Phase-2 ordering
+
+function isValidCell(r, c) {
+  return r >= 0 && r < ROWS && c >= 0 && c < COLS && shapeFn(r, c);
+}
+
+// Steps in direction `dir` until hitting an invalid/out-of-bounds cell.
+function distInDir(r, c, dir) {
+  const [dr, dc] = DELTA[dir];
+  let d = 0, rr = r+dr, cc = c+dc;
+  while (isValidCell(rr, cc)) { d++; rr += dr; cc += dc; }
+  return d;
+}
+
+function pickShape() {
+  const s = SHAPE_DEFS[Math.floor(Math.random() * SHAPE_DEFS.length)];
+  shapeFn   = s.fn;
+  shapeName = s.name;
+  precomputeDistGrid();
+}
+
+function precomputeDistGrid() {
+  distGrid = Array.from({length:ROWS}, () => new Array(COLS).fill(Infinity));
+  const queue = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!isValidCell(r, c)) continue;
+      const onBorder = Object.values(DELTA).some(([dr,dc]) => !isValidCell(r+dr, c+dc));
+      if (onBorder) { distGrid[r][c] = 0; queue.push([r, c]); }
+    }
+  }
+  for (let i = 0; i < queue.length; i++) {
+    const [r, c] = queue[i];
+    for (const [dr, dc] of Object.values(DELTA)) {
+      const nr = r+dr, nc = c+dc;
+      if (isValidCell(nr, nc) && distGrid[nr][nc] === Infinity) {
+        distGrid[nr][nc] = distGrid[r][c] + 1;
+        queue.push([nr, nc]);
+      }
+    }
+  }
+}
+
 // ── State ─────────────────────────────────────────────────────────────────────
 // piece: { cells[[r,c],...], tipDir, color, removed }
 //   cells[0] = tail end, cells[last] = tip cell
@@ -192,7 +264,7 @@ function isBlocked(id) {
   const [tr, tc] = p.cells[p.cells.length - 1];
   const [dr, dc] = DELTA[p.tipDir];
   let r = tr + dr, c = tc + dc;
-  while (inBounds(r, c)) {
+  while (isValidCell(r, c)) {
     if (cellPiece[r][c] !== -1) return true;
     r += dr; c += dc;
   }
@@ -218,7 +290,7 @@ function isBoardSolvable() {
       const tip = p.cells[p.cells.length - 1];
       const [dr, dc] = DELTA[p.tipDir];
       let r = tip[0]+dr, c = tip[1]+dc, ok = true;
-      while (inBounds(r, c)) {
+      while (isValidCell(r, c)) {
         const bid = cellPiece[r][c];
         if (bid !== -1 && !removed[bid]) { ok = false; break; }
         r += dr; c += dc;
@@ -233,6 +305,7 @@ function newGame() {
   strikes = 0; cleared = 0; hintId = -1;
   document.getElementById('overlay').classList.remove('show');
   setStatus('');
+  pickShape();
   let attempts = 0;
   do {
     pieces = [];
@@ -255,7 +328,10 @@ function dirOf(a, b) {
 
 function generateBoard() {
   // Phase 1 – place shapes (cells only, no direction yet)
-  const targets = shuffle(Array.from({length:ROWS*COLS}, (_,i) => [Math.floor(i/COLS), i%COLS]));
+  const targets = shuffle(
+    Array.from({length:ROWS*COLS}, (_,i) => [Math.floor(i/COLS), i%COLS])
+      .filter(([r,c]) => isValidCell(r,c))
+  );
   let colorIdx = 0;
   for (const [sr, sc] of targets) {
     if (cellPiece[sr][sc] !== -1) continue;
@@ -266,7 +342,7 @@ function generateBoard() {
       for (const d of shuffle([...DIRS])) {
         const [dr, dc] = DELTA[d];
         const nr = sr+dr, nc = sc+dc;
-        if (!inBounds(nr, nc)) continue;
+        if (!isValidCell(nr, nc)) continue;
         const pid = cellPiece[nr][nc];
         if (pid === -1) continue;
         const pc = pieces[pid].cells;
@@ -288,7 +364,7 @@ function generateBoard() {
   // going LEFT always reaches only already-processed pieces → exit is clear.
   const order = pieces
     .map((p, id) => {
-      const dist = Math.min(...p.cells.map(([r,c]) => Math.min(r, ROWS-1-r, c, COLS-1-c)));
+      const dist = Math.min(...p.cells.map(([r,c]) => distGrid[r][c] ?? 0));
       const mid  = p.cells[Math.floor(p.cells.length / 2)];
       return { id, dist, r: mid[0], c: mid[1] };
     })
@@ -306,7 +382,7 @@ function generateBoard() {
     const candB = { rev:true,  dir: dirOf(p.cells[1],   p.cells[0])   };
     const edgeDist = (cand) => {
       const cell = cand.rev ? p.cells[0] : p.cells[n-1];
-      return ({ up: cell[0], down: ROWS-1-cell[0], left: cell[1], right: COLS-1-cell[1] })[cand.dir];
+      return distInDir(cell[0], cell[1], cand.dir);
     };
     const candidates = edgeDist(candA) <= edgeDist(candB) ? [candA, candB] : [candB, candA];
 
@@ -316,7 +392,7 @@ function generateBoard() {
       const [dr, dc] = DELTA[dir];
       let r = tipCell[0]+dr, c = tipCell[1]+dc;
       let ok = true;
-      while (inBounds(r, c)) {
+      while (isValidCell(r, c)) {
         const bid = cellPiece[r][c];
         if (bid !== -1 && !removedBefore.has(bid)) { ok = false; break; }
         r += dr; c += dc;
@@ -338,8 +414,7 @@ function generateBoard() {
         { rev:true,  dir: dirOf(p.cells[1],   p.cells[0]),   cell: p.cells[0]   },
       ];
       const best = endOpts.sort((a, b) => {
-        const dist = o => ({ up: o.cell[0], down: ROWS-1-o.cell[0],
-                             left: o.cell[1], right: COLS-1-o.cell[1] })[o.dir];
+        const dist = o => distInDir(o.cell[0], o.cell[1], o.dir);
         return dist(a) - dist(b);
       })[0];
       if (best.rev) p.cells.reverse();
@@ -351,18 +426,16 @@ function generateBoard() {
 }
 
 function growShape(sr, sc) {
-  const maxLen = 2 + Math.floor(Math.random() * 3); // 2–4 cells
-  const cells = [[sr, sc]];
+  const maxLen   = 3 + Math.floor(Math.random() * 7); // 3–9 cells
+  const cells    = [[sr, sc]];
 
-  // Try directions in edge-biased order: nearest edge first, then farther.
-  // This makes one endpoint more likely to point toward the board edge,
-  // reducing Phase-2 fallback failures and unsolvable boards.
-  const edgeDist = d => ({ up:sr, down:ROWS-1-sr, left:sc, right:COLS-1-sc })[d];
+  // Start toward the nearest shape boundary so one endpoint tends to point outward.
+  const edgeDist = d => distInDir(sr, sc, d);
   const sortedDirs = shuffle([...DIRS]).sort((a, b) => edgeDist(a) - edgeDist(b));
   let dir = null;
   for (const d of sortedDirs) {
     const [dr, dc] = DELTA[d];
-    if (inBounds(sr+dr, sc+dc) && cellPiece[sr+dr][sc+dc] === -1) { dir = d; break; }
+    if (isValidCell(sr+dr, sc+dc) && cellPiece[sr+dr][sc+dc] === -1) { dir = d; break; }
   }
   if (!dir) return cells; // fully surrounded — caller will merge into a neighbour
 
@@ -370,22 +443,20 @@ function growShape(sr, sc) {
   let r = sr+dr0, c = sc+dc0;
   cells.push([r, c]);
 
-  let turned = false;
+  let turnsLeft = Math.floor(Math.random() * 4); // 0, 1, 2, or 3 turns — winding shapes
   while (cells.length < maxLen) {
     const [dr, dc] = DELTA[dir];
     const nr = r+dr, nc = c+dc;
-    if (inBounds(nr, nc) && cellPiece[nr][nc] === -1) {
+    if (isValidCell(nr, nc) && cellPiece[nr][nc] === -1) {
       r = nr; c = nc; cells.push([r, c]);
-    } else if (!turned && Math.random() < 0.45) {
-      // Only turn ~45% of the time — more straight pieces, fewer L-shapes,
-      // which dramatically reduces unsolvable board generation.
+    } else if (turnsLeft > 0 && Math.random() < 0.55) {
       const perps = shuffle([...perpOf(dir)]);
       let ok = false;
       for (const pd of perps) {
         const [pdr, pdc] = DELTA[pd];
         const pr = r+pdr, pc = c+pdc;
-        if (inBounds(pr, pc) && cellPiece[pr][pc] === -1) {
-          dir = pd; r = pr; c = pc; cells.push([r, c]); turned = true; ok = true; break;
+        if (isValidCell(pr, pc) && cellPiece[pr][pc] === -1) {
+          dir = pd; r = pr; c = pc; cells.push([r, c]); turnsLeft--; ok = true; break;
         }
       }
       if (!ok) break;
@@ -418,16 +489,24 @@ function render(skipId = -1) {
 }
 
 function drawGrid() {
-  ctx.strokeStyle = '#13131f';
-  ctx.lineWidth = 0.5 * DPR;
-  const W = canvas.width, H = canvas.height;
-  for (let r = 0; r <= ROWS; r++) {
-    const y = r * CS * DPR;
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  // Void (outside shape): near-black
+  ctx.fillStyle = '#06060f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Board cells: fill then grid lines in two passes for speed
+  ctx.fillStyle = '#10101e';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (isValidCell(r, c))
+        ctx.fillRect(c*CS*DPR, r*CS*DPR, CS*DPR, CS*DPR);
+    }
   }
-  for (let c = 0; c <= COLS; c++) {
-    const x = c * CS * DPR;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  ctx.lineWidth = 0.5 * DPR;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (isValidCell(r, c))
+        ctx.strokeRect(c*CS*DPR, r*CS*DPR, CS*DPR, CS*DPR);
+    }
   }
 }
 
