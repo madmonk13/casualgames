@@ -91,17 +91,17 @@ select:hover { background-color: #ffe060; }
   transform-origin: top left;
 }
 
-/* Layer depth shading — halfway between original and subtle */
-.tile.z0 { background: linear-gradient(160deg, #ccbe94 0%, #b7a86c 60%, #a28e4d 100%); }
-.tile.z1 { background: linear-gradient(160deg, #d9cda3 0%, #c6b77b 60%, #b09d59 100%); }
-.tile.z2 { background: linear-gradient(160deg, #e7dbb2 0%, #d4c689 60%, #bfab64 100%); }
-.tile.z3 { background: linear-gradient(160deg, #f5e8c0 0%, #e0cc90 60%, #c8b060 100%); }
+/* Layer depth shading — white base, warm tint deepens at lower layers */
+.tile.z0 { background: linear-gradient(160deg, #f0ece4 0%, #e4ddd2 60%, #d8d0c4 100%); }
+.tile.z1 { background: linear-gradient(160deg, #f6f3ec 0%, #eee8de 60%, #e2d9cc 100%); }
+.tile.z2 { background: linear-gradient(160deg, #faf8f2 0%, #f3efe6 60%, #e8e2d8 100%); }
+.tile.z3 { background: linear-gradient(160deg, #fefefe 0%, #f9f6f0 60%, #ede8e0 100%); }
 
 .tile {
   position: absolute;
   width: 52px;
   height: 66px;
-  background: linear-gradient(160deg, #f5e8c0 0%, #e0cc90 60%, #c8b060 100%);
+  background: linear-gradient(160deg, #fefefe 0%, #f9f6f0 60%, #ede8e0 100%);
   border: 2px solid #8B6914;
   border-radius: 10px;
   display: flex;
@@ -134,14 +134,14 @@ select:hover { background-color: #ffe060; }
   inset: 0;
   border-radius: inherit;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
-  opacity: 0.42;
+  opacity: 0.18;
   mix-blend-mode: multiply;
   pointer-events: none;
 }
-/* Full-color emoji, no filter — just sized to fill the tile */
+/* Full-color emoji — sits above the parchment ::after overlay */
 .tile-art {
   line-height: 1;
-  position: relative; /* sit above ::after */
+  position: relative;
   z-index: 1;
 }
 .tile.selected {
@@ -664,10 +664,11 @@ const BG_CLASSES  = ['jade','ocean','midnight','temple','desert','forest'].map(b
 
 function createDeck() {
   // 34 standard × 4 = 136, plus 4 flowers + 4 seasons = 144
+  // Bonus tiles always use the classic set regardless of theme
   const theme = THEMES[currentTheme];
   const deck = [];
-  for (const t of theme.std)   for (let i = 0; i < 4; i++) deck.push({...t});
-  for (const t of theme.bonus) deck.push({...t});
+  for (const t of theme.std)          for (let i = 0; i < 4; i++) deck.push({...t});
+  for (const t of THEMES.classic.bonus) deck.push({...t});
   return deck; // 144 tiles
 }
 
@@ -1091,17 +1092,21 @@ function newGame() {
   selected = null;
   history = [];
   document.getElementById('shuffle-btn').style.display = 'none';
-  renderBoard();
+  buildBoard();
   setStatus(`${tiles.length} tiles remaining`);
   saveState();
 }
 
 // ─── Render ──────────────────────────────────────────────────────────────────
-function renderBoard() {
+function tileDisplayEmoji(tile) { return tile.emoji; }
+
+// buildBoard: full DOM rebuild — only for new game / session restore.
+// Preserving existing elements during play prevents iOS Safari from resetting
+// pinch-zoom when innerHTML is cleared on every tile removal.
+function buildBoard() {
   const board = document.getElementById('board');
   board.innerHTML = '';
 
-  // Board pixel dimensions — computed from actual tile extents (stable across removals)
   const maxX = Math.max(...tiles.map(t => t.x));
   const maxY = Math.max(...tiles.map(t => t.y));
   const maxZ = Math.max(...tiles.map(t => t.z));
@@ -1110,38 +1115,41 @@ function renderBoard() {
   board.style.width  = boardW + 'px';
   board.style.height = boardH + 'px';
 
-  // Render bottom-to-top so higher tiles visually sit on lower ones
-  const sorted = [...tiles].sort((a,b) =>
-    a.z - b.z || a.y - b.y || a.x - b.x);
+  const sorted = [...tiles].sort((a,b) => a.z - b.z || a.y - b.y || a.x - b.x);
 
   for (const tile of sorted) {
-    if (tile.removed) continue;
-
     const px = tile.x * UX + tile.z * OX + 10;
-    const py = tile.y * UY - tile.z * OY + maxZ * OY + 10; // maxZ now dynamic
+    const py = tile.y * UY - tile.z * OY + maxZ * OY + 10;
     const zi = tile.z * 1000 + tile.y * 20 + tile.x;
 
     const el = document.createElement('div');
     el.className = `tile z${tile.z}`;
-    el.style.left   = px + 'px';
-    el.style.top    = py + 'px';
-    el.style.zIndex = zi;
+    el.style.cssText = `left:${px}px;top:${py}px;z-index:${zi};display:${tile.removed?'none':''}`;
 
     const art = document.createElement('span');
     art.className = 'tile-art';
-    art.textContent = tile.emoji;
+    art.textContent = tileDisplayEmoji(tile);
     el.appendChild(art);
 
-    const free = isFree(tile);
-    // No visual distinction — player figures out which tiles are free
-    if (tile === selected) el.classList.add('selected');
     el.addEventListener('click', () => onTileClick(tile));
-
     tile.el = el;
     board.appendChild(el);
   }
 
   scaleBoard();
+}
+
+// renderBoard: lightweight in-place update — never touches DOM structure,
+// so the browser's pinch-zoom state and scroll position are preserved.
+function renderBoard() {
+  for (const tile of tiles) {
+    if (!tile.el) continue;
+    tile.el.style.display = tile.removed ? 'none' : '';
+    const isSelected = tile === selected;
+    tile.el.className = `tile z${tile.z}${isSelected ? ' selected' : ''}`;
+    const art = tile.el.querySelector('.tile-art');
+    if (art) art.textContent = tileDisplayEmoji(tile);
+  }
 }
 
 // ─── Responsive Scaling ───────────────────────────────────────────────────────
@@ -1151,17 +1159,19 @@ function scaleBoard() {
   const controls  = document.getElementById('header');
   const boardW    = parseFloat(board.style.width);
   const boardH    = parseFloat(board.style.height);
-  const vw        = document.documentElement.clientWidth; // excludes scrollbar
-  const isLandscape = window.innerHeight <= 500;
+  // Use layout-viewport dimensions so pinch-zoom doesn't affect board sizing
+  const vw  = document.documentElement.clientWidth;
+  const vh  = document.documentElement.clientHeight;
+  const isLandscape = vh <= 500;
   const isMobile  = vw <= 600 || isLandscape;
-  const bodyPad   = isMobile ? 16 : 24;  // left+right body padding
-  const buf       = 8;                  // breathing room for shadow bleed
+  const bodyPad   = isMobile ? 16 : 24;
+  const buf       = 8;
 
   const maxW = vw - bodyPad;
 
-  // Available height = viewport minus everything above the board container
-  const ctrlBottom = controls.getBoundingClientRect().bottom;
-  const maxH = window.innerHeight - ctrlBottom - (isMobile ? 20 : 28);
+  // offsetTop/offsetHeight gives layout-viewport coordinates, not visual-viewport
+  const ctrlBottom = controls.offsetTop + controls.offsetHeight;
+  const maxH = vh - ctrlBottom - (isMobile ? 20 : 28);
 
   const scaleW = (maxW - buf) / boardW;
   const scaleH = maxH > 80 ? (maxH - buf) / boardH : scaleW;
@@ -1180,7 +1190,7 @@ function scaleBoard() {
   const tx = (boardW / 2 - (minCX + maxCX) / 2) * scale + buf / 2;
   const ty = (boardH / 2 - (minCY + maxCY) / 2) * scale + buf / 2;
 
-  board.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+  board.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px) scale(${scale})`;
   container.style.width  = Math.floor(boardW * scale + buf) + 'px';
   container.style.height = Math.floor(boardH * scale + buf) + 'px';
 }
@@ -1338,7 +1348,7 @@ function applyTheme(theme) {
   currentTheme = theme;
   localStorage.setItem('mj-theme', theme);
   const lookup = {};
-  for (const t of [...THEMES[theme].std, ...THEMES[theme].bonus]) lookup[t.id] = t.emoji;
+  for (const t of THEMES[theme].std) lookup[t.id] = t.emoji; // bonus tiles stay classic
   for (const t of tiles) { if (lookup[t.id]) t.emoji = lookup[t.id]; }
   updateBonusTileDisplay();
   renderBoard();
@@ -1351,12 +1361,13 @@ function applyBg(bg) {
   document.body.classList.add('bg-' + bg);
 }
 function updateBonusTileDisplay() {
-  const theme = THEMES[currentTheme];
-  const flowers = theme.bonus.filter(t => t.group === 'flower');
-  const seasons = theme.bonus.filter(t => t.group === 'season');
-  document.getElementById('instr-flower-name').textContent  = theme.flowerName + ' (4 tiles)';
+  // Bonus tiles are always classic regardless of theme
+  const classic = THEMES.classic;
+  const flowers = classic.bonus.filter(t => t.group === 'flower');
+  const seasons = classic.bonus.filter(t => t.group === 'season');
+  document.getElementById('instr-flower-name').textContent  = classic.flowerName + ' (4 tiles)';
   document.getElementById('instr-flower-tiles').textContent = flowers.map(t => t.emoji).join(' ');
-  document.getElementById('instr-season-name').textContent  = theme.seasonName + ' (4 tiles)';
+  document.getElementById('instr-season-name').textContent  = classic.seasonName + ' (4 tiles)';
   document.getElementById('instr-season-tiles').textContent = seasons.map(t => t.emoji).join(' ');
 }
 
@@ -1382,7 +1393,13 @@ function loadSavedState() {
     if (!Array.isArray(s.tiles) || s.tiles.length !== 144) return false;
     if (s.layout) { currentLayout = s.layout; localStorage.setItem('mj-layout', s.layout); }
     if (s.theme && THEMES[s.theme]) { currentTheme = s.theme; localStorage.setItem('mj-theme', s.theme); }
-    tiles   = s.tiles.map(t => ({ ...t, el: null }));
+    const classicBonusLookup = {};
+    for (const t of THEMES.classic.bonus) classicBonusLookup[t.id] = t.emoji;
+    tiles = s.tiles.map(t => ({
+      ...t,
+      emoji: (t.group === 'flower' || t.group === 'season') ? (classicBonusLookup[t.id] || t.emoji) : t.emoji,
+      el: null,
+    }));
     history = (s.history || [])
       .map(([ai, bi]) => [tiles[ai], tiles[bi]])
       .filter(([a, b]) => a && b);
@@ -1396,7 +1413,7 @@ window.addEventListener('resize', scaleBoard);
 applyBg(currentBg);
 if (loadSavedState()) {
   updateBonusTileDisplay();
-  renderBoard();
+  buildBoard();
   const rem = tiles.filter(t => !t.removed).length;
   setStatus(`${rem} tiles remaining`);
   if (!hasMoves() && rem > 0) document.getElementById('shuffle-btn').style.display = '';
