@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Arrow Escape</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0c0c18;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 14px 12px;
+  gap: 12px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1 {
+  font-size: 1.25em;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #c8a8ff;
+  margin-top: 2px;
+}
+
+/* ── HUD ── */
+#hud {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(440px, 100%);
+}
+#lives { font-size: 1.4em; letter-spacing: 3px; }
+
+/* ── Board ── */
+#board-wrap {
+  position: relative;
+  width: min(min(85vh - 120px, 620px), calc(100vw - 16px));
+  aspect-ratio: 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #10101e;
+  border: 1.5px solid #1e1e38;
+}
+#board-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+/* ── Status / Controls ── */
+#status { font-size: 0.82em; color: #777; min-height: 1.1em; text-align: center; }
+
+#controls { display: flex; gap: 10px; }
+#controls button {
+  background: #1a1a30;
+  color: #bbb;
+  border: 1px solid #30305a;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 0.9em;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+#controls button:hover { background: #26264a; color: #fff; }
+
+/* ── Overlay ── */
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+#overlay.show { display: flex; }
+#overlay-box {
+  background: #13132a;
+  border: 2px solid #3a2a6a;
+  border-radius: 18px;
+  padding: 34px 42px;
+  text-align: center;
+  min-width: 250px;
+}
+#overlay-box h2 { font-size: 2.2em; margin-bottom: 4px; }
+#overlay-box p  { color: #999; margin-bottom: 4px; font-size: 0.92em; }
+.big-score { font-size: 2em; font-weight: 700; color: #ffd700; margin: 8px 0 18px; }
+#overlay-box button {
+  background: #5a3a9a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+#overlay-box button:hover { background: #6a4aaa; }
+
+</style>
+</head>
+<body>
+
+<h1>Arrow Escape</h1>
+
+<div id="hud">
+  <div id="lives">❤️❤️❤️</div>
+</div>
+
+<div id="board-wrap">
+  <canvas id="board-canvas"></canvas>
+</div>
+
+<div id="status"></div>
+
+<div id="controls">
+  <button onclick="newGame()">🔀 New</button>
+  <button onclick="showHint()">💡 Hint</button>
+</div>
+
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2 id="ov-icon"></h2>
+    <p id="ov-msg"></p>
+    <div class="big-score" id="ov-score"></div>
+    <button onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const ROWS = 20, COLS = 20;
+const DIRS = ['up','down','left','right'];
+const DELTA = { up:[-1,0], down:[1,0], left:[0,-1], right:[0,1] };
+const OPP   = { up:'down', down:'up', left:'right', right:'left' };
+
+const COLORS = [
+  '#e74c3c','#3498db','#2ecc71','#f39c12',
+  '#9b59b6','#e91e63','#00bcd4','#8bc34a',
+  '#ff5722','#607d8b','#ff9800','#673ab7',
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+// piece: { cells[[r,c],...], tipDir, color, removed }
+//   cells[0] = tail end, cells[last] = tip cell
+let pieces    = [];
+let cellPiece = [];   // cellPiece[r][c] = piece index or -1
+let strikes, cleared, hintId;
+
+const canvas = document.getElementById('board-canvas');
+const ctx    = canvas.getContext('2d');
+let CS; // logical cell size (px)
+let DPR = 1;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function inBounds(r, c) { return r >= 0 && r < ROWS && c >= 0 && c < COLS; }
+function shuffle(a) {
+  for (let i = a.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function perpOf(dir) { return (dir==='up'||dir==='down') ? ['left','right'] : ['up','down']; }
+
+function initGrid() {
+  cellPiece = Array.from({length:ROWS}, () => new Array(COLS).fill(-1));
+}
+function placePiece(p) {
+  const id = pieces.length;
+  pieces.push(p);
+  for (const [r,c] of p.cells) cellPiece[r][c] = id;
+}
+function removePiece(id) {
+  for (const [r,c] of pieces[id].cells) cellPiece[r][c] = -1;
+  pieces[id].removed = true;
+}
+
+// ── Blocking ──────────────────────────────────────────────────────────────────
+// A piece is free if its tip's path in tipDir to the board edge is clear.
+function isBlocked(id) {
+  const p = pieces[id];
+  const [tr, tc] = p.cells[p.cells.length - 1];
+  const [dr, dc] = DELTA[p.tipDir];
+  let r = tr + dr, c = tc + dc;
+  while (inBounds(r, c)) {
+    if (cellPiece[r][c] !== -1) return true;
+    r += dr; c += dc;
+  }
+  return false;
+}
+
+function anyFree() {
+  for (let id = 0; id < pieces.length; id++)
+    if (!pieces[id].removed && !isBlocked(id)) return true;
+  return false;
+}
+
+// ── Generation ────────────────────────────────────────────────────────────────
+// Simulate game to verify all pieces can be removed; retry generation if not.
+function isBoardSolvable() {
+  const removed = new Array(pieces.length).fill(false);
+  let progress = true;
+  while (progress) {
+    progress = false;
+    for (let id = 0; id < pieces.length; id++) {
+      if (removed[id]) continue;
+      const p   = pieces[id];
+      const tip = p.cells[p.cells.length - 1];
+      const [dr, dc] = DELTA[p.tipDir];
+      let r = tip[0]+dr, c = tip[1]+dc, ok = true;
+      while (inBounds(r, c)) {
+        const bid = cellPiece[r][c];
+        if (bid !== -1 && !removed[bid]) { ok = false; break; }
+        r += dr; c += dc;
+      }
+      if (ok) { removed[id] = true; progress = true; }
+    }
+  }
+  return removed.every(v => v);
+}
+
+function newGame() {
+  strikes = 0; cleared = 0; hintId = -1;
+  document.getElementById('overlay').classList.remove('show');
+  setStatus('');
+  let attempts = 0;
+  do {
+    pieces = [];
+    initGrid();
+    generateBoard();
+    attempts++;
+  } while (!isBoardSolvable() && attempts < 100);
+  if (attempts > 1) console.log(`Arrow Escape: solvable board after ${attempts} attempt(s)`);
+  setupCanvas();
+  render();
+  updateHUD();
+}
+
+function dirOf(a, b) {
+  if (b[0] < a[0]) return 'up';
+  if (b[0] > a[0]) return 'down';
+  if (b[1] < a[1]) return 'left';
+  return 'right';
+}
+
+function generateBoard() {
+  // Phase 1 – place shapes (cells only, no direction yet)
+  const targets = shuffle(Array.from({length:ROWS*COLS}, (_,i) => [Math.floor(i/COLS), i%COLS]));
+  let colorIdx = 0;
+  for (const [sr, sc] of targets) {
+    if (cellPiece[sr][sc] !== -1) continue;
+    const cells = growShape(sr, sc);
+    if (cells.length < 2) {
+      // Completely surrounded — extend an adjacent piece's endpoint to absorb this cell
+      let merged = false;
+      for (const d of shuffle([...DIRS])) {
+        const [dr, dc] = DELTA[d];
+        const nr = sr+dr, nc = sc+dc;
+        if (!inBounds(nr, nc)) continue;
+        const pid = cellPiece[nr][nc];
+        if (pid === -1) continue;
+        const pc = pieces[pid].cells;
+        const atHead = pc[0][0] === nr && pc[0][1] === nc;
+        const atTail = pc[pc.length-1][0] === nr && pc[pc.length-1][1] === nc;
+        if (atHead) { pc.unshift([sr, sc]); cellPiece[sr][sc] = pid; merged = true; break; }
+        if (atTail) { pc.push([sr, sc]);   cellPiece[sr][sc] = pid; merged = true; break; }
+      }
+      // If still unmergeable (extreme edge case), skip — cell stays empty
+      continue;
+    }
+    pieces.push({ cells, tipDir:'right', color:COLORS[colorIdx++ % COLORS.length], removed:false });
+    for (const [r,c] of cells) cellPiece[r][c] = pieces.length - 1;
+  }
+
+  // Phase 2 – assign directions edge-first, guaranteeing solvability.
+  // DETERMINISTIC sort (dist → row → col) eliminates random same-dist cycles:
+  // within any row, pieces with smaller column are always processed first, so
+  // going LEFT always reaches only already-processed pieces → exit is clear.
+  const order = pieces
+    .map((p, id) => {
+      const dist = Math.min(...p.cells.map(([r,c]) => Math.min(r, ROWS-1-r, c, COLS-1-c)));
+      const mid  = p.cells[Math.floor(p.cells.length / 2)];
+      return { id, dist, r: mid[0], c: mid[1] };
+    })
+    .sort((a, b) => a.dist - b.dist || a.r - b.r || a.c - b.c)
+    .map(x => x.id);
+
+  const removedBefore = new Set();
+  for (const id of order) {
+    const p = pieces[id];
+    const n = p.cells.length;
+
+    // Each piece has 2 candidate (tip end, direction) pairs.
+    // Try the one that points more toward the board edge first (most likely to succeed).
+    const candA = { rev:false, dir: dirOf(p.cells[n-2], p.cells[n-1]) };
+    const candB = { rev:true,  dir: dirOf(p.cells[1],   p.cells[0])   };
+    const edgeDist = (cand) => {
+      const cell = cand.rev ? p.cells[0] : p.cells[n-1];
+      return ({ up: cell[0], down: ROWS-1-cell[0], left: cell[1], right: COLS-1-cell[1] })[cand.dir];
+    };
+    const candidates = edgeDist(candA) <= edgeDist(candB) ? [candA, candB] : [candB, candA];
+
+    let assigned = false;
+    for (const { rev, dir } of candidates) {
+      const tipCell = rev ? p.cells[0] : p.cells[n-1];
+      const [dr, dc] = DELTA[dir];
+      let r = tipCell[0]+dr, c = tipCell[1]+dc;
+      let ok = true;
+      while (inBounds(r, c)) {
+        const bid = cellPiece[r][c];
+        if (bid !== -1 && !removedBefore.has(bid)) { ok = false; break; }
+        r += dr; c += dc;
+      }
+      if (ok) {
+        if (rev) p.cells.reverse();
+        p.tipDir = dir;
+        assigned = true;
+        break;
+      }
+    }
+
+    if (!assigned) {
+      // Fallback: choose from the two valid endpoint directions only (never a
+      // cross-axis direction) so the arrowhead always aligns with the shaft.
+      // Pick whichever endpoint is closest to its board edge.
+      const endOpts = [
+        { rev:false, dir: dirOf(p.cells[n-2], p.cells[n-1]), cell: p.cells[n-1] },
+        { rev:true,  dir: dirOf(p.cells[1],   p.cells[0]),   cell: p.cells[0]   },
+      ];
+      const best = endOpts.sort((a, b) => {
+        const dist = o => ({ up: o.cell[0], down: ROWS-1-o.cell[0],
+                             left: o.cell[1], right: COLS-1-o.cell[1] })[o.dir];
+        return dist(a) - dist(b);
+      })[0];
+      if (best.rev) p.cells.reverse();
+      p.tipDir = best.dir;
+    }
+
+    removedBefore.add(id);
+  }
+}
+
+function growShape(sr, sc) {
+  const maxLen = 2 + Math.floor(Math.random() * 3); // 2–4 cells
+  const cells = [[sr, sc]];
+
+  // Try directions in edge-biased order: nearest edge first, then farther.
+  // This makes one endpoint more likely to point toward the board edge,
+  // reducing Phase-2 fallback failures and unsolvable boards.
+  const edgeDist = d => ({ up:sr, down:ROWS-1-sr, left:sc, right:COLS-1-sc })[d];
+  const sortedDirs = shuffle([...DIRS]).sort((a, b) => edgeDist(a) - edgeDist(b));
+  let dir = null;
+  for (const d of sortedDirs) {
+    const [dr, dc] = DELTA[d];
+    if (inBounds(sr+dr, sc+dc) && cellPiece[sr+dr][sc+dc] === -1) { dir = d; break; }
+  }
+  if (!dir) return cells; // fully surrounded — caller will merge into a neighbour
+
+  const [dr0, dc0] = DELTA[dir];
+  let r = sr+dr0, c = sc+dc0;
+  cells.push([r, c]);
+
+  let turned = false;
+  while (cells.length < maxLen) {
+    const [dr, dc] = DELTA[dir];
+    const nr = r+dr, nc = c+dc;
+    if (inBounds(nr, nc) && cellPiece[nr][nc] === -1) {
+      r = nr; c = nc; cells.push([r, c]);
+    } else if (!turned && Math.random() < 0.45) {
+      // Only turn ~45% of the time — more straight pieces, fewer L-shapes,
+      // which dramatically reduces unsolvable board generation.
+      const perps = shuffle([...perpOf(dir)]);
+      let ok = false;
+      for (const pd of perps) {
+        const [pdr, pdc] = DELTA[pd];
+        const pr = r+pdr, pc = c+pdc;
+        if (inBounds(pr, pc) && cellPiece[pr][pc] === -1) {
+          dir = pd; r = pr; c = pc; cells.push([r, c]); turned = true; ok = true; break;
+        }
+      }
+      if (!ok) break;
+    } else break;
+  }
+  return cells;
+}
+
+// ── Canvas ────────────────────────────────────────────────────────────────────
+function setupCanvas() {
+  const wrap = document.getElementById('board-wrap');
+  const size = wrap.clientWidth;
+  DPR = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(size * DPR);
+  canvas.height = Math.round(size * DPR);
+  CS = size / Math.max(ROWS, COLS);
+}
+
+function cellCenter(r, c) {
+  return [(c + 0.5) * CS * DPR, (r + 0.5) * CS * DPR];
+}
+
+function render(skipId = -1) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawGrid();
+  for (let id = 0; id < pieces.length; id++) {
+    if (pieces[id].removed || id === skipId) continue;
+    drawPiece(id, isBlocked(id), id === hintId);
+  }
+}
+
+function drawGrid() {
+  ctx.strokeStyle = '#13131f';
+  ctx.lineWidth = 0.5 * DPR;
+  const W = canvas.width, H = canvas.height;
+  for (let r = 0; r <= ROWS; r++) {
+    const y = r * CS * DPR;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+  for (let c = 0; c <= COLS; c++) {
+    const x = c * CS * DPR;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+}
+
+function drawPiece(id, _blocked, hint) {
+  const p   = pieces[id];
+  const pts = p.cells.map(([r,c]) => cellCenter(r, c));
+  // Extend the tail end backward ~40% of a cell so the shaft fills the full
+  // cell rather than stopping at center — arrows look tightly packed.
+  const backDir = p.cells.length > 1
+    ? dirOf(p.cells[1], p.cells[0])
+    : OPP[p.tipDir];
+  const [bdr, bdc] = DELTA[backDir];
+  const ext = CS * DPR * 0.4;
+  pts[0] = [pts[0][0] + bdc * ext, pts[0][1] + bdr * ext];
+  drawArrow(pts, p.color, 1.0, p.tipDir, hint);
+}
+
+// Draws a clean thin-line arrow through pts[], arrowhead at last point in tipDir
+function drawArrow(pts, color, alpha, tipDir, hint, ox = 0, oy = 0) {
+  if (pts.length === 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  const lw = Math.max(1.5 * DPR, CS * DPR * 0.045);
+
+  // ── Shaft ──
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = lw;
+  ctx.lineCap     = 'round';
+  ctx.lineJoin    = 'round';
+  ctx.beginPath();
+  ctx.moveTo(pts[0][0]+ox, pts[0][1]+oy);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0]+ox, pts[i][1]+oy);
+  ctx.stroke();
+
+  // ── Arrowhead — small triangle with a shaft tail to connect to the line ──
+  const tip = pts[pts.length - 1];
+  const unit = CS * DPR;
+  const [dr, dc] = DELTA[tipDir];
+  const ahl = unit * 0.32;   // triangle length
+  const ahw = unit * 0.18;   // triangle half-width
+  const tailLen = unit * 0.1; // small tail that links shaft to triangle base
+  const perpX = -dr * ahw, perpY = dc * ahw;
+  const apex = [tip[0]+ox + dc*ahl,        tip[1]+oy + dr*ahl       ]; // tip of triangle
+  const base = [tip[0]+ox + dc*tailLen,    tip[1]+oy + dr*tailLen   ]; // base of triangle
+  // Draw connector tail from shaft end to triangle base
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = lw;
+  ctx.lineCap     = 'round';
+  ctx.beginPath();
+  ctx.moveTo(tip[0]+ox, tip[1]+oy);
+  ctx.lineTo(base[0], base[1]);
+  ctx.stroke();
+  // Draw filled triangle
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(apex[0], apex[1]);
+  ctx.lineTo(base[0]+perpX, base[1]+perpY);
+  ctx.lineTo(base[0]-perpX, base[1]-perpY);
+  ctx.closePath();
+  ctx.fill();
+
+  // ── Hint glow ──
+  if (hint) {
+    ctx.save();
+    ctx.globalAlpha  = 0.85;
+    ctx.shadowColor  = '#ffffff';
+    ctx.shadowBlur   = 14 * DPR;
+    ctx.strokeStyle  = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth    = lw + 3 * DPR;
+    ctx.lineCap      = 'round';
+    ctx.lineJoin     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0]+ox, pts[0][1]+oy);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0]+ox, pts[i][1]+oy);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function shadeColor(hex, pct) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, Math.max(0, ((n>>16) & 0xff) + Math.round(255*pct)));
+  const g = Math.min(255, Math.max(0, ((n>> 8) & 0xff) + Math.round(255*pct)));
+  const b = Math.min(255, Math.max(0, ((n    ) & 0xff) + Math.round(255*pct)));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── Animation ─────────────────────────────────────────────────────────────────
+function animateStrike(id, onDone) {
+  const p   = pieces[id];
+  const pts = p.cells.map(([r,c]) => cellCenter(r,c));
+  let frame = 0;
+  ;(function tick() {
+    render();
+    const ox = (frame % 4 < 2 ? 1 : -1) * 6 * DPR;
+    drawArrow(pts, '#ff2244', 1.0, p.tipDir, false, ox, 0);
+    frame++;
+    if (frame < 9) requestAnimationFrame(tick);
+    else { render(); onDone && onDone(); }
+  })();
+}
+
+// Snake-movement exit — purely visual, state already updated before call.
+function buildSnakePath(cells, tipDir) {
+  const path = [...cells];
+  const [dr, dc] = DELTA[tipDir];
+  const [lr, lc] = cells[cells.length - 1];
+  for (let k = 1; k <= ROWS + COLS + 2; k++)
+    path.push([lr + k*dr, lc + k*dc]);
+  return path;
+}
+
+function snakePos(path, cellIdx, t) {
+  const pos = cellIdx + t;
+  const i0  = Math.floor(pos), frac = pos - i0;
+  const p0  = path[Math.min(i0,   path.length - 1)];
+  const p1  = path[Math.min(i0+1, path.length - 1)];
+  return [p0[0] + (p1[0]-p0[0])*frac, p0[1] + (p1[1]-p0[1])*frac];
+}
+
+function animateExit(pCells, pColor, pTipDir) {
+  const n    = pCells.length;
+  const path = buildSnakePath(pCells, pTipDir);
+  const ext  = CS * DPR * 0.4;
+  let t      = 0;
+  ;(function tick() {
+    t += 0.15;
+    render();
+    const pts = pCells.map((_, i) => {
+      const [r, c] = snakePos(path, i, t);
+      return [(c + 0.5) * CS * DPR, (r + 0.5) * CS * DPR];
+    });
+    // Compute tail back-direction dynamically so it follows the path through
+    // any corners and straightens out once the tail clears the turn.
+    const i0   = Math.min(Math.floor(t), path.length - 2);
+    const from = path[i0], to = path[i0 + 1];
+    const tDr  = to[0] - from[0], tDc = to[1] - from[1]; // travel direction [row,col]
+    pts[0] = [pts[0][0] - tDc * ext, pts[0][1] - tDr * ext]; // extend opposite to travel
+    const alpha = t < n ? 1 : Math.max(0, 1 - (t - n) / (ROWS + 1));
+    drawArrow(pts, pColor, alpha, pTipDir, false);
+    if (alpha > 0.02) requestAnimationFrame(tick);
+  })();
+}
+
+// ── Click ─────────────────────────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  const rect   = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const cx  = (e.clientX - rect.left) * scaleX;
+  const cy  = (e.clientY - rect.top)  * scaleY;
+  const col = Math.floor(cx / (CS * DPR));
+  const row = Math.floor(cy / (CS * DPR));
+  if (!inBounds(row, col)) return;
+  const id = cellPiece[row][col];
+  if (id === -1 || pieces[id].removed) return;
+  onClick(id);
+});
+
+function onClick(id) {
+  hintId = -1;
+
+  if (isBlocked(id)) {
+    strikes++;
+    updateHUD();
+    animateStrike(id, () => { if (strikes >= 3) showGameOver(); });
+  } else {
+    // Update state immediately — animation is a non-blocking visual overlay
+    const { cells, color, tipDir } = pieces[id];
+    cleared++;
+    removePiece(id);
+    updateHUD();
+    render();
+    animateExit([...cells], color, tipDir);
+
+    const rem = pieces.filter(p => !p.removed).length;
+    if (rem === 0) setTimeout(showWin, 150);
+  }
+}
+
+// ── Hint ─────────────────────────────────────────────────────────────────────
+function showHint() {
+  hintId = -1;
+  for (let id = 0; id < pieces.length; id++) {
+    if (!pieces[id].removed && !isBlocked(id)) { hintId = id; break; }
+  }
+  if (hintId < 0) return;
+  render();
+  setTimeout(() => { hintId = -1; render(); }, 1400);
+}
+
+// ── HUD / Status ──────────────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('lives').textContent = '❤️'.repeat(3-strikes) + '🖤'.repeat(strikes);
+}
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+// ── End Screens ───────────────────────────────────────────────────────────────
+function showOverlay(icon, msg, scoreText) {
+  document.getElementById('ov-icon').textContent  = icon;
+  document.getElementById('ov-msg').textContent   = msg;
+  document.getElementById('ov-score').textContent = scoreText;
+  document.getElementById('overlay').classList.add('show');
+}
+function showWin() {
+  showOverlay('🎉', 'All arrows escaped!', '');
+}
+function showGameOver() {
+  const rem = pieces.filter(p => !p.removed).length;
+  showOverlay('💀', `${rem} arrow${rem!==1?'s':''} remaining`, '');
+}
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => { setupCanvas(); render(); });
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+newGame();
+</script>
+</body>
+</html>
