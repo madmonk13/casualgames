@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Arrow Escape</title>
+<title>Snake Escape</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -110,7 +110,7 @@ h1 {
 </head>
 <body>
 
-<h1>Arrow Escape</h1>
+<h1>Snake Escape</h1>
 
 <div id="hud">
   <div id="lives">❤️❤️❤️</div>
@@ -125,7 +125,7 @@ h1 {
 <div id="controls">
   <button onclick="newGame()">🔀 New</button>
   <button onclick="showHint()">💡 Hint</button>
-  <button id="mode-btn" onclick="toggleMode()">🐍 Snake</button>
+
 </div>
 
 
@@ -228,7 +228,7 @@ function precomputeDistGrid() {
 //   cells[0] = tail end, cells[last] = tip cell
 let pieces    = [];
 let cellPiece = [];   // cellPiece[r][c] = piece index or -1
-let strikes, cleared, hintId, pressedId = -1, snakeMode = false;
+let strikes, cleared, hintId, pressedId = -1, snakeMode = true;
 
 const canvas = document.getElementById('board-canvas');
 const ctx    = canvas.getContext('2d');
@@ -314,7 +314,7 @@ function newGame() {
     generateBoard();
     attempts++;
   } while (!isBoardSolvable() && attempts < 500);
-  if (attempts > 1) console.log(`Arrow Escape: solvable board after ${attempts} attempt(s)`);
+  if (attempts > 1) console.log(`Snake Escape: solvable board after ${attempts} attempt(s)`);
   setupCanvas();
   render();
   updateHUD();
@@ -533,7 +533,7 @@ function render(skipId = -1) {
   }
 }
 
-// Highlights only the pressed piece's own cells (arrows drawn on top).
+// Highlights only the pressed piece's own cells (snakes drawn on top).
 function drawPressHighlight(id) {
   if (id === -1 || !pieces[id] || pieces[id].removed) return;
   ctx.fillStyle = 'rgba(255,255,255,0.13)';
@@ -567,7 +567,7 @@ function drawPiece(id, _blocked, hint) {
   const p   = pieces[id];
   const pts = p.cells.map(([r,c]) => cellCenter(r, c));
   // Extend the tail end backward ~40% of a cell so the shaft fills the full
-  // cell rather than stopping at center — arrows look tightly packed.
+  // cell rather than stopping at center — snakes look tightly packed.
   const backDir = p.cells.length > 1
     ? dirOf(p.cells[1], p.cells[0])
     : OPP[p.tipDir];
@@ -684,7 +684,7 @@ function drawSnake(pts, color, alpha, tipDir, hint, ox = 0, oy = 0) {
   ctx.globalAlpha = alpha;
 
   const unit  = CS * DPR;
-  const bodyW = unit * 0.42;
+  const bodyW = unit * 0.38;
   const [dr, dc] = DELTA[tipDir];
   // In canvas space: forward = (dc, dr), perpendicular = (-dr, dc)
   const fwdX = dc,  fwdY = dr;
@@ -731,21 +731,22 @@ function drawSnake(pts, color, alpha, tipDir, hint, ox = 0, oy = 0) {
     const tdLen = Math.sqrt(tdx*tdx + tdy*tdy) || 1;
     const tnx = tdx/tdLen, tny = tdy/tdLen;   // unit vector toward tail tip
     const tpx = -tny, tpy = tnx;               // perpendicular
-    const half = bodyW / 2;
-    const tipX = pts[0][0]+ox + tnx*half, tipY = pts[0][1]+oy + tny*half;
+    const tipLen  = bodyW * 0.75;  // how far the point extends past pts[0]
+    const baseHalf = bodyW * 0.38; // half-width of the triangle base (narrower = sharper)
+    const tipX = pts[0][0]+ox + tnx*tipLen, tipY = pts[0][1]+oy + tny*tipLen;
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
-    ctx.lineTo(pts[0][0]+ox + tpx*half, pts[0][1]+oy + tpy*half);
-    ctx.lineTo(pts[0][0]+ox - tpx*half, pts[0][1]+oy - tpy*half);
+    ctx.lineTo(pts[0][0]+ox + tpx*baseHalf, pts[0][1]+oy + tpy*baseHalf);
+    ctx.lineTo(pts[0][0]+ox - tpx*baseHalf, pts[0][1]+oy - tpy*baseHalf);
     ctx.closePath();
     ctx.fill();
     // Dark overlay on tail tip to match body depth shading
     ctx.fillStyle = 'rgba(0,0,0,0.15)';
     ctx.beginPath();
     ctx.moveTo(tipX, tipY);
-    ctx.lineTo(pts[0][0]+ox + tpx*half, pts[0][1]+oy + tpy*half);
-    ctx.lineTo(pts[0][0]+ox - tpx*half, pts[0][1]+oy - tpy*half);
+    ctx.lineTo(pts[0][0]+ox + tpx*baseHalf, pts[0][1]+oy + tpy*baseHalf);
+    ctx.lineTo(pts[0][0]+ox - tpx*baseHalf, pts[0][1]+oy - tpy*baseHalf);
     ctx.closePath();
     ctx.fill();
   }
@@ -840,20 +841,43 @@ function shadeColor(hex, pct) {
   return `rgb(${r},${g},${b})`;
 }
 
+// ── Centralised animation loop ────────────────────────────────────────────────
+// All animations register here so render() is called ONCE per RAF frame
+// regardless of how many are running concurrently.
+const _animList = [];
+let   _rafId    = 0;
+
+function _animLoop(ts) {
+  _rafId = 0;
+  render();                                   // one static redraw per frame
+  for (let i = _animList.length - 1; i >= 0; i--) {
+    if (!_animList[i](ts)) _animList.splice(i, 1);
+  }
+  if (_animList.length > 0) {
+    _rafId = requestAnimationFrame(_animLoop);
+  } else {
+    render();  // clear any residual drawing from the final animation frame
+  }
+}
+
+function _addAnim(fn) {
+  _animList.push(fn);
+  if (!_rafId) _rafId = requestAnimationFrame(_animLoop);
+}
+
 // ── Animation ─────────────────────────────────────────────────────────────────
 function animateStrike(id, onDone) {
   const p   = pieces[id];
   const pts = p.cells.map(([r,c]) => cellCenter(r,c));
   let frame = 0;
-  ;(function tick() {
-    render();
+  _addAnim(ts => {
     const ox = (frame % 4 < 2 ? 1 : -1) * 6 * DPR;
     if (snakeMode) drawSnake(pts, '#ff2244', 1.0, p.tipDir, false, ox, 0);
     else           drawArrow(pts, '#ff2244', 1.0, p.tipDir, false, ox, 0);
-    frame++;
-    if (frame < 9) requestAnimationFrame(tick);
-    else { render(); onDone && onDone(); }
-  })();
+    if (++frame < 9) return true;
+    onDone && onDone();
+    return false;
+  });
 }
 
 // Snake-movement exit — purely visual, state already updated before call.
@@ -875,28 +899,28 @@ function snakePos(path, cellIdx, t) {
 }
 
 function animateExit(pCells, pColor, pTipDir) {
-  const n    = pCells.length;
-  const path = buildSnakePath(pCells, pTipDir);
-  const ext  = CS * DPR * 0.4;
-  let t      = 0;
-  ;(function tick() {
-    t += 0.15;
-    render();
+  const n     = pCells.length;
+  const path  = buildSnakePath(pCells, pTipDir);
+  const ext   = CS * DPR * 0.4;
+  const SPEED = 9; // cells per second — same as 0.15/frame at 60 fps
+  let t       = 0;
+  let lastTs  = null;
+  _addAnim(ts => {
+    if (lastTs !== null) t += Math.min((ts - lastTs) / 1000, 0.1) * SPEED;
+    lastTs = ts;
     const pts = pCells.map((_, i) => {
       const [r, c] = snakePos(path, i, t);
       return [(c + 0.5) * CS * DPR, (r + 0.5) * CS * DPR];
     });
-    // Compute tail back-direction dynamically so it follows the path through
-    // any corners and straightens out once the tail clears the turn.
     const i0   = Math.min(Math.floor(t), path.length - 2);
     const from = path[i0], to = path[i0 + 1];
-    const tDr  = to[0] - from[0], tDc = to[1] - from[1]; // travel direction [row,col]
-    pts[0] = [pts[0][0] - tDc * ext, pts[0][1] - tDr * ext]; // extend opposite to travel
+    const tDr  = to[0] - from[0], tDc = to[1] - from[1];
+    pts[0] = [pts[0][0] - tDc * ext, pts[0][1] - tDr * ext];
     const alpha = t < n ? 1 : Math.max(0, 1 - (t - n) / (ROWS + 1));
     if (snakeMode) drawSnake(pts, pColor, alpha, pTipDir, false);
     else           drawArrow(pts, pColor, alpha, pTipDir, false);
-    if (alpha > 0.02) requestAnimationFrame(tick);
-  })();
+    return alpha > 0.02;
+  });
 }
 
 // ── Pointer input (mouse + touch via Pointer Events) ─────────────────────────
@@ -988,11 +1012,11 @@ function showOverlay(icon, msg, scoreText) {
   document.getElementById('overlay').classList.add('show');
 }
 function showWin() {
-  showOverlay('🎉', 'All arrows escaped!', '');
+  showOverlay('🎉', 'All snakes escaped!', '');
 }
 function showGameOver() {
   const rem = pieces.filter(p => !p.removed).length;
-  showOverlay('💀', `${rem} arrow${rem!==1?'s':''} remaining`, '');
+  showOverlay('💀', `${rem} snake${rem!==1?'s':''} remaining`, '');
 }
 
 // ── Resize ────────────────────────────────────────────────────────────────────
