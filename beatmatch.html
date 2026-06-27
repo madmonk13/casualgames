@@ -472,6 +472,35 @@ body {
 /* ── UTILITY ── */
 .hidden { display: none !important; }
 
+/* ── LANDSCAPE HINT ── */
+@keyframes tiltPhone {
+  0%   { transform: rotate(0deg); }
+  30%  { transform: rotate(90deg); }
+  70%  { transform: rotate(90deg); }
+  100% { transform: rotate(0deg); }
+}
+.landscape-hint {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.4);
+  font-size: 0.8em;
+}
+.landscape-hint-icon {
+  font-size: 1.4em;
+  display: inline-block;
+  animation: tiltPhone 2.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@media (orientation: portrait) and (max-width: 768px) {
+  .landscape-hint { display: flex; }
+}
+
 /* ── TUTORIAL AREA ── */
 #tutArea {
   width: 100%;
@@ -745,6 +774,10 @@ body {
         <div class="ms-tag">16 steps · all instruments</div>
       </div>
     </button>
+  </div>
+  <div class="landscape-hint">
+    <span class="landscape-hint-icon">📱</span>
+    Best experienced in landscape mode
   </div>
 </div>
 
