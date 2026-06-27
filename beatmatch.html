@@ -1203,9 +1203,10 @@ function cellSize(steps, instCount) {
   const widthBased = Math.floor((avail - gaps) / steps);
 
   if (lmob && instCount) {
-    // Also constrain by viewport height so rows don't overflow
-    // Chrome budget: header + level-info + diff-bar + controls + status + body-padding
-    const CHROME   = 210;
+    // Chrome budget differs by mode:
+    //   machine  — header + BPM controls only (~100px)
+    //   patterns/infinite — header + level-info + diff-bar + controls + status (~210px)
+    const CHROME   = gameMode === 'machine' ? 115 : 210;
     const rowGaps  = (instCount - 1) * 3;
     const availH   = window.innerHeight - CHROME - rowGaps;
     const heightBased = Math.floor(availH / instCount);
