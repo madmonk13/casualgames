@@ -455,79 +455,23 @@ body {
   .bpm-label  { font-size: 0.7em; }
   .bpm-val    { font-size: 0.82em; }
 
-  /* How-to-play banner */
-  #modeSelect > button[onclick="openTutorial()"] {
-    padding: 8px;
-    font-size: 0.82em;
-  }
 }
 
-/* ── ROTATE PROMPT ── */
-#rotatePrompt {
-  display: none;
-  position: fixed; inset: 0;
-  background: #0a1018;
-  z-index: 9999;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  text-align: center;
-  padding: 32px;
-}
-.rotate-icon {
-  font-size: 3.5em;
-  animation: rotatePhone 1.8s ease-in-out infinite;
-  display: inline-block;
-}
-@keyframes rotatePhone {
-  0%   { transform: rotate(0deg); }
-  35%  { transform: rotate(90deg); }
-  65%  { transform: rotate(90deg); }
-  100% { transform: rotate(0deg); }
-}
-.rotate-title {
-  font-size: 1.25em; font-weight: 800; color: #f0e0a0; letter-spacing: 1px;
-}
-.rotate-sub {
-  font-size: 0.88em; color: rgba(255,255,255,0.4); line-height: 1.6;
-}
-@media (orientation: portrait) and (max-width: 768px) {
-  #rotatePrompt { display: flex; }
-}
 
 /* ── UTILITY ── */
 .hidden { display: none !important; }
 
-/* ── TUTORIAL MODAL ── */
-#tutModal {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.88);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 300;
-  backdrop-filter: blur(10px);
-  transition: opacity 0.3s;
-  opacity: 0; pointer-events: none;
+/* ── TUTORIAL AREA ── */
+#tutArea {
+  width: 100%;
+  display: flex; flex-direction: column; align-items: center;
 }
-#tutModal.show { opacity: 1; pointer-events: all; }
-.tut-box {
-  background: linear-gradient(145deg, #1a2535, #111c29);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 22px;
-  width: min(530px, 94vw);
-  max-height: 92vh;
-  overflow-y: auto;
-  padding: 38px 36px 28px;
-  display: flex; flex-direction: column; gap: 18px;
-  position: relative;
+.tut-content {
+  width: 100%; max-width: 640px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 18px;
+  padding: 24px 16px 40px;
 }
-.tut-skip {
-  position: absolute; top: 16px; right: 16px;
-  background: none; border: none;
-  color: rgba(255,255,255,0.25); font-size: 0.8em; cursor: pointer;
-  transition: color 0.15s; padding: 4px 8px;
-}
-.tut-skip:hover { color: rgba(255,255,255,0.6); }
 .tut-emoji { font-size: 2.8em; text-align: center; line-height: 1; }
 .tut-title {
   font-size: 1.5em; font-weight: 800; text-align: center;
@@ -585,7 +529,7 @@ body {
   display: flex; align-items: center; justify-content: space-between;
   margin-top: 4px;
 }
-.tut-dots { display: flex; gap: 7px; }
+.tut-dots { display: flex; gap: 7px; padding: 8px 12px; }
 .tut-dot {
   width: 7px; height: 7px; border-radius: 50%;
   background: rgba(255,255,255,0.18); transition: background 0.2s, transform 0.2s;
@@ -614,7 +558,7 @@ body {
 }
 .help-btn:hover { background: rgba(255,255,255,0.14); color: #fff; border-color: rgba(255,255,255,0.35); }
 @media (max-width: 540px) {
-  .tut-box { padding: 30px 20px 22px; }
+  .tut-content { padding: 16px 12px 32px; gap: 14px; }
   .tut-title { font-size: 1.25em; }
   .tut-body { font-size: 0.86em; }
   .tut-demo-cell { width: 22px; height: 22px; }
@@ -721,9 +665,12 @@ body {
 .btn-mclear:hover { background: rgba(255,255,255,0.13); color: #fff; }
 
 @media (max-width: 540px) {
+  #modeSelect { padding-top: 24px; }
+  .ms-logo { font-size: 1.7em; }
+  .ms-tagline { margin-bottom: 16px; }
   .ms-cards { flex-direction: column; align-items: stretch; }
-  .ms-card { max-width: 100%; min-width: unset; flex-direction: row; text-align: left; padding: 18px 16px; gap: 14px; }
-  .ms-icon { font-size: 2em; flex-shrink: 0; }
+  .ms-card { max-width: 100%; min-width: unset; flex-direction: row; text-align: left; padding: 16px 14px; gap: 12px; }
+  .ms-icon { font-size: 1.8em; flex-shrink: 0; }
   .ms-card > div:not(.ms-icon) { flex: 1; }
   .bpm-slider { width: 80px; }
   .machine-controls { justify-content: center; }
@@ -732,17 +679,14 @@ body {
 </head>
 <body>
 
-<!-- ════ ROTATE PROMPT ════ -->
-<div id="rotatePrompt">
-  <div class="rotate-icon">📱</div>
-  <div class="rotate-title">Rotate Your Device</div>
-  <div class="rotate-sub">Beat Match plays best in landscape mode.<br>Please turn your phone sideways.</div>
-</div>
-
-<!-- ════ TUTORIAL MODAL ════ -->
-<div id="tutModal">
-  <div class="tut-box">
-    <button class="tut-skip" onclick="closeTutorial()">Skip ✕</button>
+<!-- ════ TUTORIAL AREA ════ -->
+<div id="tutArea" class="hidden">
+  <header class="game-header">
+    <button class="back-btn" id="tutBackBtn" onclick="closeTutorial()" style="background:none;border:none;cursor:pointer;padding:0">← Modes</button>
+    <div class="game-title">📖 How to Play</div>
+    <div style="width:34px"></div>
+  </header>
+  <div class="tut-content">
     <div class="tut-emoji" id="tutEmoji"></div>
     <div class="tut-title" id="tutTitle"></div>
     <div class="tut-body" id="tutBody"></div>
@@ -757,7 +701,7 @@ body {
 <!-- ════ MODE SELECT ════ -->
 <div id="modeSelect">
   <div class="ms-logo">🥁 Beat Match</div>
-  <button onclick="openTutorial()" style="width:100%;max-width:780px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.13);background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.6);font-size:0.92em;font-weight:600;cursor:pointer;letter-spacing:0.3px;transition:all 0.15s;margin-bottom:10px" onmouseover="this.style.background='rgba(255,255,255,0.11)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='rgba(255,255,255,0.6)'">📖 How to Play — New to Beat Match? Start here</button>
+  <div class="ms-tagline">Train your ears with beats</div>
   <div class="ms-cards">
     <button class="ms-card" onclick="selectMode('patterns')">
       <div class="ms-icon">🎯</div>
@@ -781,6 +725,14 @@ body {
         <div class="ms-name">Drum Machine</div>
         <div class="ms-desc">Free-play step sequencer. Build your own grooves.</div>
         <div class="ms-tag">16 steps · all instruments</div>
+      </div>
+    </button>
+    <button class="ms-card" onclick="openTutorial()">
+      <div class="ms-icon">📖</div>
+      <div>
+        <div class="ms-name">How to Play</div>
+        <div class="ms-desc">New to Beat Match? Learn the instruments and how to match a beat.</div>
+        <div class="ms-tag">Beginner guide</div>
       </div>
     </button>
   </div>
@@ -1249,7 +1201,8 @@ function cellSize(steps, instCount) {
     return Math.max(18, Math.min(widthBased, heightBased));
   }
 
-  const minSize = mobile ? 32 : 24;
+  // Portrait mobile: allow cells to shrink so 16-step grids fit without overflow
+  const minSize = mobile ? 16 : 24;
   return Math.max(minSize, widthBased);
 }
 
@@ -2107,16 +2060,27 @@ const TUTE_PAGES = [
 ];
 
 let tutPage = 0;
+let _tutFromGame = false; // true if opened from within an active game
 
 function openTutorial() {
   tutPage = 0;
-  document.getElementById('tutModal').classList.add('show');
+  _tutFromGame = !!gameMode;
+  document.getElementById('tutBackBtn').textContent = _tutFromGame ? '← Back' : '← Modes';
+  document.getElementById('modeSelect').classList.add('hidden');
+  document.getElementById('gameArea').classList.add('hidden');
+  document.getElementById('tutArea').classList.remove('hidden');
   renderTutPage();
 }
 
 function closeTutorial() {
-  document.getElementById('tutModal').classList.remove('show');
+  document.getElementById('tutArea').classList.add('hidden');
   localStorage.setItem('bm_tutdone', '1');
+  if (_tutFromGame && gameMode) {
+    document.getElementById('gameArea').classList.remove('hidden');
+  } else {
+    gameMode = null;
+    document.getElementById('modeSelect').classList.remove('hidden');
+  }
 }
 
 function tutNav(dir) {
@@ -2155,10 +2119,6 @@ function tutPlayInst(inst, btn) {
 // START
 // ═══════════════════════════════════════════
 animLoop();
-// Attempt landscape lock (Android Chrome / some browsers); iOS falls back to CSS overlay
-if (screen.orientation && screen.orientation.lock) {
-  screen.orientation.lock('landscape').catch(() => {});
-}
 // Show mode select on load — no initLevel() until mode chosen
 </script>
 </body>
