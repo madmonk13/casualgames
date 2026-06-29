@@ -1,0 +1,170 @@
+{
+  "name": "19",
+  "rows": 9,
+  "cols": 9,
+  "grid": [
+    [
+      {
+        "t": "T",
+        "color": 4
+      },
+      null,
+      null,
+      null,
+      {
+        "t": "T",
+        "color": 5
+      },
+      null,
+      null,
+      null,
+      {
+        "t": "T",
+        "color": 1
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      }
+    ],
+    [
+      {
+        "t": "E",
+        "color": 1,
+        "dir": 0
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "E",
+        "color": 4,
+        "dir": 2
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      }
+    ],
+    [
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      }
+    ]
+  ],
+  "pieces": {
+    "mirror_f": 1,
+    "mirror_b": 2,
+    "prism": 4
+  }
+}

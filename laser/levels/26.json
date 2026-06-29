@@ -1,0 +1,179 @@
+{
+  "name": "26",
+  "rows": 9,
+  "cols": 9,
+  "grid": [
+    [
+      null,
+      {
+        "t": "T",
+        "color": 1
+      },
+      null,
+      null,
+      {
+        "t": "T",
+        "color": 2
+      },
+      null,
+      null,
+      {
+        "t": "T",
+        "color": 4
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      {
+        "t": "E",
+        "color": 7,
+        "dir": 3
+      },
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "T",
+        "color": 3
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "T",
+        "color": 5
+      },
+      null
+    ]
+  ],
+  "pieces": {
+    "mirror_f": 4,
+    "mirror_b": 3,
+    "prism": 5,
+    "filter_r": 2,
+    "filter_g": 1,
+    "filter_b": 1
+  }
+}

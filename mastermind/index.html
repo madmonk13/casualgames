@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔐 Mastermind</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1923;
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  color: #fff;
+  padding-bottom: 48px;
+}
+
+header {
+  background: #0a1018;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.9em; }
+header a:hover { color: rgba(255,255,255,0.8); }
+header h1 { font-size: 1.2em; font-weight: 700; color: #f0e0a0; flex: 1; }
+.hdr-guesses { font-size: 0.95em; color: rgba(255,255,255,0.4); }
+.hdr-guesses span { color: #f0c040; font-weight: 700; }
+
+main {
+  touch-action: none;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.diff-btn {
+  padding: 7px 18px;
+  border: 2px solid #c8960a;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.5);
+  font-weight: 700;
+  font-size: 0.88em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.diff-btn.active {
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  color: #2a1800;
+  border-color: #f0c040;
+}
+.diff-btn:hover:not(.active) { background: rgba(255,255,255,0.1); color: #fff; }
+.btn {
+  padding: 7px 18px;
+  border: 2px solid #c8960a;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: 700;
+  font-size: 0.88em;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn:hover { background: linear-gradient(135deg, #ffe060, #e8b820); }
+.btn:disabled {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.25);
+  border-color: rgba(255,255,255,0.1);
+  cursor: default;
+}
+
+/* ── Board ── */
+.board {
+  background: #1a2534;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Secret code row (shown on game over) */
+.secret-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(0,0,0,0.3);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  min-height: 56px;
+}
+.secret-label {
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  width: 60px;
+  text-align: right;
+}
+.secret-pegs {
+  display: flex;
+  gap: 8px;
+}
+
+/* Guess rows */
+.guess-rows {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guess-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+.guess-row.current {
+  background: rgba(240,192,64,0.08);
+  border: 1px solid rgba(240,192,64,0.2);
+}
+.guess-row.past { opacity: 0.7; }
+
+.row-num {
+  font-size: 0.72em;
+  color: rgba(255,255,255,0.2);
+  width: 16px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Code slots */
+.code-slots {
+  display: flex;
+  gap: 7px;
+  flex: 1;
+}
+.code-slot {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+  flex-shrink: 0;
+}
+.code-slot.filled {
+  border-style: solid;
+  border-color: rgba(0,0,0,0.3);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.2);
+}
+.code-slot.filled:hover {
+  transform: scale(1.08);
+}
+.guess-row:not(.current) .code-slot { cursor: default; }
+.guess-row:not(.current) .code-slot:hover { transform: none; }
+
+/* Clue pegs (2×2) */
+.clue-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+  width: 34px;
+  flex-shrink: 0;
+}
+.clue-peg {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.clue-peg.black {
+  background: #1a1a1a;
+  border-color: #555;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.1);
+}
+.clue-peg.white {
+  background: #f0f0f0;
+  border-color: #ccc;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.15);
+}
+
+/* ── Color palette ── */
+.palette-area {
+  background: #1a2534;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+}
+.palette-label {
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 1px;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+}
+.palette {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.palette-color {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255,255,255,0.2);
+}
+.palette-color:hover { transform: scale(1.1); }
+.palette-color.selected {
+  border-color: #fff;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.5);
+}
+
+/* Submit / action area */
+.action-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+.btn-submit {
+  padding: 10px 28px;
+  border: 2px solid #c8960a;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: 800;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+}
+.btn-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffe060, #e8b820);
+  transform: translateY(-1px);
+}
+.btn-submit:disabled {
+  opacity: 0.35;
+  cursor: default;
+  transform: none;
+}
+.btn-clear {
+  padding: 10px 18px;
+  border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.5);
+  font-weight: 700;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.btn-clear:hover { background: rgba(255,255,255,0.1); }
+
+/* Status message */
+.status-msg {
+  text-align: center;
+  font-size: 0.9em;
+  color: rgba(255,255,255,0.4);
+  min-height: 20px;
+}
+.status-msg.win { color: #4caf50; font-weight: 700; }
+.status-msg.lose { color: #e74c3c; font-weight: 700; }
+
+/* How to play */
+.how-to {
+  background: #1a2534;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.8em;
+  color: rgba(255,255,255,0.35);
+  line-height: 1.7;
+}
+.how-to strong { color: rgba(255,255,255,0.6); }
+.clue-example {
+  display: inline-flex;
+  gap: 4px;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+.mini-peg {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="../index.html">← Games</a>
+  <h1>🔐 Mastermind</h1>
+  <div class="hdr-guesses">Guess <span id="hdr-row">1</span>/10</div>
+</header>
+
+<main>
+  <div class="controls">
+    <button class="diff-btn active" id="btn-classic" onclick="setDiff('classic')">Classic</button>
+    <button class="diff-btn"        id="btn-hard"    onclick="setDiff('hard')">Hard</button>
+    <button class="btn" onclick="newGame()">🔀 New Game</button>
+  </div>
+
+  <div class="board">
+    <!-- Secret revealed on game over -->
+    <div class="secret-row" id="secret-row">
+      <span class="secret-label" id="secret-label">?????</span>
+      <div class="secret-pegs" id="secret-pegs"></div>
+    </div>
+    <div class="guess-rows" id="guess-rows"></div>
+  </div>
+
+  <div class="palette-area" id="palette-area">
+    <div class="palette-label">Pick a color, then tap a slot</div>
+    <div class="palette" id="palette"></div>
+    <div class="action-row">
+      <button class="btn-clear" onclick="clearGuess()">✕ Clear</button>
+      <button class="btn-submit" id="btn-submit" onclick="submitGuess()" disabled>Check →</button>
+    </div>
+  </div>
+
+  <div class="status-msg" id="status"></div>
+  <div id="mm-best-msg" style="text-align:center;color:rgba(255,255,255,0.35);font-size:.82em;margin-top:4px;min-height:1.2em;"></div>
+
+  <div class="how-to">
+    <strong>How to play:</strong> Crack the secret color code. After each guess you get clues:
+    <span class="clue-example">
+      <span class="mini-peg" style="background:#1a1a1a;border:1px solid #555"></span>
+    </span>
+    <strong style="color:rgba(255,255,255,0.7)">black</strong> = right color &amp; position,
+    <span class="clue-example">
+      <span class="mini-peg" style="background:#f0f0f0;border:1px solid #ccc"></span>
+    </span>
+    <strong style="color:rgba(255,255,255,0.7)">white</strong> = right color, wrong position.
+    Classic allows color repeats; Hard adds an extra slot.
+  </div>
+</main>
+
+<script>
+// ── Colors ──
+const COLORS = [
+  { name: 'Red',    hex: '#e74c3c' },
+  { name: 'Orange', hex: '#e67e22' },
+  { name: 'Yellow', hex: '#f1c40f' },
+  { name: 'Green',  hex: '#27ae60' },
+  { name: 'Blue',   hex: '#2980b9' },
+  { name: 'Purple', hex: '#8e44ad' },
+  { name: 'Pink',   hex: '#e91e8c' },
+  { name: 'Cyan',   hex: '#00bcd4' },
+];
+
+const DIFFS = {
+  classic: { slots: 4, colors: 6, maxGuesses: 10 },
+  hard:    { slots: 5, colors: 8, maxGuesses: 10 },
+};
+
+let diff = 'classic';
+let secret = [];
+let guesses = [];      // array of {code, clue}
+let currentGuess = []; // array of color indices or null
+let selectedColor = null;
+let gameOver = false;
+
+function setDiff(d) {
+  diff = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + d).classList.add('active');
+  newGame();
+}
+
+function newGame() {
+  const { slots, colors } = DIFFS[diff];
+  secret = [];
+  for (let i = 0; i < slots; i++) secret.push(Math.floor(Math.random() * colors));
+  guesses = [];
+  currentGuess = Array(slots).fill(null);
+  selectedColor = null;
+  gameOver = false;
+
+  document.getElementById('secret-label').textContent = '?????'.slice(0, slots + 1);
+  document.getElementById('secret-pegs').innerHTML = '';
+  document.getElementById('status').textContent = '';
+  document.getElementById('status').className = 'status-msg';
+  document.getElementById('hdr-row').textContent = '1';
+  const prev = parseInt(localStorage.getItem(`mm_best_${diff}`) || '0');
+  document.getElementById('mm-best-msg').textContent = prev ? `Best: ${prev} guess${prev>1?'es':''}` : '';
+
+  buildPalette(colors);
+  renderBoard();
+  updateSubmitBtn();
+}
+
+function buildPalette(numColors) {
+  const pal = document.getElementById('palette');
+  pal.innerHTML = '';
+  for (let i = 0; i < numColors; i++) {
+    const c = document.createElement('div');
+    c.className = 'palette-color';
+    c.style.background = COLORS[i].hex;
+    c.title = COLORS[i].name;
+    c.addEventListener('click', () => selectColor(i));
+    pal.appendChild(c);
+  }
+}
+
+function selectColor(i) {
+  if (gameOver) return;
+  selectedColor = i;
+  // Highlight selected
+  document.querySelectorAll('.palette-color').forEach((el, idx) => {
+    el.classList.toggle('selected', idx === i);
+  });
+  // Auto-fill next empty slot
+  const emptySlot = currentGuess.indexOf(null);
+  if (emptySlot !== -1) {
+    currentGuess[emptySlot] = i;
+    renderBoard();
+    updateSubmitBtn();
+  }
+}
+
+function onSlotClick(slotIdx) {
+  if (gameOver) return;
+  if (selectedColor !== null) {
+    currentGuess[slotIdx] = selectedColor;
+  } else {
+    // Clear the slot
+    currentGuess[slotIdx] = null;
+  }
+  renderBoard();
+  updateSubmitBtn();
+}
+
+function clearGuess() {
+  currentGuess = Array(DIFFS[diff].slots).fill(null);
+  renderBoard();
+  updateSubmitBtn();
+}
+
+function updateSubmitBtn() {
+  const ready = currentGuess.every(c => c !== null);
+  document.getElementById('btn-submit').disabled = !ready || gameOver;
+}
+
+// ── Clue calculation ──
+function getClue(guess, secret) {
+  const g = [...guess], s = [...secret];
+  let blacks = 0, whites = 0;
+  // Blacks
+  for (let i = 0; i < g.length; i++) {
+    if (g[i] === s[i]) { blacks++; g[i] = s[i] = -1; }
+  }
+  // Whites
+  for (let i = 0; i < g.length; i++) {
+    if (g[i] === -1) continue;
+    const j = s.indexOf(g[i]);
+    if (j !== -1) { whites++; s[j] = -1; }
+  }
+  return { blacks, whites };
+}
+
+function submitGuess() {
+  if (gameOver || currentGuess.some(c => c === null)) return;
+  const { slots, maxGuesses } = DIFFS[diff];
+  const clue = getClue(currentGuess, secret);
+  guesses.push({ code: [...currentGuess], clue });
+  currentGuess = Array(slots).fill(null);
+  selectedColor = null;
+  document.querySelectorAll('.palette-color').forEach(el => el.classList.remove('selected'));
+
+  document.getElementById('hdr-row').textContent = Math.min(guesses.length + 1, maxGuesses);
+
+  if (clue.blacks === slots) {
+    gameOver = true;
+    revealSecret();
+    document.getElementById('status').textContent = '🎉 You cracked the code!';
+    document.getElementById('status').className = 'status-msg win';
+    // Best: fewest guesses to crack
+    const key  = `mm_best_${diff}`;
+    const prev = parseInt(localStorage.getItem(key) || '0');
+    const numGuesses = guesses.length;
+    if (!prev || numGuesses < prev) {
+      localStorage.setItem(key, numGuesses);
+      document.getElementById('mm-best-msg').textContent = prev ? `🏆 New best: ${numGuesses} guess${numGuesses>1?'es':''}!` : `First solve in ${numGuesses} guess${numGuesses>1?'es':''}!`;
+    } else {
+      document.getElementById('mm-best-msg').textContent = `Best: ${prev} guess${prev>1?'es':''}`;
+    }
+  } else if (guesses.length >= maxGuesses) {
+    gameOver = true;
+    revealSecret();
+    document.getElementById('status').textContent = '💀 Out of guesses! The code is revealed above.';
+    document.getElementById('status').className = 'status-msg lose';
+  }
+
+  renderBoard();
+  updateSubmitBtn();
+}
+
+function revealSecret() {
+  const pegs = document.getElementById('secret-pegs');
+  pegs.innerHTML = '';
+  secret.forEach(ci => {
+    const peg = document.createElement('div');
+    peg.className = 'code-slot filled';
+    peg.style.background = COLORS[ci].hex;
+    pegs.appendChild(peg);
+  });
+  document.getElementById('secret-label').textContent = 'Code:';
+}
+
+// ── Rendering ──
+function renderBoard() {
+  const { slots, maxGuesses } = DIFFS[diff];
+  const container = document.getElementById('guess-rows');
+  container.innerHTML = '';
+
+  // Past guesses
+  guesses.forEach((g, rowIdx) => {
+    container.appendChild(makeGuessRow(rowIdx, g.code, g.clue, false));
+  });
+
+  // Current active row (if game not over)
+  if (!gameOver && guesses.length < maxGuesses) {
+    container.appendChild(makeGuessRow(guesses.length, currentGuess, null, true));
+  }
+}
+
+function makeGuessRow(rowIdx, code, clue, isCurrent) {
+  const { slots } = DIFFS[diff];
+  const row = document.createElement('div');
+  row.className = 'guess-row' + (isCurrent ? ' current' : ' past');
+
+  const num = document.createElement('div');
+  num.className = 'row-num';
+  num.textContent = rowIdx + 1;
+  row.appendChild(num);
+
+  // Code slots
+  const slotsEl = document.createElement('div');
+  slotsEl.className = 'code-slots';
+  code.forEach((ci, si) => {
+    const slot = document.createElement('div');
+    slot.className = 'code-slot' + (ci !== null ? ' filled' : '');
+    if (ci !== null) slot.style.background = COLORS[ci].hex;
+    if (isCurrent) slot.addEventListener('click', () => onSlotClick(si));
+    slotsEl.appendChild(slot);
+  });
+  row.appendChild(slotsEl);
+
+  // Clue
+  const clueEl = document.createElement('div');
+  clueEl.className = 'clue-grid';
+  if (clue) {
+    // Fill: blacks first, then whites, then empty
+    let pegsToShow = [];
+    for (let i = 0; i < clue.blacks; i++) pegsToShow.push('black');
+    for (let i = 0; i < clue.whites; i++) pegsToShow.push('white');
+    while (pegsToShow.length < slots) pegsToShow.push('');
+    // Pad to nearest even for 2-col grid
+    pegsToShow.forEach(type => {
+      const p = document.createElement('div');
+      p.className = 'clue-peg' + (type ? ' ' + type : '');
+      clueEl.appendChild(p);
+    });
+  } else {
+    for (let i = 0; i < slots; i++) {
+      const p = document.createElement('div');
+      p.className = 'clue-peg';
+      clueEl.appendChild(p);
+    }
+  }
+  // Make clue grid right-size for hard (5 slots)
+  if (slots === 5) clueEl.style.gridTemplateColumns = 'repeat(3, 1fr)';
+  row.appendChild(clueEl);
+
+  return row;
+}
+
+// ── Start ──
+newGame();
+</script>
+</body>
+</html>

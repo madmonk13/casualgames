@@ -1,0 +1,78 @@
+{
+  "name": "01",
+  "rows": 7,
+  "cols": 7,
+  "grid": [
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "t": "E",
+        "color": 1,
+        "dir": 0
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "T",
+        "color": 1
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "pieces": {}
+}

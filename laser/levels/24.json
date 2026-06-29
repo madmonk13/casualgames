@@ -1,0 +1,159 @@
+{
+  "name": "24",
+  "rows": 9,
+  "cols": 9,
+  "grid": [
+    [
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "E",
+        "color": 7,
+        "dir": 1
+      },
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      {
+        "t": "T",
+        "color": 6
+      },
+      null,
+      {
+        "t": "T",
+        "color": 5
+      },
+      null,
+      {
+        "t": "T",
+        "color": 3
+      },
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null,
+      {
+        "t": "W"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "pieces": {
+    "mirror_f": 4,
+    "mirror_b": 4,
+    "prism": 3,
+    "filter_r": 2,
+    "filter_g": 2,
+    "filter_b": 2
+  }
+}

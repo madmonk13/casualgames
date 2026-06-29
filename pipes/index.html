@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Pipes</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: #0f1923;
+  color: #c8d8e8;
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.nav {
+  width: 100%;
+  padding: 8px 16px;
+  display: flex;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.nav a { color: rgba(255,255,255,0.45); text-decoration: none; font-size: 0.9em; transition: color .15s; }
+.nav a:hover { color: #00c896; }
+
+main {
+  width: 100%;
+  max-width: 520px;
+  padding: 16px 12px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+h1 {
+  font-size: clamp(1.4em, 5vw, 2em);
+  font-weight: 900;
+  color: #00c896;
+  letter-spacing: -0.5px;
+}
+
+.stats {
+  display: flex;
+  gap: 24px;
+}
+.stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.stat-label { font-size: 0.6em; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+.stat-val   { font-size: 1.1em; font-weight: 700; color: #f0e0a0; }
+
+.controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.diff-btn {
+  padding: 6px 14px;
+  font-size: 0.85em;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all .15s;
+}
+.diff-btn.active, .diff-btn:hover { border-color: #00c896; color: #00c896; }
+.btn {
+  padding: 6px 16px;
+  font-size: 0.85em;
+  border: 2px solid #009e76;
+  border-radius: 20px;
+  background: #009e76;
+  color: #001a12;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all .15s;
+}
+.btn:hover { background: #00c896; border-color: #00c896; }
+
+#canvas {
+  touch-action: none;
+  cursor: pointer;
+  border-radius: 10px;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.hint { font-size: 0.78em; color: rgba(255,255,255,0.3); }
+
+/* ── Overlay ── */
+#overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+#overlay.show { display: flex; }
+#overlay-box {
+  background: #1a2535;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px;
+  padding: 28px 32px;
+  text-align: center;
+  max-width: 300px;
+}
+#overlay-box h2 { font-size: 2.2em; margin-bottom: 10px; }
+#overlay-box p  { margin-bottom: 6px; color: rgba(255,255,255,.7); }
+#ol-best { font-size: .85em; color: rgba(255,255,255,.4); margin-bottom: 18px !important; }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="../index.html">⬅ Games</a>
+</nav>
+
+<main>
+  <h1>Pipes</h1>
+
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-label">Time</span>
+      <span class="stat-val" id="timer">0:00</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Moves</span>
+      <span class="stat-val" id="moves">0</span>
+    </div>
+    <div class="stat">
+      <span class="stat-label">Best</span>
+      <span class="stat-val" id="best">—</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="diff-btn active" id="btn-easy"   onclick="setDiff('easy')">Easy</button>
+    <button class="diff-btn"        id="btn-medium" onclick="setDiff('medium')">Medium</button>
+    <button class="diff-btn"        id="btn-hard"   onclick="setDiff('hard')">Hard</button>
+    <button class="btn" onclick="newGame()">🔀 New</button>
+  </div>
+
+  <canvas id="canvas"></canvas>
+  <p class="hint">Tap a pipe to rotate it · connect everything</p>
+</main>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2>✅ Solved!</h2>
+    <p id="ol-time"></p>
+    <p id="ol-moves"></p>
+    <p id="ol-best"></p>
+    <button class="btn" onclick="newGame(); document.getElementById('overlay').classList.remove('show')">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ── Direction constants ───────────────────────────────────────────────────────
+// Bits: N=1, E=2, S=4, W=8
+const DIRS = [
+  { bit:1, opp:4, dr:-1, dc: 0 },  // North
+  { bit:2, opp:8, dr: 0, dc: 1 },  // East
+  { bit:4, opp:1, dr: 1, dc: 0 },  // South
+  { bit:8, opp:2, dr: 0, dc:-1 },  // West
+];
+
+const DIFFS = {
+  easy:   { n: 5 },
+  medium: { n: 7 },
+  hard:   { n: 10 },
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let diff = 'easy';
+let N, grid;
+let moves = 0;
+let startTime = null, timerInterval = null, elapsed = 0;
+let won = false;
+let CS = 52; // cell size in pixels (recalculated on resize/new game)
+
+// ── Canvas ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+// ── Pipe helpers ─────────────────────────────────────────────────────────────
+function rotateCW(mask) {
+  // N→E, E→S, S→W, W→N
+  return ((mask & 0x7) << 1 | (mask >> 3)) & 0xF;
+}
+
+// ── Puzzle generation ─────────────────────────────────────────────────────────
+// Builds a random spanning tree of the N×N grid (iterative DFS).
+// Every cell is visited exactly once, so every cell is reachable and
+// no pipe opening points outside the grid.
+function generateSolution(n) {
+  const conn    = Array.from({length: n}, () => new Uint8Array(n));
+  const visited = Array.from({length: n}, () => new Uint8Array(n));
+  const stack   = [[0, 0]];
+  visited[0][0] = 1;
+
+  while (stack.length) {
+    const [r, c] = stack[stack.length - 1];
+    const nbrs = DIRS.filter(({dr, dc}) => {
+      const nr = r+dr, nc = c+dc;
+      return nr >= 0 && nr < n && nc >= 0 && nc < n && !visited[nr][nc];
+    });
+    if (!nbrs.length) { stack.pop(); continue; }
+    const d = nbrs[Math.floor(Math.random() * nbrs.length)];
+    conn[r][c] |= d.bit;
+    conn[r+d.dr][c+d.dc] |= d.opp;
+    visited[r+d.dr][c+d.dc] = 1;
+    stack.push([r+d.dr, c+d.dc]);
+  }
+  return conn;
+}
+
+// Scramble by randomly rotating each cell 0-3 times.
+// Re-scrambles any piece that ended up in its solved orientation so every
+// piece actually needs to be rotated at least once by the player.
+function scramble(solution, n) {
+  const g = solution.map(row => new Uint8Array(row));
+  for (let r = 0; r < n; r++) {
+    for (let c = 0; c < n; c++) {
+      // Ensure at least 1 rotation (otherwise piece might start solved)
+      const rots = Math.floor(Math.random() * 3) + 1;
+      for (let i = 0; i < rots; i++) g[r][c] = rotateCW(g[r][c]);
+    }
+  }
+  return g;
+}
+
+// ── Flood fill ────────────────────────────────────────────────────────────────
+// Returns a 2D array: 1 if the cell is connected to (0,0) through mutually
+// matching pipe openings, 0 otherwise.
+function floodFill(g, n) {
+  const vis = Array.from({length: n}, () => new Uint8Array(n));
+  const q   = [[0, 0]];
+  vis[0][0] = 1;
+  while (q.length) {
+    const [r, c] = q.shift();
+    for (const {bit, opp, dr, dc} of DIRS) {
+      if (!(g[r][c] & bit)) continue;
+      const nr = r+dr, nc = c+dc;
+      if (nr < 0 || nr >= n || nc < 0 || nc >= n) continue;
+      if (vis[nr][nc] || !(g[nr][nc] & opp)) continue;
+      vis[nr][nc] = 1;
+      q.push([nr, nc]);
+    }
+  }
+  return vis;
+}
+
+// ── Win detection ─────────────────────────────────────────────────────────────
+// Every opening must face a matching opening in the adjacent cell.
+// (Openings pointing outside the grid are impossible in a spanning-tree
+//  solution, but we check anyway for safety.)
+function checkWin(g, n) {
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      for (const {bit, opp, dr, dc} of DIRS) {
+        if (!(g[r][c] & bit)) continue;
+        const nr = r+dr, nc = c+dc;
+        if (nr < 0 || nr >= n || nc < 0 || nc >= n) return false;
+        if (!(g[nr][nc] & opp)) return false;
+      }
+  return true;
+}
+
+// ── Canvas sizing ─────────────────────────────────────────────────────────────
+function calcSize() {
+  const maxW = Math.min(window.innerWidth - 24, 480);
+  CS = Math.floor(maxW / N);
+  canvas.width  = N * CS;
+  canvas.height = N * CS;
+  canvas.style.width  = (N * CS) + 'px';
+  canvas.style.height = (N * CS) + 'px';
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+const C_BG         = '#0f1923';
+const C_CELL       = '#111d2a';
+const C_GRID       = '#1a2a3a';
+const C_PIPE_OFF   = '#263a4a';
+const C_PIPE_ON    = '#00c896';
+const C_PIPE_WIN   = '#f0c040';
+
+// Animation state: one cell rotating at a time
+let animCell = null; // { r, c, fromMask, toMask, startMs }
+const ANIM_MS = 140;
+
+function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+// Draw pipe segments for a cell, rotated by `angle` radians around its center
+function drawPipe(cx, cy, mask, color, angle) {
+  const PW  = Math.max(5, Math.round(CS * 0.28));
+  const RAD = PW / 2;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  if (angle) ctx.rotate(angle);
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = PW;
+  ctx.lineCap     = 'butt';
+
+  for (const {bit, dr, dc} of DIRS) {
+    if (!(mask & bit)) continue;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(dc * CS / 2, dr * CS / 2);
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(0, 0, RAD, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function render(isWon = false) {
+  const connected = floodFill(grid, N);
+
+  ctx.fillStyle = C_BG;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const x  = c * CS;
+      const y  = r * CS;
+      const cx = x + CS / 2;
+      const cy = y + CS / 2;
+      const isConn = connected[r][c];
+      const color  = isWon ? C_PIPE_WIN : isConn ? C_PIPE_ON : C_PIPE_OFF;
+
+      // Cell background
+      ctx.fillStyle = C_CELL;
+      ctx.fillRect(x + 1, y + 1, CS - 2, CS - 2);
+
+      // Draw pipe — animated cell uses rotating fromMask, others use grid mask
+      if (animCell && animCell.r === r && animCell.c === c) {
+        const t     = Math.min(1, (performance.now() - animCell.startMs) / ANIM_MS);
+        const angle = easeOut(t) * Math.PI / 2;
+        drawPipe(cx, cy, animCell.fromMask, color, angle);
+      } else {
+        drawPipe(cx, cy, grid[r][c], color, 0);
+      }
+
+      // Cell border
+      ctx.strokeStyle = C_GRID;
+      ctx.lineWidth   = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, CS, CS);
+    }
+  }
+}
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function startTimer() {
+  clearInterval(timerInterval);
+  startTime = Date.now() - elapsed * 1000;
+  timerInterval = setInterval(() => {
+    elapsed = Math.floor((Date.now() - startTime) / 1000);
+    updateTimerDisplay();
+  }, 500);
+}
+
+function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
+
+function updateTimerDisplay() {
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  document.getElementById('timer').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function updateBestDisplay() {
+  const b = parseInt(localStorage.getItem(`pipes_best_${diff}`));
+  if (isNaN(b)) { document.getElementById('best').textContent = '—'; return; }
+  const m = Math.floor(b / 60), s = b % 60;
+  document.getElementById('best').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// ── New game / difficulty ─────────────────────────────────────────────────────
+function newGame() {
+  won     = false;
+  moves   = 0;
+  elapsed = 0;
+  stopTimer();
+
+  N = DIFFS[diff].n;
+  calcSize();
+
+  const solution = generateSolution(N);
+  grid = scramble(solution, N);
+
+  document.getElementById('moves').textContent = '0';
+  updateTimerDisplay();
+  updateBestDisplay();
+
+  startTimer();
+  render();
+  saveState();
+}
+
+function setDiff(d) {
+  diff = d;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`btn-${d}`).classList.add('active');
+  newGame();
+}
+
+// ── Input ─────────────────────────────────────────────────────────────────────
+function handleClick(clientX, clientY) {
+  if (won || animCell) return;
+  const rect  = canvas.getBoundingClientRect();
+  const scale = canvas.width / rect.width;
+  const px    = (clientX - rect.left) * scale;
+  const py    = (clientY - rect.top)  * scale;
+  const c     = Math.floor(px / CS);
+  const r     = Math.floor(py / CS);
+  if (r < 0 || r >= N || c < 0 || c >= N) return;
+
+  const fromMask = grid[r][c];
+  const toMask   = rotateCW(fromMask);
+
+  animCell = { r, c, fromMask, toMask, startMs: performance.now() };
+
+  function animLoop() {
+    const t = (performance.now() - animCell.startMs) / ANIM_MS;
+    if (t >= 1) {
+      grid[r][c] = toMask;
+      animCell = null;
+      moves++;
+      document.getElementById('moves').textContent = moves;
+      if (checkWin(grid, N)) {
+        won = true;
+        stopTimer();
+        render(true);
+        showWin();
+      } else {
+        render();
+      }
+      saveState();
+    } else {
+      render();
+      requestAnimationFrame(animLoop);
+    }
+  }
+  requestAnimationFrame(animLoop);
+}
+
+canvas.addEventListener('click', e => handleClick(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  handleClick(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: false });
+
+// ── Win overlay ───────────────────────────────────────────────────────────────
+function showWin() {
+  const m = Math.floor(elapsed / 60), s = elapsed % 60;
+  document.getElementById('ol-time').textContent  = `Time: ${m}:${s.toString().padStart(2, '0')}`;
+  document.getElementById('ol-moves').textContent = `Moves: ${moves}`;
+
+  const key  = `pipes_best_${diff}`;
+  const prev = parseInt(localStorage.getItem(key));
+  const isNew = isNaN(prev) || elapsed < prev;
+  if (isNew) localStorage.setItem(key, elapsed);
+
+  if (isNew) {
+    document.getElementById('ol-best').textContent = '🏆 New best time!';
+  } else {
+    const pm = Math.floor(prev / 60), ps = prev % 60;
+    document.getElementById('ol-best').textContent = `Best: ${pm}:${ps.toString().padStart(2, '0')}`;
+  }
+  updateBestDisplay();
+
+  setTimeout(() => document.getElementById('overlay').classList.add('show'), 350);
+}
+
+// ── State persistence ─────────────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem('pipes_state', JSON.stringify({
+      diff, N,
+      grid: grid.map(row => Array.from(row)),
+      moves, elapsed, won,
+    }));
+  } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem('pipes_state'));
+    if (!s || s.diff !== diff) return false;
+    N    = s.N;
+    grid = s.grid.map(row => new Uint8Array(row));
+    moves   = s.moves;
+    elapsed = s.elapsed;
+    won     = s.won;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  calcSize();
+  render(won);
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+if (loadState()) {
+  calcSize();
+  document.getElementById('moves').textContent = moves;
+  updateTimerDisplay();
+  updateBestDisplay();
+  if (!won) startTimer();
+  render(won);
+} else {
+  N = DIFFS[diff].n;
+  newGame();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔴 Laser Lab — Level Editor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1923;
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  color: #fff;
+  user-select: none;
+}
+
+header {
+  background: #0a1018;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+header a { color: rgba(255,255,255,0.4); text-decoration: none; font-size: 0.85em; }
+header a:hover { color: rgba(255,255,255,0.8); }
+header .sep { color: rgba(255,255,255,0.2); }
+header h1 { font-size: 1.1em; font-weight: 700; color: #f0e0a0; flex: 1; }
+
+main {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 14px 12px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Canvas ── */
+#canvas-wrap { display: flex; justify-content: center; }
+#grid-canvas {
+  display: block;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.08);
+  cursor: crosshair;
+  touch-action: none;
+}
+
+/* ── Palette ── */
+.palette { display: flex; flex-direction: column; gap: 10px; }
+
+.palette-section {
+  background: #0d1820;
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-label {
+  font-size: 0.65em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.3);
+  text-transform: uppercase;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+}
+
+.row-label {
+  font-size: 0.72em;
+  color: rgba(255,255,255,0.4);
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+/* Generic button base */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: #1a2838;
+  color: rgba(255,255,255,0.75);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82em;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.btn:hover { background: #243048; border-color: rgba(255,255,255,0.25); }
+.btn.active {
+  background: #1c3a5c;
+  border-color: #4a9eff;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(74,158,255,0.25);
+}
+
+/* Tool buttons */
+.tool-btn { height: 30px; padding: 0 10px; gap: 4px; }
+
+/* Piece tool buttons — teal accent when active */
+.piece-btn { height: 30px; padding: 0 10px; font-size: 1em; }
+.piece-btn.active {
+  background: #0e2e2a;
+  border-color: #33ffcc;
+  color: #33ffcc;
+  box-shadow: 0 0 6px rgba(51,255,204,0.2);
+}
+
+/* Color/dir swatch buttons */
+.swatch {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  font-weight: 700; font-size: 0.78em;
+  flex-shrink: 0;
+}
+.swatch.active { box-shadow: 0 0 0 2px rgba(255,255,255,0.5); }
+
+.swatch[data-color="1"]  { border-color: #ff3333; color: #ff5555; }
+.swatch[data-color="2"]  { border-color: #33ff66; color: #55ff88; }
+.swatch[data-color="4"]  { border-color: #4488ff; color: #66aaff; }
+.swatch[data-color="7"]  { border-color: #aaaaaa; color: #cccccc; }
+.swatch[data-color="3"]  { border-color: #ffee00; color: #ffee44; }
+.swatch[data-color="5"]  { border-color: #ff44ff; color: #ff88ff; }
+.swatch[data-color="6"]  { border-color: #00ffee; color: #44ffee; }
+.swatch[data-color="1"].active  { background: rgba(255,51,51,0.15); }
+.swatch[data-color="2"].active  { background: rgba(51,255,102,0.12); }
+.swatch[data-color="4"].active  { background: rgba(68,136,255,0.15); }
+.swatch[data-color="7"].active  { background: rgba(200,200,200,0.12); }
+.swatch[data-color="3"].active  { background: rgba(255,238,0,0.12); }
+.swatch[data-color="5"].active  { background: rgba(255,68,255,0.12); }
+.swatch[data-color="6"].active  { background: rgba(0,255,238,0.12); }
+
+.dir-btn { width: 28px; height: 28px; font-size: 1em; }
+
+.btn-divider { width: 1px; height: 20px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+
+/* ── Piece counters ── */
+.pieces-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+@media (max-width: 420px) { .pieces-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.piece-counter {
+  background: #131e2a;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.piece-name {
+  font-size: 0.75em;
+  color: rgba(255,255,255,0.6);
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.piece-icon { font-size: 1.05em; }
+.piece-val {
+  min-width: 22px;
+  text-align: center;
+  font-size: 1em;
+  font-weight: 700;
+  color: #33ffcc;
+  background: rgba(51,255,204,0.08);
+  border: 1px solid rgba(51,255,204,0.2);
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+.piece-val.zero { color: rgba(255,255,255,0.2); background: none; border-color: transparent; }
+
+.pieces-hint {
+  font-size: 0.7em;
+  color: rgba(255,255,255,0.28);
+  margin-top: 2px;
+}
+
+/* ── Size selector ── */
+.size-sel {
+  height: 28px; padding: 0 6px;
+  background: #0d1820;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  color: #fff; font-size: 0.82em; font-family: inherit;
+  cursor: pointer; outline: none;
+}
+.size-sel:focus { border-color: rgba(74,158,255,0.5); }
+
+/* ── Bottom bar ── */
+.bottom-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+#level-name {
+  flex: 1; min-width: 140px; height: 34px;
+  background: #0d1820;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  color: #fff; font-size: 0.9em; padding: 0 10px;
+  font-family: inherit;
+}
+#level-name::placeholder { color: rgba(255,255,255,0.3); }
+#level-name:focus { outline: none; border-color: rgba(74,158,255,0.5); }
+
+.action-btn {
+  height: 34px; padding: 0 12px;
+  border-radius: 6px; font-size: 0.82em;
+  font-family: inherit; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: #1a2838; color: rgba(255,255,255,0.8);
+  transition: background 0.12s; white-space: nowrap;
+}
+.action-btn:hover { background: #243048; }
+#laser-btn.on { background: #1a3a1a; border-color: #33ff66; color: #55ff88; }
+#export-btn { background: #1a2e1a; border-color: #44aa44; color: #88cc88; }
+#export-btn:hover { background: #204020; }
+#clear-btn { border-color: rgba(255,80,80,0.3); color: rgba(255,120,120,0.7); }
+#clear-btn:hover { background: #2a1a1a; border-color: rgba(255,80,80,0.5); color: #ff8888; }
+
+#cell-info {
+  font-size: 0.75em; color: rgba(255,255,255,0.3);
+  text-align: center; min-height: 18px;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <a href="../">← Game Center</a>
+  <span class="sep">|</span>
+  <a href="./">▶ Play</a>
+  <h1>🔴 Level Editor</h1>
+</header>
+
+<main>
+  <div id="canvas-wrap">
+    <canvas id="grid-canvas"></canvas>
+  </div>
+  <div id="cell-info"></div>
+
+  <div class="palette">
+
+    <!-- ── Grid size ── -->
+    <div class="palette-section">
+      <div class="section-label">Grid Size</div>
+      <div class="tool-row">
+        <span class="row-label">Columns:</span>
+        <select id="sel-cols" class="size-sel"></select>
+        <span class="row-label" style="margin-left:8px">Rows:</span>
+        <select id="sel-rows" class="size-sel"></select>
+        <span id="size-display" style="font-size:0.75em;color:rgba(255,255,255,0.35);margin-left:8px">7 × 7</span>
+      </div>
+    </div>
+
+    <!-- ── Fixed-item tools ── -->
+    <div class="palette-section">
+      <div class="section-label">Place on Grid</div>
+
+      <!-- Row 1: fixed-item tools -->
+      <div class="tool-row">
+        <button class="btn tool-btn active" id="tool-erase">✕ Erase</button>
+        <div class="btn-divider"></div>
+        <button class="btn tool-btn" id="tool-wall">■ Wall</button>
+        <button class="btn tool-btn" id="tool-emitter">⚡ Emitter</button>
+        <button class="btn tool-btn" id="tool-target">◎ Target</button>
+      </div>
+
+      <!-- Emitter sub-row -->
+      <div class="tool-row" id="emitter-opts" style="display:none">
+        <span class="row-label">Color:</span>
+        <button class="btn swatch active" data-color="1">R</button>
+        <button class="btn swatch" data-color="2">G</button>
+        <button class="btn swatch" data-color="4">B</button>
+        <button class="btn swatch" data-color="7">W</button>
+        <span class="row-label" style="margin-left:6px">Dir:</span>
+        <button class="btn dir-btn active" data-dir="0">→</button>
+        <button class="btn dir-btn" data-dir="1">↓</button>
+        <button class="btn dir-btn" data-dir="2">←</button>
+        <button class="btn dir-btn" data-dir="3">↑</button>
+      </div>
+
+      <!-- Target sub-row -->
+      <div class="tool-row" id="target-opts" style="display:none">
+        <span class="row-label">Color:</span>
+        <button class="btn swatch active" data-tcolor="1">R</button>
+        <button class="btn swatch" data-tcolor="2">G</button>
+        <button class="btn swatch" data-tcolor="4">B</button>
+        <button class="btn swatch" data-tcolor="3">Y</button>
+        <button class="btn swatch" data-tcolor="5">M</button>
+        <button class="btn swatch" data-tcolor="6">C</button>
+        <button class="btn swatch" data-tcolor="7">W</button>
+      </div>
+
+      <!-- Row 2: player piece tools -->
+      <div class="tool-row">
+        <span class="row-label">Pieces:</span>
+        <button class="btn piece-btn" data-piece="mirror_f" title="Mirror ╱">╱</button>
+        <button class="btn piece-btn" data-piece="mirror_b" title="Mirror ╲">╲</button>
+        <button class="btn piece-btn" data-piece="prism"    title="Prism ✦">✦</button>
+        <button class="btn piece-btn" data-piece="filter_r" title="Red Filter">🔴</button>
+        <button class="btn piece-btn" data-piece="filter_g" title="Green Filter">🟢</button>
+        <button class="btn piece-btn" data-piece="filter_b" title="Blue Filter">🔵</button>
+        <span style="font-size:0.68em;color:rgba(255,255,255,0.28);margin-left:4px">place to test your solution</span>
+      </div>
+    </div>
+
+    <!-- ── Player piece counts (read-only, driven by board) ── -->
+    <div class="palette-section">
+      <div class="section-label">Player Pieces (from board)</div>
+      <div class="pieces-grid" id="pieces-grid"></div>
+      <div class="pieces-hint">Place pieces on the grid above — count on board = pieces available in the exported level.</div>
+    </div>
+
+    <!-- ── Controls ── -->
+    <div class="bottom-bar">
+      <input type="text" id="level-name" placeholder="Level name…" maxlength="40" />
+      <button class="action-btn" id="laser-btn">🔦 Preview</button>
+      <button class="action-btn" id="export-btn">⬇ Export JSON</button>
+      <button class="action-btn" id="clear-btn">🗑 Clear</button>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════
+let CELL = 52;
+let COLS = 7;
+let ROWS = 7;
+
+const DX = [1, 0, -1, 0];
+const DY = [0, 1,  0,-1];
+
+const R = 1, G = 2, B = 4;
+
+const COLOR_HEX = {
+  [R]:     '#ff3333',
+  [G]:     '#33ff66',
+  [B]:     '#4488ff',
+  [R|G]:   '#ffee00',
+  [R|B]:   '#ff44ff',
+  [G|B]:   '#00ffee',
+  [R|G|B]: '#ffffff',
+};
+
+const COLOR_NAME = {
+  1: 'Red', 2: 'Green', 4: 'Blue',
+  3: 'Yellow', 5: 'Magenta', 6: 'Cyan', 7: 'White',
+};
+
+const DIR_LABEL = ['→ Right', '↓ Down', '← Left', '↑ Up'];
+
+const WALL     = 'W';
+const EMITTER  = 'E';
+const TARGET   = 'T';
+const MIRROR_F = '/';
+const MIRROR_B = '\\';
+const SPLITTER = '+';
+const FILTER_R = 'FR';
+const FILTER_G = 'FG';
+const FILTER_B = 'FB';
+
+// Piece tool key → cell type
+const PIECE_TYPE = {
+  mirror_f: MIRROR_F,
+  mirror_b: MIRROR_B,
+  prism:    SPLITTER,
+  filter_r: FILTER_R,
+  filter_g: FILTER_G,
+  filter_b: FILTER_B,
+};
+
+const PIECE_DEFS = [
+  { type: MIRROR_F, label: 'Mirror ╱',  icon: '╱', key: 'mirror_f' },
+  { type: MIRROR_B, label: 'Mirror ╲',  icon: '╲', key: 'mirror_b' },
+  { type: SPLITTER, label: 'Prism ✦',   icon: '✦', key: 'prism'    },
+  { type: FILTER_R, label: 'Filter Red', icon: '🔴', key: 'filter_r' },
+  { type: FILTER_G, label: 'Filter Grn', icon: '🟢', key: 'filter_g' },
+  { type: FILTER_B, label: 'Filter Blu', icon: '🔵', key: 'filter_b' },
+];
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+// editorGrid  — fixed items: walls, emitters, targets (exported in grid)
+// playerGrid  — player pieces: mirrors, prisms, filters (exported as piece counts only)
+let editorGrid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+let playerGrid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+
+let activeTool   = 'erase';
+let emitterColor = R;
+let emitterDir   = 0;
+let targetColor  = R;
+
+let laserActive = false;
+let beams       = [];
+let _litMap     = null;
+let _animId     = null;
+
+// ═══════════════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════════════
+const canvas = document.getElementById('grid-canvas');
+const ctx    = canvas.getContext('2d');
+
+function calcCell(cols, rows) {
+  const avail = Math.min(window.innerWidth - 24, 480);
+  return Math.max(32, Math.min(52, Math.floor(avail / Math.max(cols, rows))));
+}
+
+function resizeCanvas() {
+  const W = CELL * COLS, H = CELL * ROWS;
+  canvas.width  = W; canvas.height  = H;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+}
+resizeCanvas();
+
+const COLORS = {
+  bg:       '#111d2a',
+  gridLine: 'rgba(255,255,255,0.07)',
+  wall:     '#2a3a4a',
+  wallFace: '#364a5e',
+};
+
+// Combined view: fixed items take priority over player pieces
+function combinedCell(r, c) {
+  return editorGrid[r][c] || playerGrid[r][c] || null;
+}
+
+// ═══════════════════════════════════════════════
+// DRAW
+// ═══════════════════════════════════════════════
+function draw() {
+  const W = CELL * COLS, H = CELL * ROWS;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = COLORS.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.strokeStyle = COLORS.gridLine;
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= COLS; i++) {
+    ctx.beginPath(); ctx.moveTo(i*CELL, 0); ctx.lineTo(i*CELL, H); ctx.stroke();
+  }
+  for (let j = 0; j <= ROWS; j++) {
+    ctx.beginPath(); ctx.moveTo(0, j*CELL); ctx.lineTo(W, j*CELL); ctx.stroke();
+  }
+
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      drawCellBg(r, c);
+
+  if (laserActive && beams.length) drawBeams();
+
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      drawCellFg(r, c);
+}
+
+function drawCellBg(r, c) {
+  const fixed  = editorGrid[r][c];
+  const player = playerGrid[r][c];
+  const cell   = fixed || player;
+  if (!cell) return;
+
+  const x = c * CELL, y = r * CELL;
+  const S = CELL - 4;
+
+  if (cell.type === WALL) {
+    ctx.fillStyle = COLORS.wall;
+    ctx.fillRect(x+2, y+2, S, S);
+    ctx.fillStyle = COLORS.wallFace;
+    ctx.fillRect(x+4, y+4, S-4, S-4);
+    return;
+  }
+  if (cell.type === EMITTER) {
+    ctx.fillStyle = '#1a2a3a';
+    roundRect(ctx, x+4, y+4, S-4, S-4, 8);
+    ctx.fill();
+    return;
+  }
+  if (cell.type === TARGET) {
+    const isLit = laserActive && _litMap && _litMap[r][c] === cell.color;
+    ctx.fillStyle = isLit ? 'rgba(255,255,255,0.08)' : '#0d1820';
+    roundRect(ctx, x+4, y+4, S-4, S-4, 8);
+    ctx.fill();
+    return;
+  }
+  // Piece tile — teal tint for player pieces, blue for fixed
+  ctx.save();
+  if (player && !fixed) {
+    // Player piece: teal accent border to distinguish
+    ctx.fillStyle   = '#0d2520';
+    ctx.strokeStyle = 'rgba(51,255,204,0.35)';
+  } else {
+    ctx.fillStyle   = '#1e3050';
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  }
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, x+4, y+4, S-4, S-4, 8);
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCellFg(r, c) {
+  const cell = combinedCell(r, c);
+  if (!cell || cell.type === WALL) return;
+
+  const x = c * CELL, y = r * CELL;
+  const cx = x + CELL/2, cy = y + CELL/2;
+  const S = CELL - 4;
+
+  if (cell.type === EMITTER) {
+    const hex = COLOR_HEX[cell.color] || '#ffffff';
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.atan2(DY[cell.dir], DX[cell.dir]));
+    const bH = 13, bW = 22, bX = -18, bY = -bH/2;
+    const barGrad = ctx.createLinearGradient(0, bY, 0, bY + bH);
+    barGrad.addColorStop(0, '#6e7e8e'); barGrad.addColorStop(0.3, '#3e4e5e');
+    barGrad.addColorStop(0.75, '#28383e'); barGrad.addColorStop(1, '#18262e');
+    roundRect(ctx, bX, bY, bW, bH, 4);
+    ctx.fillStyle = barGrad; ctx.fill();
+    ctx.strokeStyle = 'rgba(160,195,220,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+    const lX = 6, lR = 8;
+    ctx.shadowColor = hex; ctx.shadowBlur = 14;
+    const lGrad = ctx.createRadialGradient(lX, 0, 0, lX, 0, lR);
+    lGrad.addColorStop(0, '#ffffff'); lGrad.addColorStop(0.35, hex);
+    lGrad.addColorStop(0.7, hex + '88'); lGrad.addColorStop(1, hex + '00');
+    ctx.fillStyle = lGrad;
+    ctx.beginPath(); ctx.arc(lX, 0, lR, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  if (cell.type === TARGET) {
+    const hex = COLOR_HEX[cell.color] || '#ffffff';
+    const isLit = laserActive && _litMap && _litMap[r][c] === cell.color;
+    ctx.save();
+    ctx.translate(cx, cy);
+    [15, 10, 5].forEach((radius, i) => {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(0, 0, radius, 0, Math.PI*2);
+      ctx.strokeStyle = hex; ctx.shadowColor = hex;
+      if (isLit) { ctx.lineWidth = 2; ctx.shadowBlur = 14-i*4; ctx.globalAlpha = 1; }
+      else { ctx.lineWidth = 1.5; ctx.shadowBlur = 3; ctx.globalAlpha = 0.28+i*0.1; }
+      ctx.stroke(); ctx.restore();
+    });
+    if (isLit) {
+      ctx.save(); ctx.shadowColor = hex; ctx.shadowBlur = 16;
+      ctx.fillStyle = hex; ctx.beginPath(); ctx.arc(0, 0, 3.5, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = 'bold 8px system-ui';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText('TARGET', cx, y + S - 1);
+    return;
+  }
+
+  if (cell.type === MIRROR_F || cell.type === MIRROR_B) { drawMirrorGlyph(ctx, cx, cy, cell.type); return; }
+  if (cell.type === SPLITTER) { drawPrismGlyph(ctx, cx, cy); return; }
+  if (cell.type === FILTER_R) { drawFilterGlyph(ctx, cx, cy, COLOR_HEX[R]); return; }
+  if (cell.type === FILTER_G) { drawFilterGlyph(ctx, cx, cy, COLOR_HEX[G]); return; }
+  if (cell.type === FILTER_B) { drawFilterGlyph(ctx, cx, cy, COLOR_HEX[B]); return; }
+}
+
+// ── Glyphs ───────────────────────────────────────────────────────────────────
+function drawMirrorGlyph(c, cx, cy, type) {
+  const angle = (type === MIRROR_F) ? -Math.PI/4 : Math.PI/4;
+  const mLen = 15, mH = 6;
+  c.save(); c.translate(cx, cy); c.rotate(angle);
+  const grad = c.createLinearGradient(0, -mH/2, 0, mH/2);
+  grad.addColorStop(0, '#c8dff0'); grad.addColorStop(0.2, '#7090b0');
+  grad.addColorStop(0.55, '#3a5060'); grad.addColorStop(1, '#18262e');
+  roundRect(c, -mLen, -mH/2, mLen*2, mH, 3);
+  c.fillStyle = grad; c.fill();
+  c.strokeStyle = 'rgba(160,200,230,0.4)'; c.lineWidth = 1; c.stroke();
+  c.strokeStyle = 'rgba(230,245,255,0.8)'; c.lineWidth = 1.5; c.lineCap = 'round';
+  c.beginPath(); c.moveTo(-mLen+3, -mH/2+1.5); c.lineTo(mLen-3, -mH/2+1.5); c.stroke();
+  c.restore();
+}
+
+function drawFilterGlyph(c, cx, cy, colorHex) {
+  const outerR = 13, innerR = 9;
+  c.save(); c.translate(cx, cy);
+  const rg = c.createRadialGradient(-2,-2,0,0,0,outerR);
+  rg.addColorStop(0,'#7a8a9a'); rg.addColorStop(0.4,'#4a5a6a');
+  rg.addColorStop(0.75,'#2a3a4a'); rg.addColorStop(1,'#18262e');
+  c.fillStyle=rg; c.beginPath(); c.arc(0,0,outerR,0,Math.PI*2); c.fill();
+  c.strokeStyle='rgba(160,195,220,0.55)'; c.lineWidth=1; c.stroke();
+  c.fillStyle='#0a1520'; c.beginPath(); c.arc(0,0,innerR+1,0,Math.PI*2); c.fill();
+  c.shadowColor=colorHex; c.shadowBlur=10;
+  const lg=c.createRadialGradient(-innerR*0.3,-innerR*0.3,0,0,0,innerR);
+  lg.addColorStop(0,'#ffffff'); lg.addColorStop(0.3,colorHex);
+  lg.addColorStop(0.7,colorHex+'88'); lg.addColorStop(1,colorHex+'33');
+  c.fillStyle=lg; c.beginPath(); c.arc(0,0,innerR,0,Math.PI*2); c.fill();
+  c.restore();
+}
+
+function drawPrismGlyph(c, cx, cy) {
+  const hubR=4, armLen=12, armW=8;
+  const rim='rgba(160,195,220,0.55)';
+  c.save(); c.translate(cx,cy);
+  const mkH=()=>{const g=c.createLinearGradient(0,-armW/2,0,armW/2);g.addColorStop(0,'#6e7e8e');g.addColorStop(0.35,'#3e4e5e');g.addColorStop(1,'#18262e');return g;};
+  const mkV=()=>{const g=c.createLinearGradient(-armW/2,0,armW/2,0);g.addColorStop(0,'#6e7e8e');g.addColorStop(0.35,'#3e4e5e');g.addColorStop(1,'#18262e');return g;};
+  [{rx:hubR,ry:-armW/2,rw:armLen,rh:armW,grad:mkH},
+   {rx:-(hubR+armLen),ry:-armW/2,rw:armLen,rh:armW,grad:mkH},
+   {rx:-armW/2,ry:hubR,rw:armW,rh:armLen,grad:mkV},
+   {rx:-armW/2,ry:-(hubR+armLen),rw:armW,rh:armLen,grad:mkV}
+  ].forEach(a=>{roundRect(c,a.rx,a.ry,a.rw,a.rh,3);c.fillStyle=a.grad();c.fill();c.strokeStyle=rim;c.lineWidth=1;c.stroke();});
+  const hg=c.createRadialGradient(-1,-1,0,0,0,hubR+2);
+  hg.addColorStop(0,'#8a9aaa');hg.addColorStop(1,'#2a3a4a');
+  c.fillStyle=hg;c.beginPath();c.arc(0,0,hubR,0,Math.PI*2);c.fill();
+  c.strokeStyle=rim;c.lineWidth=1;c.stroke();
+  c.restore();
+}
+
+function roundRect(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y); c.arcTo(x+w,y,x+w,y+r,r);
+  c.lineTo(x+w,y+h-r); c.arcTo(x+w,y+h,x+w-r,y+h,r);
+  c.lineTo(x+r,y+h); c.arcTo(x,y+h,x,y+h-r,r);
+  c.lineTo(x,y+r); c.arcTo(x,y,x+r,y,r);
+  c.closePath();
+}
+
+// ── Beams ────────────────────────────────────────────────────────────────────
+function drawBeams() {
+  const W = CELL*COLS, H = CELL*ROWS;
+  const half = CELL/2;
+  const edgeDX=[1,0,-1,0], edgeDY=[0,1,0,-1];
+  const byColor={};
+  const addSeg=(color,x1,y1,x2,y2)=>{if(!byColor[color])byColor[color]=[];byColor[color].push([x1,y1,x2,y2]);};
+  for(const seg of beams){
+    const{r,c,inDir,outDir,color}=seg;
+    const x=c*CELL,y=r*CELL,cx=x+half,cy=y+half;
+    const x1=inDir===null?cx:cx-edgeDX[inDir]*half;
+    const y1=inDir===null?cy:cy-edgeDY[inDir]*half;
+    const x2=outDir===null?cx:cx+edgeDX[outDir]*half;
+    const y2=outDir===null?cy:cy+edgeDY[outDir]*half;
+    if(inDir!==null&&outDir!==null&&inDir!==outDir){addSeg(color,x1,y1,cx,cy);addSeg(color,cx,cy,x2,y2);}
+    else{addSeg(color,x1,y1,x2,y2);}
+  }
+  const _t=Date.now()/600,_pulse=0.5+0.5*Math.sin(_t),outerBlur=10+_pulse*12;
+  for(const[ck,lines]of Object.entries(byColor)){
+    const hex=COLOR_HEX[ck]||'#ffffff';
+    ctx.save();ctx.globalAlpha=0.5;ctx.strokeStyle=hex;ctx.shadowColor=hex;
+    ctx.shadowBlur=outerBlur;ctx.lineWidth=7;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();for(const[x1,y1,x2,y2]of lines){ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);}
+    ctx.stroke();ctx.restore();
+  }
+  for(const[ck,lines]of Object.entries(byColor)){
+    const hex=COLOR_HEX[ck]||'#ffffff';
+    ctx.save();ctx.strokeStyle='#ffffff';ctx.shadowColor=hex;ctx.shadowBlur=4;
+    ctx.lineWidth=1.5;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();for(const[x1,y1,x2,y2]of lines){ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);}
+    ctx.stroke();ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════
+// TRACE BEAMS (uses combined grid)
+// ═══════════════════════════════════════════════
+function traceBeams() {
+  beams = [];
+  const lit = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  const prismInputs = new Map();
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(combinedCell(r,c)?.type===SPLITTER) prismInputs.set(`${r},${c}`,[0,0,0,0]);
+  }
+  const queue=[], visited=new Set();
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const cell=combinedCell(r,c);
+    if(cell?.type===EMITTER){
+      beams.push({r,c,inDir:null,outDir:cell.dir,color:cell.color});
+      queue.push({r:r+DY[cell.dir],c:c+DX[cell.dir],dir:cell.dir,color:cell.color});
+    }
+  }
+  let prismChanged=true,outerIters=0;
+  while(prismChanged&&outerIters<20){
+    prismChanged=false;outerIters++;
+    let iters=0;
+    while(queue.length&&iters<2000){
+      iters++;
+      const{r,c,dir,color}=queue.shift();
+      if(r<0||r>=ROWS||c<0||c>=COLS) continue;
+      const key=`${r},${c},${dir},${color}`;
+      if(visited.has(key)) continue;
+      visited.add(key);
+      lit[r][c]|=color;
+      const cell=combinedCell(r,c);
+      if(!cell){
+        beams.push({r,c,inDir:dir,outDir:dir,color});
+        queue.push({r:r+DY[dir],c:c+DX[dir],dir,color});
+      } else if(cell.type===WALL||cell.type===EMITTER){
+        // absorbed
+      } else if(cell.type===TARGET){
+        beams.push({r,c,inDir:dir,outDir:null,color});
+      } else if(cell.type===MIRROR_F){
+        const od=[3,2,1,0][dir];
+        beams.push({r,c,inDir:dir,outDir:od,color});
+        queue.push({r:r+DY[od],c:c+DX[od],dir:od,color});
+      } else if(cell.type===MIRROR_B){
+        const od=[1,0,3,2][dir];
+        beams.push({r,c,inDir:dir,outDir:od,color});
+        queue.push({r:r+DY[od],c:c+DX[od],dir:od,color});
+      } else if(cell.type===SPLITTER){
+        const inputs=prismInputs.get(`${r},${c}`);
+        const old=inputs[dir]; inputs[dir]|=color;
+        if(inputs[dir]!==old) prismChanged=true;
+      } else if(cell.type===FILTER_R||cell.type===FILTER_G||cell.type===FILTER_B){
+        const mask=cell.type===FILTER_R?R:cell.type===FILTER_G?G:B;
+        const passed=color&mask;
+        beams.push({r,c,inDir:dir,outDir:null,color});
+        if(passed){beams.push({r,c,inDir:null,outDir:dir,color:passed});queue.push({r:r+DY[dir],c:c+DX[dir],dir,color:passed});}
+      }
+    }
+    for(const[pk,inputs]of prismInputs){
+      const combined=inputs[0]|inputs[1]|inputs[2]|inputs[3];
+      if(!combined) continue;
+      for(let d=0;d<4;d++){
+        if(inputs[d]) continue;
+        const od=(d+2)%4;
+        const[pr,pc]=pk.split(',').map(Number);
+        const nr=pr+DY[od],nc=pc+DX[od];
+        const ok=`${nr},${nc},${od},${combined}`;
+        if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!visited.has(ok)){
+          queue.push({r:nr,c:nc,dir:od,color:combined}); prismChanged=true;
+        }
+      }
+    }
+  }
+  for(const[pk,inputs]of prismInputs){
+    const combined=inputs[0]|inputs[1]|inputs[2]|inputs[3];
+    if(!combined) continue;
+    const[pr,pc]=pk.split(',').map(Number);
+    for(let d=0;d<4;d++){
+      if(inputs[d]) beams.push({r:pr,c:pc,inDir:d,outDir:null,color:inputs[d]});
+      else beams.push({r:pr,c:pc,inDir:null,outDir:(d+2)%4,color:combined});
+    }
+  }
+  const segMap=new Map();
+  for(const seg of beams){
+    const k=`${seg.r},${seg.c},${seg.inDir},${seg.outDir}`;
+    if(segMap.has(k)) segMap.get(k).color|=seg.color;
+    else segMap.set(k,{...seg});
+  }
+  beams=Array.from(segMap.values());
+  _litMap=lit;
+}
+
+// ═══════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════
+function getCell(e) {
+  const rect=canvas.getBoundingClientRect();
+  const scaleX=canvas.width/rect.width, scaleY=canvas.height/rect.height;
+  const src=e.touches?e.touches[0]:e;
+  const mx=(src.clientX-rect.left)*scaleX;
+  const my=(src.clientY-rect.top)*scaleY;
+  return{c:Math.floor(mx/CELL),r:Math.floor(my/CELL)};
+}
+
+function placeCell(r, c, erase) {
+  if(r<0||r>=ROWS||c<0||c>=COLS) return;
+
+  if(erase){
+    // Erase both layers
+    editorGrid[r][c]=null;
+    playerGrid[r][c]=null;
+
+  } else if(activeTool==='wall'){
+    editorGrid[r][c]={type:WALL};
+    playerGrid[r][c]=null;
+
+  } else if(activeTool==='emitter'){
+    const existing=editorGrid[r][c];
+    if(existing?.type===EMITTER&&existing.color===emitterColor){
+      existing.dir=(existing.dir+1)%4;
+    } else {
+      editorGrid[r][c]={type:EMITTER,color:emitterColor,dir:emitterDir};
+      playerGrid[r][c]=null;
+    }
+
+  } else if(activeTool==='target'){
+    editorGrid[r][c]={type:TARGET,color:targetColor};
+    playerGrid[r][c]=null;
+
+  } else if(PIECE_TYPE[activeTool]){
+    // Player piece — only place on cells empty in the fixed grid
+    if(!editorGrid[r][c]){
+      playerGrid[r][c]={type:PIECE_TYPE[activeTool]};
+    }
+  }
+
+  updatePieceCounts();
+  if(laserActive) traceBeams();
+  draw();
+}
+
+let _dragging=false, _eraseMode=false;
+
+canvas.addEventListener('mousedown',e=>{
+  e.preventDefault();
+  _dragging=true;
+  _eraseMode=e.button===2||activeTool==='erase';
+  const{r,c}=getCell(e); placeCell(r,c,_eraseMode);
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!_dragging){
+    const{r,c}=getCell(e);
+    if(r>=0&&r<ROWS&&c>=0&&c<COLS){
+      const cell=combinedCell(r,c);
+      document.getElementById('cell-info').textContent=
+        cell?describeCell(cell,r,c):`(${c},${r}) — empty`;
+    }
+    return;
+  }
+  const{r,c}=getCell(e); placeCell(r,c,_eraseMode);
+});
+canvas.addEventListener('mouseup',()=>{_dragging=false;});
+canvas.addEventListener('mouseleave',()=>{_dragging=false;document.getElementById('cell-info').textContent='';});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+
+canvas.addEventListener('touchstart',e=>{e.preventDefault();_dragging=true;_eraseMode=activeTool==='erase';const{r,c}=getCell(e);placeCell(r,c,_eraseMode);},{passive:false});
+canvas.addEventListener('touchmove',e=>{e.preventDefault();const{r,c}=getCell(e);placeCell(r,c,_eraseMode);},{passive:false});
+canvas.addEventListener('touchend',()=>{_dragging=false;});
+
+function describeCell(cell, r, c) {
+  const where = `(${c},${r})`;
+  const layer = playerGrid[r][c]&&!editorGrid[r][c]?' [player piece]':' [fixed]';
+  if(cell.type===WALL)    return `${where} Wall${layer}`;
+  if(cell.type===EMITTER) return `${where} Emitter — ${COLOR_NAME[cell.color]} ${DIR_LABEL[cell.dir]}${layer}`;
+  if(cell.type===TARGET)  return `${where} Target — ${COLOR_NAME[cell.color]}${layer}`;
+  const def=PIECE_DEFS.find(d=>d.type===cell.type);
+  return `${where} ${def?def.label:cell.type}${layer}`;
+}
+
+// ═══════════════════════════════════════════════
+// TOOLBAR
+// ═══════════════════════════════════════════════
+const ALL_TOOL_IDS = ['erase','wall','emitter','target','mirror_f','mirror_b','prism','filter_r','filter_g','filter_b'];
+
+function setTool(tool) {
+  activeTool = tool;
+  // Clear all active states
+  ALL_TOOL_IDS.forEach(t => {
+    const el = document.getElementById('tool-'+t);
+    if(el) el.classList.remove('active');
+  });
+  const el = document.getElementById('tool-'+tool);
+  if(el) el.classList.add('active');
+
+  document.getElementById('emitter-opts').style.display = tool==='emitter'?'flex':'none';
+  document.getElementById('target-opts').style.display  = tool==='target' ?'flex':'none';
+}
+
+document.getElementById('tool-erase')  .addEventListener('click',()=>setTool('erase'));
+document.getElementById('tool-wall')   .addEventListener('click',()=>setTool('wall'));
+document.getElementById('tool-emitter').addEventListener('click',()=>setTool('emitter'));
+document.getElementById('tool-target') .addEventListener('click',()=>setTool('target'));
+
+// Piece tool buttons
+document.querySelectorAll('[data-piece]').forEach(btn=>{
+  const key=btn.dataset.piece;
+  btn.id='tool-'+key;
+  btn.addEventListener('click',()=>setTool(key));
+});
+
+// Emitter color swatches
+document.querySelectorAll('#emitter-opts [data-color]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    emitterColor=parseInt(btn.dataset.color);
+    document.querySelectorAll('#emitter-opts [data-color]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Emitter direction buttons
+document.querySelectorAll('[data-dir]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    emitterDir=parseInt(btn.dataset.dir);
+    document.querySelectorAll('[data-dir]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Target color swatches
+document.querySelectorAll('#target-opts [data-tcolor]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    targetColor=parseInt(btn.dataset.tcolor);
+    document.querySelectorAll('#target-opts [data-tcolor]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ═══════════════════════════════════════════════
+// PIECE COUNTS (read-only, derived from playerGrid)
+// ═══════════════════════════════════════════════
+function buildPiecesUI() {
+  const grid = document.getElementById('pieces-grid');
+  grid.innerHTML = '';
+  for(const def of PIECE_DEFS){
+    const wrap=document.createElement('div');
+    wrap.className='piece-counter';
+    wrap.innerHTML=`
+      <div class="piece-name">
+        <span class="piece-icon">${def.icon}</span>
+        <span>${def.label}</span>
+      </div>
+      <span class="piece-val zero" id="pc-${def.key}">0</span>
+    `;
+    grid.appendChild(wrap);
+  }
+}
+
+function updatePieceCounts() {
+  const counts={mirror_f:0,mirror_b:0,prism:0,filter_r:0,filter_g:0,filter_b:0};
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const cell=playerGrid[r][c];
+    if(!cell) continue;
+    if(cell.type===MIRROR_F) counts.mirror_f++;
+    else if(cell.type===MIRROR_B) counts.mirror_b++;
+    else if(cell.type===SPLITTER) counts.prism++;
+    else if(cell.type===FILTER_R) counts.filter_r++;
+    else if(cell.type===FILTER_G) counts.filter_g++;
+    else if(cell.type===FILTER_B) counts.filter_b++;
+  }
+  PIECE_DEFS.forEach(def=>{
+    const el=document.getElementById('pc-'+def.key);
+    if(!el) return;
+    el.textContent=counts[def.key];
+    el.className=counts[def.key]>0?'piece-val':'piece-val zero';
+  });
+  return counts;
+}
+
+buildPiecesUI();
+
+// ═══════════════════════════════════════════════
+// GRID SIZE PICKER
+// ═══════════════════════════════════════════════
+function initSizePickers() {
+  const selCols=document.getElementById('sel-cols');
+  const selRows=document.getElementById('sel-rows');
+  for(let n=4;n<=12;n++){
+    const oc=document.createElement('option');
+    oc.value=n;oc.textContent=n;if(n===7)oc.selected=true;selCols.appendChild(oc);
+    const or=document.createElement('option');
+    or.value=n;or.textContent=n;if(n===7)or.selected=true;selRows.appendChild(or);
+  }
+  selCols.addEventListener('change',applySize);
+  selRows.addEventListener('change',applySize);
+}
+
+function applySize() {
+  const newCols=parseInt(document.getElementById('sel-cols').value);
+  const newRows=parseInt(document.getElementById('sel-rows').value);
+  // Preserve cells within bounds
+  const newFixed=Array.from({length:newRows},(_,r)=>Array.from({length:newCols},(_,c)=>(r<ROWS&&c<COLS)?editorGrid[r][c]:null));
+  const newPlayer=Array.from({length:newRows},(_,r)=>Array.from({length:newCols},(_,c)=>(r<ROWS&&c<COLS)?playerGrid[r][c]:null));
+  COLS=newCols;ROWS=newRows;
+  CELL=calcCell(COLS,ROWS);
+  editorGrid=newFixed;
+  playerGrid=newPlayer;
+  resizeCanvas();
+  document.getElementById('size-display').textContent=`${COLS} × ${ROWS}`;
+  updatePieceCounts();
+  if(laserActive) traceBeams();
+  draw();
+}
+
+initSizePickers();
+
+// ═══════════════════════════════════════════════
+// LASER PREVIEW
+// ═══════════════════════════════════════════════
+const laserBtn=document.getElementById('laser-btn');
+laserBtn.addEventListener('click',()=>{
+  laserActive=!laserActive;
+  laserBtn.textContent=laserActive?'🔦 Preview ON':'🔦 Preview';
+  laserBtn.classList.toggle('on',laserActive);
+  if(laserActive){traceBeams();startAnim();}
+  else{stopAnim();beams=[];_litMap=null;draw();}
+});
+
+function startAnim(){if(_animId)return;const loop=()=>{draw();_animId=requestAnimationFrame(loop);};_animId=requestAnimationFrame(loop);}
+function stopAnim(){if(_animId){cancelAnimationFrame(_animId);_animId=null;}}
+
+// ═══════════════════════════════════════════════
+// CLEAR
+// ═══════════════════════════════════════════════
+document.getElementById('clear-btn').addEventListener('click',()=>{
+  if(!confirm('Clear the grid and reset to 7×7?')) return;
+  COLS=7;ROWS=7;CELL=calcCell(COLS,ROWS);
+  document.getElementById('sel-cols').value=7;
+  document.getElementById('sel-rows').value=7;
+  document.getElementById('size-display').textContent='7 × 7';
+  editorGrid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  playerGrid=Array.from({length:ROWS},()=>Array(COLS).fill(null));
+  updatePieceCounts();
+  beams=[];_litMap=null;
+  resizeCanvas();
+  draw();
+});
+
+// ═══════════════════════════════════════════════
+// EXPORT JSON
+// ═══════════════════════════════════════════════
+document.getElementById('export-btn').addEventListener('click',exportLevel);
+
+function exportLevel() {
+  const name=document.getElementById('level-name').value.trim()||'Untitled';
+
+  // Fixed grid only (walls, emitters, targets — no player pieces)
+  const gridData=editorGrid.map(row=>row.map(cell=>{
+    if(!cell) return null;
+    if(cell.type===WALL)    return{t:'W'};
+    if(cell.type===EMITTER) return{t:'E',color:cell.color,dir:cell.dir};
+    if(cell.type===TARGET)  return{t:'T',color:cell.color};
+    return null;
+  }));
+
+  // Piece counts from playerGrid
+  const counts=updatePieceCounts();
+  const pieces={};
+  for(const def of PIECE_DEFS){
+    if(counts[def.key]>0) pieces[def.key]=counts[def.key];
+  }
+
+  const level={name,rows:ROWS,cols:COLS,grid:gridData,pieces};
+  const json=JSON.stringify(level,null,2);
+
+  const blob=new Blob([json],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const safe=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'level';
+  a.href=url;a.download=safe+'.json';a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+draw();
+</script>
+</body>
+</html>

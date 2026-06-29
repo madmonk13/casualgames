@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🀄 Mahjong Solitaire</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #1a472a;
+  background-image: radial-gradient(ellipse at center, #2d6a40 0%, #0f2d1a 100%);
+  font-family: system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 12px 8px;
+  color: #fff;
+}
+h1 {
+  font-size: 1.6em;
+  margin-bottom: 8px;
+  text-shadow: 2px 2px 6px rgba(0,0,0,0.6);
+  letter-spacing: 2px;
+}
+#controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+button {
+  padding: 7px 18px;
+  font-size: 0.95em;
+  border: 2px solid #c8960a;
+  border-radius: 8px;
+  cursor: pointer;
+  background: linear-gradient(145deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: bold;
+  transition: all 0.15s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+}
+button:hover { background: linear-gradient(145deg, #ffe060, #e8b820); transform: translateY(-1px); }
+button:active { transform: translateY(0); }
+select {
+  padding: 7px 30px 7px 12px;
+  font-size: 0.95em;
+  border: 2px solid #c8960a;
+  border-radius: 8px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M0 0l6 8 6-8z' fill='%232a1800'/%3E%3C/svg%3E") no-repeat right 10px center, linear-gradient(145deg, #f0c040, #d4a010);
+  color: #2a1800;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+  appearance: none;
+  -webkit-appearance: none;
+}
+select:hover { background-color: #ffe060; }
+#status {
+  font-size: 1em;
+  padding: 6px 14px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.15);
+  min-width: 200px;
+  text-align: center;
+}
+#board-container {
+  overflow: hidden;
+}
+
+/* ── Mobile optimizations ── */
+@media (max-width: 600px) {
+  body { padding: 4px 4px 8px; }
+  h1 { font-size: 1.0em; margin-bottom: 5px; letter-spacing: 1px; }
+  #controls { gap: 4px; margin-bottom: 5px; flex-wrap: wrap; }
+  button { padding: 5px 9px; font-size: 0.78em; }
+  select { padding: 5px 22px 5px 6px; font-size: 0.78em; }
+  #status { min-width: 0; font-size: 0.78em; padding: 4px 7px; }
+}
+@media (max-width: 380px) {
+  h1 { font-size: 0.88em; }
+  button { padding: 4px 7px; font-size: 0.72em; }
+  #controls { gap: 3px; }
+}
+#board {
+  position: relative;
+  transform-origin: top left;
+}
+
+/* Layer depth shading — white base, warm tint deepens at lower layers */
+.tile.z0 { background: linear-gradient(160deg, #f0ece4 0%, #e4ddd2 60%, #d8d0c4 100%); }
+.tile.z1 { background: linear-gradient(160deg, #f6f3ec 0%, #eee8de 60%, #e2d9cc 100%); }
+.tile.z2 { background: linear-gradient(160deg, #faf8f2 0%, #f3efe6 60%, #e8e2d8 100%); }
+.tile.z3 { background: linear-gradient(160deg, #fefefe 0%, #f9f6f0 60%, #ede8e0 100%); }
+
+.tile {
+  position: absolute;
+  width: 52px;
+  height: 66px;
+  background: linear-gradient(160deg, #fefefe 0%, #f9f6f0 60%, #ede8e0 100%);
+  border: 2px solid #8B6914;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  line-height: 1;
+  user-select: none;
+  cursor: pointer;
+  box-shadow:
+    /* surface highlights — light from top-left */
+    inset 0 1px 0 rgba(255,255,255,0.60),
+    inset 1px 0 0 rgba(255,255,255,0.32),
+    /* extruded right + bottom face (6 px deep, warm dark-brown) */
+    1px 1px 0 #7a5510,
+    2px 2px 0 #6e4c0e,
+    3px 3px 0 #62430c,
+    4px 4px 0 #563a0a,
+    5px 5px 0 #4a3108,
+    6px 6px 0 #3e2806,
+    /* ambient drop shadow behind the extrusion */
+    9px 9px 16px rgba(0,0,0,0.45);
+  transition: transform 0.1s, box-shadow 0.1s;
+  overflow: hidden;
+}
+/* Parchment grain texture overlay */
+.tile::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.18;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+/* Full-color emoji — sits above the parchment ::after overlay */
+.tile-art {
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+.tile.selected {
+  background: linear-gradient(160deg, #ffffa8 0%, #ffe050 60%, #f0c020 100%);
+  border-color: #c08800;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.70),
+    inset 1px 0 0 rgba(255,255,255,0.40),
+    1px 1px 0 #9a7200,
+    2px 2px 0 #8a6400,
+    3px 3px 0 #7a5600,
+    4px 4px 0 #6a4800,
+    5px 5px 0 #5a3a00,
+    6px 6px 0 #4a2c00,
+    0 0 14px rgba(255,200,0,0.75),
+    9px 9px 16px rgba(0,0,0,0.4);
+  transform: translateY(-2px) scale(1.04);
+  z-index: 9999 !important;
+}
+.tile.hint-glow {
+  animation: hint-pulse 0.6s ease-in-out 4;
+}
+@keyframes hint-pulse {
+  0%, 100% {
+    filter: brightness(1);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.60), inset 1px 0 0 rgba(255,255,255,0.32),
+      1px 1px 0 #7a5510, 2px 2px 0 #6e4c0e, 3px 3px 0 #62430c,
+      4px 4px 0 #563a0a, 5px 5px 0 #4a3108, 6px 6px 0 #3e2806,
+      9px 9px 16px rgba(0,0,0,0.45);
+  }
+  50% {
+    filter: brightness(1.35);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.60), inset 1px 0 0 rgba(255,255,255,0.32),
+      1px 1px 0 #7a5510, 2px 2px 0 #6e4c0e, 3px 3px 0 #62430c,
+      4px 4px 0 #563a0a, 5px 5px 0 #4a3108, 6px 6px 0 #3e2806,
+      0 0 12px 4px rgba(255,220,50,1),
+      0 0 28px 8px rgba(255,160,0,0.7),
+      9px 9px 16px rgba(0,0,0,0.45);
+  }
+}
+.tile.removing {
+  animation: tile-vanish 0.35s ease-out forwards;
+}
+@keyframes tile-vanish {
+  0%   { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.3); opacity: 0; }
+}
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+#overlay.show { display: flex; }
+#overlay-box {
+  background: linear-gradient(145deg, #2d6a40, #1a3d24);
+  border: 3px solid #f0c040;
+  border-radius: 16px;
+  padding: 40px 50px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+#overlay-box h2 { font-size: 2.4em; margin-bottom: 12px; }
+#overlay-box p  { font-size: 1.1em; margin-bottom: 24px; opacity: 0.9; }
+
+/* ── Header wrapper ── */
+#header {
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#topbar {
+  width: 100%;
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}
+#back-link {
+  color: rgba(255,255,255,0.45);
+  text-decoration: none;
+  white-space: nowrap;
+}
+#back-link:hover { color: #f0c040; }
+
+/* ── Instructions Modal ── */
+#instructions-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 16px;
+}
+#instructions-modal.show { display: flex; }
+#instructions-box {
+  background: linear-gradient(145deg, #2d6a40, #1a3d24);
+  border: 3px solid #f0c040;
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  max-width: 540px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  color: #fff;
+  position: relative;
+}
+#instructions-box h2 {
+  font-size: 1.5em;
+  color: #f0c040;
+  text-align: center;
+  margin-bottom: 18px;
+  letter-spacing: 1px;
+}
+.instr-section {
+  margin-bottom: 16px;
+}
+.instr-section h3 {
+  font-size: 0.95em;
+  font-weight: 700;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(240,192,64,0.25);
+  padding-bottom: 4px;
+}
+.instr-section p {
+  font-size: 0.88em;
+  line-height: 1.65;
+  color: rgba(255,255,255,0.82);
+}
+.instr-section p + p { margin-top: 6px; }
+.bonus-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.bonus-group {
+  flex: 1;
+  min-width: 200px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(240,192,64,0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.bonus-group-name {
+  font-size: 0.78em;
+  font-weight: 700;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.bonus-tiles {
+  font-size: 1.6em;
+  letter-spacing: 4px;
+  line-height: 1.2;
+}
+.bonus-rule {
+  font-size: 0.75em;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+#close-instructions {
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px;
+  font-size: 1em;
+}
+
+/* ── Background themes ── */
+body.bg-jade     { background: #1a472a; background-image: radial-gradient(ellipse at center, #2d6a40 0%, #0f2d1a 100%); }
+body.bg-ocean    { background: #0a2a4a; background-image: radial-gradient(ellipse at center, #1a4a7a 0%, #051525 100%); }
+body.bg-midnight { background: #0d0d1a; background-image: radial-gradient(ellipse at center, #1a1a3d 0%, #050508 100%); }
+body.bg-temple   { background: #3d0a0a; background-image: radial-gradient(ellipse at center, #6a1a1a 0%, #1a0505 100%); }
+body.bg-desert   { background: #3d2a08; background-image: radial-gradient(ellipse at center, #6a4a15 0%, #1a0a02 100%); }
+body.bg-forest   { background: #0a1f05; background-image: radial-gradient(ellipse at center, #183010 0%, #030a01 100%); }
+
+/* ── Settings modal ── */
+#settings-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  padding: 16px;
+}
+#settings-modal.show { display: flex; }
+#settings-box {
+  background: linear-gradient(145deg, #2d6a40, #1a3d24);
+  border: 3px solid #f0c040;
+  border-radius: 16px;
+  padding: 28px 32px 24px;
+  max-width: 380px;
+  width: 100%;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+  color: #fff;
+}
+#settings-box h2 {
+  font-size: 1.4em;
+  color: #f0c040;
+  text-align: center;
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+.setting-row { margin-bottom: 14px; }
+.setting-label {
+  font-size: 0.82em;
+  font-weight: 700;
+  color: #f0c040;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+.setting-row select { width: 100%; }
+#close-settings { margin-top: 16px; width: 100%; padding: 10px; font-size: 1em; }
+
+/* ── Landscape: collapse everything into one row ── */
+@media (max-height: 500px) {
+  body { padding: 3px 8px 4px; }
+  #header {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 3px;
+  }
+  #topbar { width: auto; margin-bottom: 0; font-size: 0.82em; }
+  h1 { font-size: 1.0em; margin: 0; letter-spacing: 1px; white-space: nowrap; }
+  #controls { gap: 4px; margin-bottom: 0; flex-wrap: nowrap; }
+  #status { display: none; }
+  button { padding: 4px 8px; font-size: 0.76em; }
+  select { padding: 4px 22px 4px 6px; font-size: 0.76em; }
+}
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="topbar">
+    <a href="../index.html" id="back-link">⬅ Games</a>
+  </div>
+  <h1>🀄 Mahjong Solitaire</h1>
+  <div id="controls">
+    <button onclick="newGame()">🔀 New</button>
+    <button onclick="showHint()">💡 Hint</button>
+    <button onclick="undoMove()">↩ Undo</button>
+    <button onclick="shuffleTiles()" id="shuffle-btn" style="display:none">🎲 Shuffle</button>
+    <button onclick="showInstructions()" title="How to Play" style="min-width:unset;padding:7px 12px">?</button>
+    <button onclick="openSettings()" title="Settings" style="min-width:unset;padding:7px 12px">⚙️</button>
+    <span id="status">Loading…</span>
+  </div>
+</div>
+<div id="board-container">
+  <div id="board"></div>
+</div>
+
+<div id="instructions-modal">
+  <div id="instructions-box">
+    <h2>🀄 How to Play</h2>
+
+    <div class="instr-section">
+      <h3>Goal</h3>
+      <p>Clear all 144 tiles from the board by removing them in matched pairs. Match every tile to win.</p>
+    </div>
+
+    <div class="instr-section">
+      <h3>Free Tiles</h3>
+      <p>You can only select a tile that is <strong>free</strong> — meaning nothing is stacked on top of it, and it has at least one open side (left or right). Tiles buried in the stack or fully flanked by neighbors cannot be selected.</p>
+    </div>
+
+    <div class="instr-section">
+      <h3>Matching</h3>
+      <p>Most tiles match only their <strong>identical twin</strong> — there are 4 copies of each tile in the deck, so you'll always find at least one pair.</p>
+      <p>Select one free tile, then select another. If they match, both are removed. If not, the second becomes the new selection.</p>
+    </div>
+
+    <div class="instr-section">
+      <h3>🌸 Bonus Tiles — Special Matching Rule</h3>
+      <p>There are two bonus groups that play differently. Any tile within a group matches <em>any other tile in that same group</em> — they don't need to be identical.</p>
+      <div class="bonus-grid">
+        <div class="bonus-group">
+          <div id="instr-flower-name" class="bonus-group-name">🌸 Flowers (4 tiles)</div>
+          <div id="instr-flower-tiles" class="bonus-tiles">🌸 🌺 🌼 🌻</div>
+          <div class="bonus-rule">Any tile in the group matches any other in the group.</div>
+        </div>
+        <div class="bonus-group">
+          <div id="instr-season-name" class="bonus-group-name">🍂 Seasons (4 tiles)</div>
+          <div id="instr-season-tiles" class="bonus-tiles">🌤️ 🌞 🌕 ❄️</div>
+          <div class="bonus-rule">Any tile in the group matches any other in the group.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="instr-section">
+      <h3>Stuck?</h3>
+      <p><strong>💡 Hint</strong> — flashes a valid matching pair on the board.</p>
+      <p><strong>↩ Undo</strong> — puts the last removed pair back.</p>
+      <p><strong>🎲 Shuffle</strong> — appears when no moves remain; reshuffles remaining tiles in place so you can keep playing.</p>
+    </div>
+
+    <button id="close-instructions" onclick="closeInstructions()">Got it!</button>
+  </div>
+</div>
+
+<div id="settings-modal">
+  <div id="settings-box">
+    <h2>⚙️ Settings</h2>
+    <div class="setting-row">
+      <div class="setting-label">🗺️ Layout</div>
+      <select id="layout-select">
+        <optgroup label="Classic">
+          <option value="turtle">🐢 Turtle</option>
+          <option value="dragon">🐉 Dragon</option>
+          <option value="pyramid">🔺 Pyramid</option>
+          <option value="cross">✚ Cross</option>
+          <option value="fortress">🏰 Fortress</option>
+          <option value="crab">🦀 Crab</option>
+        </optgroup>
+        <optgroup label="Mobile-friendly (vertical)">
+          <option value="pagodav">🏯 Pagoda</option>
+          <option value="tower">🗼 Tower</option>
+          <option value="hourglass">⌛ Hourglass</option>
+        </optgroup>
+        <optgroup label="✨ Generative">
+          <option value="mandala">🔮 Mandala</option>
+          <option value="mirror">🪞 Mirror</option>
+          <option value="snowflake">❄️ Snowflake</option>
+        </optgroup>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">🎨 Tile Theme</div>
+      <select id="theme-select" onchange="applyTheme(this.value)">
+        <option value="classic">🀄 Classic</option>
+        <option value="animals">🐾 Animals</option>
+        <option value="food">🍕 Food</option>
+        <option value="sports">⚽ Sports</option>
+      </select>
+    </div>
+    <div class="setting-row">
+      <div class="setting-label">🖼️ Background</div>
+      <select id="bg-select" onchange="applyBg(this.value)">
+        <option value="jade">🌿 Jade Garden</option>
+        <option value="ocean">🌊 Ocean Deep</option>
+        <option value="midnight">🌙 Midnight</option>
+        <option value="temple">🏮 Temple</option>
+        <option value="desert">🏜️ Desert</option>
+        <option value="forest">🌲 Forest</option>
+      </select>
+    </div>
+    <button id="close-settings" onclick="closeSettings()">Done</button>
+  </div>
+</div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <h2 id="overlay-title"></h2>
+    <p id="overlay-msg"></p>
+    <p id="overlay-best" style="font-size:.85em;opacity:.5;margin-bottom:8px;min-height:1.2em;"></p>
+    <button onclick="closeOverlay()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ─── Tile Themes ─────────────────────────────────────────────────────────────
+const THEMES = {
+  classic: {
+    name: '🀄 Classic', flowerName: '🌸 Flowers', seasonName: '🍂 Seasons',
+    std: [
+      {id:'m1',emoji:'🏯',group:'man'},{id:'m2',emoji:'⛩️',group:'man'},
+      {id:'m3',emoji:'🎎',group:'man'},{id:'m4',emoji:'🪭',group:'man'},
+      {id:'m5',emoji:'🎏',group:'man'},{id:'m6',emoji:'🎐',group:'man'},
+      {id:'m7',emoji:'🏺',group:'man'},{id:'m8',emoji:'🎴',group:'man'},
+      {id:'m9',emoji:'🪆',group:'man'},
+      {id:'p1',emoji:'🍎',group:'pin'},{id:'p2',emoji:'🍊',group:'pin'},
+      {id:'p3',emoji:'🍋',group:'pin'},{id:'p4',emoji:'🍇',group:'pin'},
+      {id:'p5',emoji:'🫐',group:'pin'},{id:'p6',emoji:'🍓',group:'pin'},
+      {id:'p7',emoji:'🍒',group:'pin'},{id:'p8',emoji:'🍑',group:'pin'},
+      {id:'p9',emoji:'🍉',group:'pin'},
+      {id:'s1',emoji:'🎋',group:'sou'},{id:'s2',emoji:'🌿',group:'sou'},
+      {id:'s3',emoji:'🍀',group:'sou'},{id:'s4',emoji:'🌴',group:'sou'},
+      {id:'s5',emoji:'🦎',group:'sou'},{id:'s6',emoji:'🌵',group:'sou'},
+      {id:'s7',emoji:'🦜',group:'sou'},{id:'s8',emoji:'🌾',group:'sou'},
+      {id:'s9',emoji:'🍄',group:'sou'},
+      {id:'we',emoji:'🌅',group:'wind'},{id:'ws',emoji:'☀️',group:'wind'},
+      {id:'ww',emoji:'🌇',group:'wind'},{id:'wn',emoji:'🌨️',group:'wind'},
+      {id:'dc',emoji:'🔥',group:'dragon'},{id:'dg',emoji:'🌊',group:'dragon'},
+      {id:'dw',emoji:'💨',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🌸',group:'flower'},{id:'f2',emoji:'🌺',group:'flower'},
+      {id:'f3',emoji:'🌼',group:'flower'},{id:'f4',emoji:'🌻',group:'flower'},
+      {id:'se1',emoji:'🌤️',group:'season'},{id:'se2',emoji:'🌞',group:'season'},
+      {id:'se3',emoji:'🌕',group:'season'},{id:'se4',emoji:'❄️',group:'season'},
+    ],
+  },
+  animals: {
+    name: '🐾 Animals', flowerName: '🐾 Pets', seasonName: '🦌 Wild',
+    std: [
+      // Land mammals
+      {id:'m1',emoji:'🦁',group:'man'},{id:'m2',emoji:'🐯',group:'man'},
+      {id:'m3',emoji:'🐻',group:'man'},{id:'m4',emoji:'🦊',group:'man'},
+      {id:'m5',emoji:'🐺',group:'man'},{id:'m6',emoji:'🦝',group:'man'},
+      {id:'m7',emoji:'🦬',group:'man'},{id:'m8',emoji:'🐗',group:'man'},
+      {id:'m9',emoji:'🐘',group:'man'},
+      // Sea creatures
+      {id:'p1',emoji:'🐬',group:'pin'},{id:'p2',emoji:'🦈',group:'pin'},
+      {id:'p3',emoji:'🐙',group:'pin'},{id:'p4',emoji:'🦑',group:'pin'},
+      {id:'p5',emoji:'🐡',group:'pin'},{id:'p6',emoji:'🐠',group:'pin'},
+      {id:'p7',emoji:'🦞',group:'pin'},{id:'p8',emoji:'🦀',group:'pin'},
+      {id:'p9',emoji:'🦐',group:'pin'},
+      // Birds
+      {id:'s1',emoji:'🦅',group:'sou'},{id:'s2',emoji:'🦉',group:'sou'},
+      {id:'s3',emoji:'🦜',group:'sou'},{id:'s4',emoji:'🐧',group:'sou'},
+      {id:'s5',emoji:'🦩',group:'sou'},{id:'s6',emoji:'🦢',group:'sou'},
+      {id:'s7',emoji:'🦚',group:'sou'},{id:'s8',emoji:'🐦',group:'sou'},
+      {id:'s9',emoji:'🦆',group:'sou'},
+      // Winds — insects
+      {id:'we',emoji:'🐝',group:'wind'},{id:'ws',emoji:'🦋',group:'wind'},
+      {id:'ww',emoji:'🪲',group:'wind'},{id:'wn',emoji:'🐛',group:'wind'},
+      // Dragons — reptiles
+      {id:'dc',emoji:'🐊',group:'dragon'},{id:'dg',emoji:'🦎',group:'dragon'},
+      {id:'dw',emoji:'🐍',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🐱',group:'flower'},{id:'f2',emoji:'🐶',group:'flower'},
+      {id:'f3',emoji:'🐰',group:'flower'},{id:'f4',emoji:'🐹',group:'flower'},
+      {id:'se1',emoji:'🐣',group:'season'},{id:'se2',emoji:'🐢',group:'season'},
+      {id:'se3',emoji:'🦔',group:'season'},{id:'se4',emoji:'🐻‍❄️',group:'season'},
+    ],
+  },
+  food: {
+    name: '🍕 Food', flowerName: '🌿 Herbs', seasonName: '🌱 Harvest',
+    std: [
+      // Savory dishes
+      {id:'m1',emoji:'🍕',group:'man'},{id:'m2',emoji:'🌮',group:'man'},
+      {id:'m3',emoji:'🍣',group:'man'},{id:'m4',emoji:'🍜',group:'man'},
+      {id:'m5',emoji:'🥗',group:'man'},{id:'m6',emoji:'🍛',group:'man'},
+      {id:'m7',emoji:'🍔',group:'man'},{id:'m8',emoji:'🥙',group:'man'},
+      {id:'m9',emoji:'🫔',group:'man'},
+      // Fruits
+      {id:'p1',emoji:'🍎',group:'pin'},{id:'p2',emoji:'🍊',group:'pin'},
+      {id:'p3',emoji:'🍋',group:'pin'},{id:'p4',emoji:'🍇',group:'pin'},
+      {id:'p5',emoji:'🫐',group:'pin'},{id:'p6',emoji:'🍓',group:'pin'},
+      {id:'p7',emoji:'🍒',group:'pin'},{id:'p8',emoji:'🍑',group:'pin'},
+      {id:'p9',emoji:'🍉',group:'pin'},
+      // Sweets & desserts
+      {id:'s1',emoji:'🍰',group:'sou'},{id:'s2',emoji:'🎂',group:'sou'},
+      {id:'s3',emoji:'🍩',group:'sou'},{id:'s4',emoji:'🍪',group:'sou'},
+      {id:'s5',emoji:'🧁',group:'sou'},{id:'s6',emoji:'🍫',group:'sou'},
+      {id:'s7',emoji:'🍬',group:'sou'},{id:'s8',emoji:'🍭',group:'sou'},
+      {id:'s9',emoji:'🍮',group:'sou'},
+      // Winds — hot & cold drinks
+      {id:'we',emoji:'☕',group:'wind'},{id:'ws',emoji:'🍵',group:'wind'},
+      {id:'ww',emoji:'🍹',group:'wind'},{id:'wn',emoji:'🧋',group:'wind'},
+      // Dragons — spice & fire
+      {id:'dc',emoji:'🌶️',group:'dragon'},{id:'dg',emoji:'🔥',group:'dragon'},
+      {id:'dw',emoji:'🧄',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🌿',group:'flower'},{id:'f2',emoji:'🍃',group:'flower'},
+      {id:'f3',emoji:'🧅',group:'flower'},{id:'f4',emoji:'🫒',group:'flower'},
+      {id:'se1',emoji:'🥕',group:'season'},{id:'se2',emoji:'🌽',group:'season'},
+      {id:'se3',emoji:'🎃',group:'season'},{id:'se4',emoji:'🧊',group:'season'},
+    ],
+  },
+  sports: {
+    name: '⚽ Sports', flowerName: '🏸 Gear', seasonName: '⛅ Seasons',
+    std: [
+      // Ball sports
+      {id:'m1',emoji:'⚽',group:'man'},{id:'m2',emoji:'🏀',group:'man'},
+      {id:'m3',emoji:'🏈',group:'man'},{id:'m4',emoji:'⚾',group:'man'},
+      {id:'m5',emoji:'🎾',group:'man'},{id:'m6',emoji:'🏐',group:'man'},
+      {id:'m7',emoji:'🏉',group:'man'},{id:'m8',emoji:'🎱',group:'man'},
+      {id:'m9',emoji:'🏓',group:'man'},
+      // Athlete / body sports
+      {id:'p1',emoji:'🏊',group:'pin'},{id:'p2',emoji:'🤿',group:'pin'},
+      {id:'p3',emoji:'🏄',group:'pin'},{id:'p4',emoji:'🪂',group:'pin'},
+      {id:'p5',emoji:'🧗',group:'pin'},{id:'p6',emoji:'🏋️',group:'pin'},
+      {id:'p7',emoji:'🚴',group:'pin'},{id:'p8',emoji:'🤸',group:'pin'},
+      {id:'p9',emoji:'🏇',group:'pin'},
+      // Precision & winter
+      {id:'s1',emoji:'⛷️',group:'sou'},{id:'s2',emoji:'🏂',group:'sou'},
+      {id:'s3',emoji:'🥊',group:'sou'},{id:'s4',emoji:'🤺',group:'sou'},
+      {id:'s5',emoji:'🏹',group:'sou'},{id:'s6',emoji:'🎯',group:'sou'},
+      {id:'s7',emoji:'🎳',group:'sou'},{id:'s8',emoji:'♟️',group:'sou'},
+      {id:'s9',emoji:'🎣',group:'sou'},
+      // Winds — games of chance / skill
+      {id:'we',emoji:'🎲',group:'wind'},{id:'ws',emoji:'🃏',group:'wind'},
+      {id:'ww',emoji:'🎴',group:'wind'},{id:'wn',emoji:'⛳',group:'wind'},
+      // Dragons — awards
+      {id:'dc',emoji:'🥇',group:'dragon'},{id:'dg',emoji:'🥈',group:'dragon'},
+      {id:'dw',emoji:'🏆',group:'dragon'},
+    ],
+    bonus: [
+      {id:'f1',emoji:'🥅',group:'flower'},{id:'f2',emoji:'🎿',group:'flower'},
+      {id:'f3',emoji:'🪁',group:'flower'},{id:'f4',emoji:'🏸',group:'flower'},
+      {id:'se1',emoji:'🌱',group:'season'},{id:'se2',emoji:'☀️',group:'season'},
+      {id:'se3',emoji:'🍂',group:'season'},{id:'se4',emoji:'❄️',group:'season'},
+    ],
+  },
+};
+
+let currentTheme  = localStorage.getItem('mj-theme')  || 'classic';
+let currentBg     = localStorage.getItem('mj-bg')     || 'jade';
+let currentLayout = localStorage.getItem('mj-layout') || 'turtle';
+const BG_CLASSES  = ['jade','ocean','midnight','temple','desert','forest'].map(b => 'bg-' + b);
+
+function createDeck() {
+  // 34 standard × 4 = 136, plus 4 flowers + 4 seasons = 144
+  // Bonus tiles always use the classic set regardless of theme
+  const theme = THEMES[currentTheme];
+  const deck = [];
+  for (const t of theme.std)          for (let i = 0; i < 4; i++) deck.push({...t});
+  for (const t of THEMES.classic.bonus) deck.push({...t});
+  return deck; // 144 tiles
+}
+
+// ─── Turtle Layout ────────────────────────────────────────────────────────────
+// Coordinate system: each unit = half a tile.
+// A tile placed at (x, y, z) occupies pixel-area [x*UX+z*OX, y*UY-z*OY] to [+TW, +TH].
+// Overlap (cover): z1 = z0+1 AND |dx|<2 AND |dy|<2
+// Adjacent (block): same z, x differs by exactly 2, |dy|<2
+function buildTurtleLayout() {
+  const pos = [];
+  const add = (x,y,z) => pos.push([x,y,z]);
+
+  // ── Layer 0 (z=0) ──────────────────────────────────────── 84 tiles
+  // Top partial row  (y=0): x = 4..26  → 12
+  for (let x=4; x<=26; x+=2) add(x,0,0);
+  // Full rows (y=2..8): x = 2..28 → 14 each × 4 = 56
+  for (let y=2; y<=8; y+=2)
+    for (let x=2; x<=28; x+=2) add(x,y,0);
+  // Bottom partial row (y=10): x = 4..26 → 12
+  for (let x=4; x<=26; x+=2) add(x,10,0);
+  // Tail (left): 2 tiles
+  add(0,4,0); add(0,6,0);
+  // Head (right): 2 tiles
+  add(30,4,0); add(30,6,0);
+
+  // ── Layer 1 (z=1) ─────────────────────────────────────── 40 tiles
+  // 4 rows × 10 cols
+  for (let y=2; y<=8; y+=2)
+    for (let x=6; x<=24; x+=2) add(x,y,1);
+
+  // ── Layer 2 (z=2) ─────────────────────────────────────── 12 tiles
+  // 2 rows × 6 cols
+  for (let y=4; y<=6; y+=2)
+    for (let x=10; x<=20; x+=2) add(x,y,2);
+
+  // ── Layer 3 (z=3) ──────────────────────────────────────── 8 tiles
+  // 2 rows × 4 cols
+  for (let y=4; y<=6; y+=2)
+    for (let x=12; x<=18; x+=2) add(x,y,3);
+
+  // Total: 84 + 40 + 12 + 8 = 144
+  return pos;
+}
+
+function buildDragonLayout() {
+  // All rows centered at x=16 (spine center). 68+52+18+6=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (68): long spine + scales + tips
+  for (let x=0;  x<=32; x+=2) { add(x,4,0); add(x,6,0); }  // spine  17×2=34, center=16
+  for (let x=4;  x<=28; x+=2) { add(x,2,0); add(x,8,0); }  // scales 13×2=26, center=16
+  for (let x=12; x<=18; x+=2) { add(x,0,0); add(x,10,0); } // tips    4×2= 8, center=15
+  // Layer 1 (52)
+  for (let x=2;  x<=30; x+=2) { add(x,4,1); add(x,6,1); }  // 15×2=30, center=16
+  for (let x=6;  x<=26; x+=2) { add(x,2,1); add(x,8,1); }  // 11×2=22, center=16
+  // Layer 2 (18)
+  for (let x=8;  x<=24; x+=2) { add(x,4,2); add(x,6,2); }  // 9×2=18,  center=16
+  // Layer 3 (6)
+  for (let x=14; x<=18; x+=2) { add(x,4,3); add(x,6,3); }  // 3×2= 6,  center=16
+  return pos; // 144
+}
+
+function buildPyramidLayout() {
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (64): 8-row isoceles triangle
+  [[0,28],[2,26],[4,24],[6,22],[8,20],[10,18],[12,16],[14,14]]
+    .forEach(([s,e],i) => { for (let x=s; x<=e; x+=2) add(x,i*2,0); });
+  // Layer 1 (48): 6-row subset
+  [[2,26],[4,24],[6,22],[8,20],[10,18],[12,16]]
+    .forEach(([s,e],i) => { for (let x=s; x<=e; x+=2) add(x,i*2,1); });
+  // Layer 2 (25): 5-row subset
+  [[6,22],[8,20],[10,18],[12,16],[14,14]]
+    .forEach(([s,e],i) => { for (let x=s; x<=e; x+=2) add(x,i*2,2); });
+  // Layer 3 (7): apex row
+  for (let x=8; x<=20; x+=2) add(x,0,3);
+  return pos; // 144
+}
+
+function buildCrossLayout() {
+  // Symmetric cross: horizontal arm y=4..10 (center y=7), equal 2-row arms above & below.
+  // Vertical arm x=10..20 (center x=15, closest even-tile center to horizontal center x=14).
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (84): thick cross
+  for (let y=4; y<=10; y+=2) for (let x=0;  x<=28; x+=2) add(x,y,0); // horiz 4×15=60
+  for (let y=0; y<=14; y+=2) for (let x=10; x<=20; x+=2)              // vert, skip overlap
+    if (y < 4 || y > 10) add(x,y,0);                                  // 4 rows×6=24
+  // Layer 1 (42)
+  for (let x=2;  x<=26; x+=2) { add(x,6,1); add(x,8,1); }            // horiz 13×2=26
+  for (let y=0;  y<=14; y+=2) for (let x=12; x<=18; x+=2)             // vert, skip overlap
+    if (y < 4 || y > 10) add(x,y,1);                                  // 4 rows×4=16
+  // Layer 2 (18)
+  for (let x=6; x<=22; x+=2) { add(x,6,2); add(x,8,2); }
+  return pos; // 144
+}
+
+function buildFortressLayout() {
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (72): filled rectangle
+  for (let x=0; x<=22; x+=2) for (let y=0; y<=10; y+=2) add(x,y,0);
+  // Layer 1 (56): top/bottom walls + side pillars (y=4 and y=6, mirrored)
+  for (let x=0; x<=22; x+=2) { add(x,0,1); add(x,2,1); add(x,8,1); add(x,10,1); } // 24+24=48
+  add(0,4,1); add(2,4,1); add(20,4,1); add(22,4,1);                                  // pillars y=4
+  add(0,6,1); add(2,6,1); add(20,6,1); add(22,6,1);                                  // pillars y=6 (mirror)
+  // Layer 2 (16): ramparts (inset to x=4..18 to keep total=144)
+  for (let x=4; x<=18; x+=2) { add(x,0,2); add(x,10,2); }
+  return pos; // 144
+}
+
+function buildCrabLayout() {
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // Layer 0 (78): wide body + claws
+  for (let x=0;  x<=32; x+=2) { add(x,4,0); add(x,6,0); }  // claws  17×2=34
+  for (let x=4;  x<=28; x+=2) { add(x,2,0); add(x,8,0); }  // body   13×2=26
+  for (let x=8;  x<=24; x+=2) { add(x,0,0); add(x,10,0); } // legs    9×2=18
+  // Layer 1 (48)
+  for (let x=4;  x<=28; x+=2) { add(x,4,1); add(x,6,1); }  // 13×2=26
+  for (let x=6;  x<=26; x+=2) { add(x,2,1); add(x,8,1); }  // 11×2=22
+  // Layer 2 (18)
+  for (let x=8;  x<=24; x+=2) { add(x,4,2); add(x,6,2); }
+  return pos; // 144
+}
+
+function buildPagodaVLayout() {
+  // Stepped pagoda: narrow apex at top (y=0), wide base at bottom (y=16). 70+48+26=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // z=0: 5 tiers, 3→5→7→9→11 tiles top-to-bottom (all centered at x=10)
+  const tiers = [[8,12],[6,14],[4,16],[2,18],[0,20]];
+  tiers.forEach(([xs,xe],i) => {
+    const y = i*4;
+    for (let x=xs; x<=xe; x+=2) { add(x,y,0); add(x,y+2,0); }
+  });
+  // z=1: tiers 1-4 (y=4..18), inset 1 tile each side. 3,5,7,9 × 2 = 48
+  tiers.slice(1).forEach(([xs,xe],i) => {
+    const y = (i+1)*4;
+    for (let x=xs+2; x<=xe-2; x+=2) { add(x,y,1); add(x,y+2,1); }
+  });
+  // z=2: tiers 2-4 (y=8..18), widths 1,5,7. 2+10+14 = 26
+  [[10,10],[6,14],[4,16]].forEach(([xs,xe],i) => {
+    const y = (i+2)*4;
+    for (let x=xs; x<=xe; x+=2) { add(x,y,2); add(x,y+2,2); }
+  });
+  return pos; // 144
+}
+
+function buildTowerLayout() {
+  // Tall narrow column — 4 concentric z-layers, all centered at y=11. 72+40+24+8=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  for (let y=0;  y<=22; y+=2) for (let x=4; x<=14; x+=2) add(x,y,0); // 12×6=72, center y=11
+  for (let y=2;  y<=20; y+=2) for (let x=6; x<=12; x+=2) add(x,y,1); // 10×4=40, center y=11
+  for (let y=6;  y<=16; y+=2) for (let x=6; x<=12; x+=2) add(x,y,2); //  6×4=24, center y=11
+  for (let y=8;  y<=14; y+=2) for (let x=8; x<=10; x+=2) add(x,y,3); //  4×2= 8, center y=11
+  return pos; // 144
+}
+
+function buildHourglassLayout() {
+  // Wide top, pinched waist (3 tiles, centered), wide bottom. 78+62+4=144
+  const pos = []; const add = (x,y,z) => pos.push([x,y,z]);
+  // z=0 (all sections centered at x=8)
+  for (let y=0;  y<=6;  y+=2) for (let x=0; x<=16; x+=2) add(x,y,0); // top  4×9=36
+  for (let y=8;  y<=10; y+=2) for (let x=6; x<=10; x+=2) add(x,y,0); // waist 2×3= 6
+  for (let y=12; y<=18; y+=2) for (let x=0; x<=16; x+=2) add(x,y,0); // bot  4×9=36 → 78
+  // z=1
+  for (let y=0;  y<=6;  y+=2) for (let x=2; x<=14; x+=2) add(x,y,1); // top  4×7=28
+  for (let y=8;  y<=10; y+=2) for (let x=6; x<=10; x+=2) add(x,y,1); // waist 2×3= 6
+  for (let y=12; y<=18; y+=2) for (let x=2; x<=14; x+=2) add(x,y,1); // bot  4×7=28 → 62
+  // z=2 (single-tile column at x=8, top and bottom)
+  for (let y=2;  y<=4;  y+=2) add(8,y,2); // top  2
+  for (let y=14; y<=16; y+=2) add(8,y,2); // bot  2 → 4
+  return pos; // 144
+}
+
+function buildMandalaLayout() {
+  // 4-way reflection symmetry (±dx, ±dy) around center.
+  // Fixed inner core (92 tiles) + 13 randomly chosen outer seeds × 4 = 52 tiles → 144 total.
+  const pos = [];
+  const cx = 16, cy = 12;
+
+  // Fixed Q1 inner seeds (d ≤ 4 only; d=6 quadrant ring replaced by cross arms below)
+  // 1×16 + 3×12 = 52 tiles
+  const fixed = [
+    [2,2,3],
+    [2,4,2],[4,2,2],[4,4,2],
+  ];
+
+  // Cross spine: fills both axis channels (x=cx and y=cy) with heights
+  // matched to the adjacent quadrant ring at the same distance d.
+  // d=2→maxZ=3, d=4→maxZ=2, d=6→maxZ=1 (mirrors the Q1 ring assignments).
+  // Tile count: center(4) + d=2 arms(16) + d=4 arms(12) + d=6 arms(8) = 40 tiles
+  for (let z = 0; z <= 3; z++) pos.push([cx, cy, z]);            // center: 4
+  for (const [d, maxZ] of [[2,3],[4,2],[6,1]]) {
+    for (const s of [-1, 1]) {
+      for (let z = 0; z <= maxZ; z++) {
+        pos.push([cx,      cy + s*d, z]);   // vertical arm
+        pos.push([cx + s*d, cy,      z]);   // horizontal arm
+      }
+    }
+  }
+
+  // Outer pool: Q1 seeds with max(dx,dy) ≥ 8 — 27 candidates; pick 13
+  // 13 × 4 × 1 = 52 tiles → total 52 + 40 + 52 = 144
+  const pool = [];
+  for (let dx = 2; dx <= 12; dx += 2)
+    for (let dy = 2; dy <= 12; dy += 2)
+      if (Math.max(dx, dy) >= 8) pool.push([dx, dy, 0]);
+
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  for (const [dx, dy, maxZ] of [...fixed, ...pool.slice(0, 13)]) {
+    for (const sx of [-1, 1])
+      for (const sy of [-1, 1])
+        for (let z = 0; z <= maxZ; z++)
+          pos.push([cx + sx*dx, cy + sy*dy, z]);
+  }
+  return pos; // always 144
+}
+
+function buildMirrorLayout() {
+  // 2-way left-right reflection around x=cx.
+  // Fixed inner pillars (80 tiles) + 32 randomly chosen outer wing seeds × 2 = 64 tiles → 144 total.
+  const pos = [];
+  const cx = 16;
+
+  // Fixed inner — always the same stacked gateway pillars
+  const fixedInnerY2 = new Set([6,8,10,12,14,16]);
+  const fixed = [
+    ...[8,10,12,14].map(y   => [2, y, 3]),  // 4y × 2 × 4z = 32 tiles
+    ...[6,16].map(y          => [2, y, 2]),  // 2y × 2 × 3z = 12 tiles
+    ...[6,8,10,12,14,16].map(y=> [4, y, 2]),// 6y × 2 × 3z = 36 tiles
+  ]; // 80 tiles
+
+  // Center spine at dx=0 (axis tiles, no mirroring) — fills the channel.
+  // Stacked to match the height of the adjacent dx=2 pillar at the same y-row.
+  // y∈{8,10,12,14}→maxZ=3 (matches dx=2 z=3 pillars)
+  // y∈{6,16}→maxZ=2 (matches dx=2 z=2 rows)
+  // Tile count: 4×4 + 2×3 = 16+6 = 22 tiles
+  for (const [ys, maxZ] of [[[8,10,12,14],3],[[6,16],2]])
+    for (const y of ys)
+      for (let z = 0; z <= maxZ; z++) pos.push([cx, y, z]);
+
+  // Outer pool: (dx, y) not already in fixed, z=0 only
+  // dx=2,4: only y values NOT used above; dx=6..12: all y values
+  // Pool size: 6+6+12+12+12+12 = 60; pick 21 → 21×2 = 42 tiles
+  // Total: 80 + 22 + 42 = 144
+  const pool = [];
+  for (let y = 0; y <= 22; y += 2) if (!fixedInnerY2.has(y)) pool.push([2, y, 0]);
+  for (let y = 0; y <= 22; y += 2) if (!fixedInnerY2.has(y)) pool.push([4, y, 0]);
+  for (let dx = 6; dx <= 12; dx += 2)
+    for (let y = 0; y <= 22; y += 2) pool.push([dx, y, 0]);
+
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  for (const [dx, y, maxZ] of [...fixed, ...pool.slice(0, 21)]) {
+    for (const sx of [-1, 1])
+      for (let z = 0; z <= maxZ; z++)
+        pos.push([cx + sx*dx, y, z]);
+  }
+  return pos; // always 144
+}
+
+function buildSnowflakeLayout() {
+  // 8-way D4 dihedral symmetry.
+  // Fixed inner peak (32) + channel fills all 8 directional gaps (76) +
+  // 4 random outer octet seeds × 8 + 1 random outer diagonal × 4 = 36 → 144 total.
+  const pos = [];
+  const cx = 16, cy = 12;
+
+  // 8 D4 reflections for off-diagonal seeds (dx > dy > 0)
+  function octet(dx, dy, maxZ) {
+    for (const [rx, ry] of [
+      [ dx,  dy], [-dx,  dy], [ dx, -dy], [-dx, -dy],
+      [ dy,  dx], [-dy,  dx], [ dy, -dx], [-dy, -dx],
+    ])
+      for (let z = 0; z <= maxZ; z++) pos.push([cx + rx, cy + ry, z]);
+  }
+
+  // Fixed inner peak — 8 × 4z = 32 tiles
+  octet(4, 2, 3);
+
+  // Channel — fills all 8 directional gaps with heights matched to adjacent ring
+  // Center: 4 tiles (z=0..3)
+  for (let z = 0; z <= 3; z++) pos.push([cx, cy, z]);
+  // Cross arms (horizontal + vertical): 16 + 12 + 8 = 36 tiles
+  for (const [d, maxZ] of [[2,3],[4,2],[6,1]]) {
+    for (const s of [-1, 1]) {
+      for (let z = 0; z <= maxZ; z++) {
+        pos.push([cx + s*d, cy,       z]);
+        pos.push([cx,       cy + s*d, z]);
+      }
+    }
+  }
+  // Diagonal arms (±45°): 16 + 12 + 8 = 36 tiles
+  for (const [d, maxZ] of [[2,3],[4,2],[6,1]]) {
+    for (const sx of [-1, 1]) for (const sy of [-1, 1])
+      for (let z = 0; z <= maxZ; z++) pos.push([cx + sx*d, cy + sy*d, z]);
+  }
+  // Channel total: 4 + 36 + 36 = 76 tiles
+
+  // Outer — 4 random off-diagonal octets (32) + 1 random diagonal quad (4) = 36 tiles
+  const octetPool = [];
+  for (let dx = 8; dx <= 12; dx += 2)
+    for (let dy = 2; dy < dx; dy += 2)
+      octetPool.push([dx, dy]); // 12 seeds
+
+  for (let i = octetPool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [octetPool[i], octetPool[j]] = [octetPool[j], octetPool[i]];
+  }
+  for (const [dx, dy] of octetPool.slice(0, 4)) octet(dx, dy, 0);
+
+  const dd = [8, 10, 12][Math.floor(Math.random() * 3)];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) pos.push([cx + sx*dd, cy + sy*dd, 0]);
+
+  return pos; // 32 + 76 + 36 = 144
+}
+
+function getLayout() {
+  switch (currentLayout) {
+    case 'dragon':   return buildDragonLayout();
+    case 'pyramid':  return buildPyramidLayout();
+    case 'cross':    return buildCrossLayout();
+    case 'fortress': return buildFortressLayout();
+    case 'crab':     return buildCrabLayout();
+    case 'pagodav':  return buildPagodaVLayout();
+    case 'tower':    return buildTowerLayout();
+    case 'hourglass':return buildHourglassLayout();
+    case 'mandala':  return buildMandalaLayout();
+    case 'mirror':   return buildMirrorLayout();
+    case 'snowflake':return buildSnowflakeLayout();
+    default:         return buildTurtleLayout();
+  }
+}
+
+// ─── Tile Dimensions ─────────────────────────────────────────────────────────
+const TW = 52, TH = 66;       // tile width/height in px
+const UX = TW / 2, UY = TH / 2; // px per half-tile unit
+const OX = 3, OY = 3;          // px offset per z-layer (3-D illusion)
+
+// ─── Game State ──────────────────────────────────────────────────────────────
+let tiles = [];
+let selected = null;
+let history = [];
+
+function tilesMatch(a, b) {
+  if (a.group === 'flower'  && b.group === 'flower')  return true;
+  if (a.group === 'season'  && b.group === 'season')  return true;
+  return a.id === b.id;
+}
+
+function isCovered(tile) {
+  // A tile is covered only when another tile is stacked directly on top at
+  // the same (x, y). The old ±2-unit perspective-edge checks (left/bottom)
+  // caused "trapping" in dense generative layouts where stacked channel
+  // columns would cover adjacent tiles via a 5 px 3-D offset alone.
+  return tiles.some(t => !t.removed && t !== tile
+    && t.z === tile.z + 1
+    && t.x === tile.x
+    && t.y === tile.y);
+}
+function isLeftBlocked(tile) {
+  return tiles.some(t => !t.removed && t !== tile
+    && t.z === tile.z
+    && t.x === tile.x - 2
+    && Math.abs(t.y - tile.y) < 2);
+}
+function isRightBlocked(tile) {
+  return tiles.some(t => !t.removed && t !== tile
+    && t.z === tile.z
+    && t.x === tile.x + 2
+    && Math.abs(t.y - tile.y) < 2);
+}
+function isFree(tile) {
+  if (tile.removed) return false;
+  if (isCovered(tile)) return false;
+  return !isLeftBlocked(tile) || !isRightBlocked(tile);
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// ─── Shuffle remaining tiles ─────────────────────────────────────────────────
+function shuffleTiles() {
+  const remaining = tiles.filter(t => !t.removed);
+  // Extract tile data (emoji/id/group), shuffle it, reassign to same positions
+  const data = shuffle(remaining.map(t => ({id: t.id, emoji: t.emoji, group: t.group})));
+  remaining.forEach((t, i) => {
+    t.id    = data[i].id;
+    t.emoji = data[i].emoji;
+    t.group = data[i].group;
+  });
+  selected = null;
+  document.getElementById('shuffle-btn').style.display = 'none';
+  renderBoard();
+  const remaining2 = tiles.filter(t => !t.removed).length;
+  setStatus(`${remaining2} tiles remaining`);
+  saveState();
+}
+
+// ─── New Game ────────────────────────────────────────────────────────────────
+function newGame() {
+  closeOverlay();
+  const positions = getLayout();      // 144 positions for chosen layout
+  const deck = shuffle(createDeck()); // 144 shuffled tiles
+
+  tiles = positions.map(([x, y, z], i) => ({
+    ...deck[i],
+    x, y, z,
+    removed: false,
+    el: null,
+  }));
+
+  selected = null;
+  history = [];
+  document.getElementById('shuffle-btn').style.display = 'none';
+  buildBoard();
+  setStatus(`${tiles.length} tiles remaining`);
+  saveState();
+}
+
+// ─── Render ──────────────────────────────────────────────────────────────────
+function tileDisplayEmoji(tile) { return tile.emoji; }
+
+// buildBoard: full DOM rebuild — only for new game / session restore.
+// Preserving existing elements during play prevents iOS Safari from resetting
+// pinch-zoom when innerHTML is cleared on every tile removal.
+function buildBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  const maxX = Math.max(...tiles.map(t => t.x));
+  const maxY = Math.max(...tiles.map(t => t.y));
+  const maxZ = Math.max(...tiles.map(t => t.z));
+  const boardW = (maxX + 2) * UX + maxZ * OX + TW + 20;
+  const boardH = (maxY + 2) * UY + maxZ * OY + TH + 20;
+  board.style.width  = boardW + 'px';
+  board.style.height = boardH + 'px';
+
+  const sorted = [...tiles].sort((a,b) => a.z - b.z || a.y - b.y || a.x - b.x);
+
+  for (const tile of sorted) {
+    const px = tile.x * UX + tile.z * OX + 10;
+    const py = tile.y * UY - tile.z * OY + maxZ * OY + 10;
+    const zi = tile.z * 1000 + tile.y * 20 + tile.x;
+
+    const el = document.createElement('div');
+    el.className = `tile z${tile.z}`;
+    el.style.cssText = `left:${px}px;top:${py}px;z-index:${zi};display:${tile.removed?'none':''}`;
+
+    const art = document.createElement('span');
+    art.className = 'tile-art';
+    art.textContent = tileDisplayEmoji(tile);
+    el.appendChild(art);
+
+    el.addEventListener('click', () => onTileClick(tile));
+    tile.el = el;
+    board.appendChild(el);
+  }
+
+  scaleBoard();
+}
+
+// renderBoard: lightweight in-place update — never touches DOM structure,
+// so the browser's pinch-zoom state and scroll position are preserved.
+function renderBoard() {
+  for (const tile of tiles) {
+    if (!tile.el) continue;
+    tile.el.style.display = tile.removed ? 'none' : '';
+    const isSelected = tile === selected;
+    tile.el.className = `tile z${tile.z}${isSelected ? ' selected' : ''}`;
+    const art = tile.el.querySelector('.tile-art');
+    if (art) art.textContent = tileDisplayEmoji(tile);
+  }
+}
+
+// ─── Responsive Scaling ───────────────────────────────────────────────────────
+function scaleBoard() {
+  const board     = document.getElementById('board');
+  const container = document.getElementById('board-container');
+  const controls  = document.getElementById('header');
+  const boardW    = parseFloat(board.style.width);
+  const boardH    = parseFloat(board.style.height);
+  // Use layout-viewport dimensions so pinch-zoom doesn't affect board sizing
+  const vw  = document.documentElement.clientWidth;
+  const vh  = document.documentElement.clientHeight;
+  const isLandscape = vh <= 500;
+  const isMobile  = vw <= 600 || isLandscape;
+  const bodyPad   = isMobile ? 16 : 24;
+  const buf       = 8;
+
+  const maxW = vw - bodyPad;
+
+  // offsetTop/offsetHeight gives layout-viewport coordinates, not visual-viewport
+  const ctrlBottom = controls.offsetTop + controls.offsetHeight;
+  const maxH = vh - ctrlBottom - (isMobile ? 20 : 28);
+
+  const scaleW = (maxW - buf) / boardW;
+  const scaleH = maxH > 80 ? (maxH - buf) / boardH : scaleW;
+  const scale  = Math.min(1, scaleW, scaleH);
+
+  // Compute actual tile content bounds so we can center the content,
+  // not the board div (which has asymmetric padding baked into its size formula)
+  const maxZ = Math.max(...tiles.map(t => t.z));
+  const pxLeft  = t => t.x * UX + t.z * OX + 10;
+  const pxTop   = t => t.y * UY - t.z * OY + maxZ * OY + 10;
+  const minCX = Math.min(...tiles.map(pxLeft));
+  const maxCX = Math.max(...tiles.map(pxLeft)) + TW;
+  const minCY = Math.min(...tiles.map(pxTop));
+  const maxCY = Math.max(...tiles.map(pxTop)) + TH;
+  // Offset needed to center content within the container (in post-scale px)
+  const tx = (boardW / 2 - (minCX + maxCX) / 2) * scale + buf / 2;
+  const ty = (boardH / 2 - (minCY + maxCY) / 2) * scale + buf / 2;
+
+  board.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px) scale(${scale})`;
+  container.style.width  = Math.floor(boardW * scale + buf) + 'px';
+  container.style.height = Math.floor(boardH * scale + buf) + 'px';
+}
+
+// ─── Interaction ─────────────────────────────────────────────────────────────
+function onTileClick(tile) {
+  if (!isFree(tile)) return;
+
+  if (!selected) {
+    selected = tile;
+    tile.el && tile.el.classList.add('selected');
+    return;
+  }
+
+  if (selected === tile) {
+    selected = null;
+    tile.el && tile.el.classList.remove('selected');
+    return;
+  }
+
+  if (tilesMatch(selected, tile)) {
+    removePair(selected, tile);
+  } else {
+    // Switch selection to new tile
+    const prev = selected;
+    selected = tile;
+    if (prev.el) prev.el.classList.remove('selected');
+    if (tile.el) tile.el.classList.add('selected');
+  }
+}
+
+function removePair(a, b) {
+  history.push([a, b]);
+  selected = null;
+
+  for (const t of [a, b]) {
+    if (t.el) t.el.classList.add('removing');
+  }
+  setTimeout(() => {
+    a.removed = true;
+    b.removed = true;
+    renderBoard();
+    const remaining = tiles.filter(t => !t.removed).length;
+    if (remaining === 0) {
+      saveState();
+      showOverlay('🎉 You Win!', 'Congratulations — all tiles cleared!');
+      return;
+    }
+    if (!hasMoves()) {
+      document.getElementById('shuffle-btn').style.display = '';
+      setStatus(`${remaining} tiles — no moves left!`);
+      saveState();
+      setTimeout(() => showOverlay('😔 No Moves Left', `${remaining} tiles remain. Shuffle, Undo, or New Game.`), 800);
+    } else {
+      setStatus(`${remaining} tiles remaining`);
+      saveState();
+    }
+  }, 360);
+}
+
+// ─── Undo ────────────────────────────────────────────────────────────────────
+function undoMove() {
+  if (!history.length) return;
+  const [a, b] = history.pop();
+  a.removed = false;
+  b.removed = false;
+  selected = null;
+  renderBoard();
+  const remaining = tiles.filter(t => !t.removed).length;
+  setStatus(`${remaining} tiles remaining`);
+  saveState();
+}
+
+// ─── Hint ────────────────────────────────────────────────────────────────────
+function showHint() {
+  const free = tiles.filter(t => !t.removed && isFree(t));
+  for (let i = 0; i < free.length; i++) {
+    for (let j = i + 1; j < free.length; j++) {
+      if (tilesMatch(free[i], free[j])) {
+        for (const t of [free[i], free[j]]) {
+          const el = t.el;
+          if (!el) continue;
+          el.classList.remove('hint-glow');
+          // Force reflow to restart animation
+          void el.offsetWidth;
+          el.classList.add('hint-glow');
+          el.addEventListener('animationend', () => el.classList.remove('hint-glow'), {once:true});
+        }
+        return;
+      }
+    }
+  }
+  setStatus('No available moves!');
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function hasMoves() {
+  const free = tiles.filter(t => !t.removed && isFree(t));
+  for (let i = 0; i < free.length; i++)
+    for (let j = i+1; j < free.length; j++)
+      if (tilesMatch(free[i], free[j])) return true;
+  return false;
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+function showOverlay(title, msg) {
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-msg').textContent   = msg;
+  // Track wins per layout
+  const layout = currentLayout;
+  const isWin  = title.includes('Win');
+  let bestMsg  = '';
+  if (isWin) {
+    const key  = `mahjong_wins_${layout}`;
+    const wins = parseInt(localStorage.getItem(key) || '0') + 1;
+    localStorage.setItem(key, wins);
+    bestMsg = `${layout.charAt(0).toUpperCase()+layout.slice(1)} wins: ${wins}`;
+  }
+  document.getElementById('overlay-best').textContent = bestMsg;
+  document.getElementById('overlay').classList.add('show');
+}
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function showInstructions() {
+  document.getElementById('instructions-modal').classList.add('show');
+}
+function closeInstructions() {
+  document.getElementById('instructions-modal').classList.remove('show');
+}
+
+// ─── Settings ────────────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('layout-select').value = currentLayout;
+  document.getElementById('theme-select').value  = currentTheme;
+  document.getElementById('bg-select').value     = currentBg;
+  document.getElementById('settings-modal').classList.add('show');
+}
+function closeSettings() {
+  const newLayout = document.getElementById('layout-select').value;
+  document.getElementById('settings-modal').classList.remove('show');
+  if (newLayout !== currentLayout) {
+    currentLayout = newLayout;
+    localStorage.setItem('mj-layout', newLayout);
+    newGame();
+  }
+}
+// Theme switches emoji in-place — no new game needed
+function applyTheme(theme) {
+  if (!THEMES[theme] || theme === currentTheme) return;
+  currentTheme = theme;
+  localStorage.setItem('mj-theme', theme);
+  const lookup = {};
+  for (const t of THEMES[theme].std) lookup[t.id] = t.emoji; // bonus tiles stay classic
+  for (const t of tiles) { if (lookup[t.id]) t.emoji = lookup[t.id]; }
+  updateBonusTileDisplay();
+  renderBoard();
+  saveState();
+}
+function applyBg(bg) {
+  currentBg = bg;
+  localStorage.setItem('mj-bg', bg);
+  document.body.classList.remove(...BG_CLASSES);
+  document.body.classList.add('bg-' + bg);
+}
+function updateBonusTileDisplay() {
+  // Bonus tiles are always classic regardless of theme
+  const classic = THEMES.classic;
+  const flowers = classic.bonus.filter(t => t.group === 'flower');
+  const seasons = classic.bonus.filter(t => t.group === 'season');
+  document.getElementById('instr-flower-name').textContent  = classic.flowerName + ' (4 tiles)';
+  document.getElementById('instr-flower-tiles').textContent = flowers.map(t => t.emoji).join(' ');
+  document.getElementById('instr-season-name').textContent  = classic.seasonName + ' (4 tiles)';
+  document.getElementById('instr-season-tiles').textContent = seasons.map(t => t.emoji).join(' ');
+}
+
+// ─── Board State Persistence ─────────────────────────────────────────────────
+function saveState() {
+  try {
+    localStorage.setItem('mj-board', JSON.stringify({
+      layout:  currentLayout,
+      theme:   currentTheme,
+      tiles:   tiles.map(t => ({
+        id: t.id, emoji: t.emoji, group: t.group,
+        x: t.x, y: t.y, z: t.z, removed: t.removed,
+      })),
+      history: history.map(([a, b]) => [tiles.indexOf(a), tiles.indexOf(b)]),
+    }));
+  } catch(e) {}
+}
+function loadSavedState() {
+  try {
+    const raw = localStorage.getItem('mj-board');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!Array.isArray(s.tiles) || s.tiles.length !== 144) return false;
+    if (s.layout) { currentLayout = s.layout; localStorage.setItem('mj-layout', s.layout); }
+    if (s.theme && THEMES[s.theme]) { currentTheme = s.theme; localStorage.setItem('mj-theme', s.theme); }
+    const classicBonusLookup = {};
+    for (const t of THEMES.classic.bonus) classicBonusLookup[t.id] = t.emoji;
+    tiles = s.tiles.map(t => ({
+      ...t,
+      emoji: (t.group === 'flower' || t.group === 'season') ? (classicBonusLookup[t.id] || t.emoji) : t.emoji,
+      el: null,
+    }));
+    history = (s.history || [])
+      .map(([ai, bi]) => [tiles[ai], tiles[bi]])
+      .filter(([a, b]) => a && b);
+    selected = null;
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── Start ───────────────────────────────────────────────────────────────────
+window.addEventListener('resize', scaleBoard);
+applyBg(currentBg);
+if (loadSavedState()) {
+  updateBonusTileDisplay();
+  buildBoard();
+  const rem = tiles.filter(t => !t.removed).length;
+  setStatus(`${rem} tiles remaining`);
+  if (!hasMoves() && rem > 0) document.getElementById('shuffle-btn').style.display = '';
+} else {
+  newGame();
+}
+</script>
+</body>
+</html>
