@@ -21,12 +21,23 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+.nav {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.nav a { color: rgba(255,255,255,0.45); text-decoration: none; font-size: 0.9em; transition: color .15s; }
+.nav a:hover { color: #f0c040; }
+.nav .sep { color: rgba(255,255,255,0.2); }
+
 h1 {
-  font-size: 1.25em;
-  font-weight: 800;
-  letter-spacing: 4px;
-  text-transform: uppercase;
-  color: #70e890;
+  font-size: clamp(1.5em, 5vw, 2.2em);
+  font-weight: 900;
+  color: #f0c040;
+  text-shadow: 0 2px 8px rgba(240,192,64,0.3);
   margin-top: 2px;
 }
 
@@ -166,7 +177,12 @@ h1 {
 </head>
 <body class="felt-bg">
 
-<h1>Golf Solitaire</h1>
+<div class="nav">
+  <a href="../index.html">🎮 Game Center</a>
+  <span class="sep">›</span>
+  <span style="color:rgba(255,255,255,0.7)">Golf Solitaire</span>
+</div>
+<h1>⛳ Golf</h1>
 
 <div id="hud">
   <div class="hud-stat">
