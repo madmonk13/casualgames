@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Peg Solitaire</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0c0c18;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 14px 12px 32px;
+  gap: 10px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1 {
+  font-size: 1.25em;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #f0c060;
+  margin-top: 2px;
+}
+
+/* ── Board selector ── */
+.selector {
+  display: flex;
+  gap: 8px;
+}
+.sel-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1.5px solid rgba(255,255,255,0.14);
+  color: rgba(255,255,255,0.55);
+  font-size: 0.82em;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 6px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.14s;
+}
+.sel-btn.active {
+  background: rgba(240,192,64,0.16);
+  border-color: #f0c040;
+  color: #f0c040;
+}
+.sel-btn:not(.active):hover {
+  background: rgba(255,255,255,0.11);
+  color: rgba(255,255,255,0.8);
+}
+
+/* ── HUD ── */
+#hud {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.hud-val {
+  font-size: 1.5em;
+  font-weight: 800;
+  line-height: 1;
+}
+.hud-lbl {
+  font-size: 0.68em;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.45);
+}
+.hud-divider {
+  width: 1px;
+  height: 32px;
+  background: rgba(255,255,255,0.12);
+}
+
+/* ── Canvas ── */
+#canvas-wrap { cursor: pointer; }
+canvas { display: block; }
+
+/* ── Buttons ── */
+.btn-row {
+  display: flex;
+  gap: 8px;
+}
+.btn {
+  background: #1a1a30;
+  color: #bbb;
+  border: 1px solid #2e2e50;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 0.88em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.btn:hover:not(:disabled) { background: #26264a; color: #fff; }
+.btn:disabled { opacity: 0.32; cursor: not-allowed; }
+.btn-hint { color: #80d4ff; border-color: rgba(128,212,255,0.28); }
+.btn-hint:hover:not(:disabled) { background: rgba(128,212,255,0.1); color: #a8e4ff; }
+
+/* ── Status ── */
+#status {
+  font-size: 0.8em;
+  color: rgba(255,255,255,0.4);
+  min-height: 1em;
+  letter-spacing: 0.5px;
+}
+
+/* ── Overlay ── */
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+#overlay.show { display: flex; }
+#overlay-box {
+  background: #13132a;
+  border: 2px solid #3a2a6a;
+  border-radius: 18px;
+  padding: 32px 44px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#ov-icon  { font-size: 3em; line-height: 1; }
+#ov-title { font-size: 1.5em; font-weight: 800; }
+#ov-msg   { font-size: 0.9em; color: rgba(255,255,255,0.55); }
+#overlay-box button {
+  margin-top: 8px;
+  background: #5a3a9a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+#overlay-box button:hover { background: #6a4aaa; }
+</style>
+</head>
+<body>
+
+<h1>Peg Solitaire</h1>
+
+<div class="selector">
+  <button class="sel-btn active" id="btn-tri"  onclick="selectBoard('triangle')">▲ Triangle</button>
+  <button class="sel-btn"        id="btn-plus" onclick="selectBoard('plus')">✛ Plus</button>
+</div>
+
+<div id="hud">
+  <div class="hud-stat">
+    <span class="hud-val" id="hud-pegs">14</span>
+    <span class="hud-lbl">Pegs Left</span>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-stat">
+    <span class="hud-val" id="hud-moves">0</span>
+    <span class="hud-lbl">Moves</span>
+  </div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div class="btn-row">
+  <button class="btn btn-hint" id="btn-hint" onclick="doHint()">💡 Hint</button>
+  <button class="btn" id="btn-undo" onclick="doUndo()" disabled>↩ Undo</button>
+  <button class="btn" onclick="newGame()">↺ New</button>
+</div>
+
+<div id="status"></div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <div id="ov-icon"></div>
+    <div id="ov-title"></div>
+    <div id="ov-msg"></div>
+    <button onclick="newGame(); closeOverlay();">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ── SETUP ─────────────────────────────────────────────────────────────────────
+const DPR    = Math.min(window.devicePixelRatio || 1, 2);
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let boardType = 'triangle';
+let pegs   = [];     // [{r, c, hasPeg}]
+let pegMap = {};     // 'r,c' → index
+let selected  = null;
+let hintMove  = null;
+let history   = [];
+let moveCount = 0;
+let gameOver  = false;
+
+// ── BOARD GEOMETRY ────────────────────────────────────────────────────────────
+// Triangle: 5 rows, row r has cols 0..r
+// Plus: 7×7 cross (corners removed — valid if row 2-4 OR col 2-4)
+const TRI_DIRS  = [[0,1],[0,-1],[1,0],[1,1],[-1,-1],[-1,0]];
+const PLUS_DIRS = [[0,1],[0,-1],[1,0],[-1,0]];
+
+function makeBoard(type) {
+  const h = [];
+  if (type === 'triangle') {
+    for (let r = 0; r < 5; r++)
+      for (let c = 0; c <= r; c++)
+        h.push({ r, c, hasPeg: !(r === 0 && c === 0) });
+  } else {
+    for (let r = 0; r < 7; r++)
+      for (let c = 0; c < 7; c++)
+        if ((r >= 2 && r <= 4) || (c >= 2 && c <= 4))
+          h.push({ r, c, hasPeg: !(r === 3 && c === 3) });
+  }
+  return h;
+}
+
+// ── LAYOUT ────────────────────────────────────────────────────────────────────
+let S = 60;   // peg-to-peg spacing in CSS pixels
+let CW, CH;   // canvas CSS size
+
+function layout() {
+  const maxW = Math.min(window.innerWidth - 24, 460);
+  if (boardType === 'triangle') {
+    S  = maxW / 5.2;
+    CW = 5 * S;
+    CH = S * 0.5 + 4 * S * Math.sqrt(3) / 2 + S * 0.55;
+  } else {
+    S  = maxW / 7.8;
+    CW = CH = 7 * S + S * 0.8;
+  }
+  canvas.style.width  = CW + 'px';
+  canvas.style.height = CH + 'px';
+  canvas.width  = Math.round(CW * DPR);
+  canvas.height = Math.round(CH * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+
+function pegXY(p) {
+  if (boardType === 'triangle') {
+    return {
+      x: CW / 2 + (p.c - p.r / 2) * S,
+      y: S * 0.5 + p.r * S * Math.sqrt(3) / 2,
+    };
+  } else {
+    return {
+      x: S * 0.4 + p.c * S + S / 2,
+      y: S * 0.4 + p.r * S + S / 2,
+    };
+  }
+}
+
+// ── GAME LOGIC ────────────────────────────────────────────────────────────────
+function buildPegMap() {
+  pegMap = {};
+  for (let i = 0; i < pegs.length; i++)
+    pegMap[`${pegs[i].r},${pegs[i].c}`] = i;
+}
+
+function getPeg(r, c) {
+  const i = pegMap[`${r},${c}`];
+  return i !== undefined ? pegs[i] : null;
+}
+
+function jumpsFrom(idx) {
+  const p = pegs[idx];
+  if (!p.hasPeg) return [];
+  const dirs = boardType === 'triangle' ? TRI_DIRS : PLUS_DIRS;
+  return dirs.reduce((acc, [dr, dc]) => {
+    const mid  = getPeg(p.r + dr,     p.c + dc);
+    const dest = getPeg(p.r + dr * 2, p.c + dc * 2);
+    if (mid?.hasPeg && dest && !dest.hasPeg)
+      acc.push({ from: idx, over: pegMap[`${p.r+dr},${p.c+dc}`], to: pegMap[`${p.r+dr*2},${p.c+dc*2}`] });
+    return acc;
+  }, []);
+}
+
+function allJumps() {
+  return pegs.flatMap((_, i) => pegs[i].hasPeg ? jumpsFrom(i) : []);
+}
+
+function applyMove(mv) {
+  history.push(pegs.map(p => ({ ...p })));
+  pegs[mv.from].hasPeg = false;
+  pegs[mv.over].hasPeg = false;
+  pegs[mv.to].hasPeg   = true;
+  moveCount++;
+  selected = null;
+  hintMove = null;
+  updateHUD();
+  checkEnd();
+  render();
+}
+
+function doUndo() {
+  if (!history.length) return;
+  pegs = history.pop();
+  buildPegMap();
+  moveCount = Math.max(0, moveCount - 1);
+  selected = hintMove = null;
+  gameOver = false;
+  closeOverlay();
+  updateHUD();
+  render();
+}
+
+function doHint() {
+  const moves = allJumps();
+  if (!moves.length) return;
+  hintMove = moves[Math.floor(Math.random() * moves.length)];
+  selected = null;
+  render();
+}
+
+function checkEnd() {
+  const left  = pegs.filter(p => p.hasPeg).length;
+  const moves = allJumps();
+  if (left === 1) {
+    gameOver = true;
+    setTimeout(() => showOverlay('🎉', 'Perfect!', 'Only one peg left!'), 350);
+  } else if (!moves.length) {
+    gameOver = true;
+    setTimeout(() => showOverlay('😞', 'Stuck!', `${left} pegs remaining — no moves left.`), 350);
+  }
+}
+
+function pegCount() { return pegs.filter(p => p.hasPeg).length; }
+
+function updateHUD() {
+  document.getElementById('hud-pegs').textContent  = pegCount();
+  document.getElementById('hud-moves').textContent = moveCount;
+  document.getElementById('btn-undo').disabled     = !history.length;
+  const moves = allJumps();
+  document.getElementById('status').textContent =
+    gameOver ? '' :
+    !selected ? (moves.length ? '' : 'No moves available') : 'Tap a destination';
+}
+
+// ── INPUT ─────────────────────────────────────────────────────────────────────
+function hitTest(x, y) {
+  let best = -1, bestD = Infinity, thresh = S * 0.46;
+  for (let i = 0; i < pegs.length; i++) {
+    const { x: px, y: py } = pegXY(pegs[i]);
+    const d = Math.hypot(x - px, y - py);
+    if (d < thresh && d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+function handleTap(x, y) {
+  if (gameOver) return;
+  hintMove = null;
+  const idx = hitTest(x, y);
+
+  if (selected !== null) {
+    // Try to execute a move to this hole
+    const mv = jumpsFrom(selected).find(m => m.to === idx);
+    if (mv) { applyMove(mv); return; }
+    // Re-select a different peg
+    if (idx >= 0 && pegs[idx].hasPeg) {
+      selected = idx;
+      updateHUD();
+      render();
+      return;
+    }
+    // Deselect
+    selected = null;
+    updateHUD();
+    render();
+    return;
+  }
+
+  if (idx >= 0 && pegs[idx].hasPeg) {
+    selected = jumpsFrom(idx).length ? idx : null;
+    if (selected === null)
+      document.getElementById('status').textContent = 'That peg has no moves';
+    else
+      updateHUD();
+    render();
+  }
+}
+
+canvas.addEventListener('click', e => {
+  const r = canvas.getBoundingClientRect();
+  handleTap((e.clientX - r.left) * (CW / r.width), (e.clientY - r.top) * (CH / r.height));
+});
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const r = canvas.getBoundingClientRect();
+  const t = e.touches[0];
+  handleTap((t.clientX - r.left) * (CW / r.width), (t.clientY - r.top) * (CH / r.height));
+}, { passive: false });
+
+// ── RENDERING ─────────────────────────────────────────────────────────────────
+const C_BOARD   = '#1c1008';
+const C_BORDER  = '#3a2212';
+const C_HOLE    = '#0a0604';
+const C_PEG     = '#c87828';
+const C_SHINE   = '#f0b040';
+const C_SHADOW  = '#6a3a0c';
+const C_SEL     = '#ffe050';
+const C_SEL_SH  = '#fff8a0';
+const C_DEST    = 'rgba(120,210,255,0.72)';
+const C_HINT_F  = '#ff8c30';
+const C_HINT_T  = '#40e890';
+const SQRT3_2   = Math.sqrt(3) / 2;
+
+function drawBoard() {
+  if (boardType === 'triangle') {
+    const ax  = CW / 2,          ay  = S * 0.5;
+    const blx = CW / 2 - 2 * S, bly = S * 0.5 + 4 * S * SQRT3_2;
+    const brx = CW / 2 + 2 * S, bry = bly;
+    const pad = S * 0.44;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(ax,              ay  - pad);
+    ctx.lineTo(blx - pad*0.86, bly + pad * 0.5);
+    ctx.lineTo(brx + pad*0.86, bry + pad * 0.5);
+    ctx.closePath();
+    ctx.fillStyle   = C_BOARD;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur  = 18;
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+    ctx.strokeStyle = C_BORDER;
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    const pad = S * 0.38;
+    const ox  = S * 0.4 + S / 2;  // center of col 0 peg
+    const oy  = S * 0.4 + S / 2;  // center of row 0 peg
+    ctx.save();
+    ctx.fillStyle   = C_BOARD;
+    ctx.strokeStyle = C_BORDER;
+    ctx.lineWidth   = 2;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur  = 18;
+    // Vertical bar: cols 2-4
+    const vx = ox + 2 * S - S / 2 - pad;
+    const vy = oy        - S / 2 - pad;
+    const vw = 3 * S + pad * 2;
+    const vh = 7 * S + pad * 2;
+    ctx.fillRect(vx, vy, vw, vh);
+    ctx.shadowBlur = 0;
+    ctx.strokeRect(vx, vy, vw, vh);
+    // Horizontal bar: rows 2-4
+    const hx = ox        - S / 2 - pad;
+    const hy = oy + 2 * S - S / 2 - pad;
+    const hw = 7 * S + pad * 2;
+    const hh = 3 * S + pad * 2;
+    ctx.fillRect(hx, hy, hw, hh);
+    ctx.strokeRect(hx, hy, hw, hh);
+    ctx.restore();
+  }
+}
+
+function drawHole(x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = C_HOLE;
+  ctx.fill();
+  // Rim shadow
+  const rim = ctx.createRadialGradient(x, y - r * 0.2, r * 0.3, x, y, r);
+  rim.addColorStop(0, 'rgba(255,255,255,0.05)');
+  rim.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = rim;
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPeg(x, y, r, col, shine) {
+  // Drop shadow
+  ctx.beginPath();
+  ctx.ellipse(x, y + r * 0.75, r * 0.72, r * 0.22, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.38)';
+  ctx.fill();
+  // Sphere gradient
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.38, r * 0.04, x, y, r * 1.05);
+  g.addColorStop(0,    shine);
+  g.addColorStop(0.45, col);
+  g.addColorStop(1,    C_SHADOW);
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.fillStyle = g;
+  ctx.fill();
+  // Specular highlight
+  ctx.beginPath();
+  ctx.arc(x - r * 0.28, y - r * 0.32, r * 0.21, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.38)';
+  ctx.fill();
+}
+
+function render() {
+  ctx.clearRect(0, 0, CW, CH);
+  drawBoard();
+
+  const holeR = S * 0.21;
+  const pegR  = S * 0.295;
+
+  // Collect destination highlights
+  const destSet = new Set();
+  if (selected !== null && !hintMove)
+    jumpsFrom(selected).forEach(m => destSet.add(m.to));
+
+  // Draw all holes, then pegs on top
+  for (let i = 0; i < pegs.length; i++) {
+    const p = pegs[i];
+    const { x, y } = pegXY(p);
+    drawHole(x, y, holeR);
+    if (destSet.has(i)) {
+      // Glowing destination ring
+      ctx.beginPath();
+      ctx.arc(x, y, holeR * 0.7, 0, Math.PI * 2);
+      ctx.fillStyle = C_DEST;
+      ctx.fill();
+    }
+  }
+
+  // Hint dashed arrow
+  if (hintMove) {
+    const fp = pegs[hintMove.from], tp = pegs[hintMove.to];
+    const { x: fx, y: fy } = pegXY(fp);
+    const { x: tx, y: ty } = pegXY(tp);
+    ctx.save();
+    ctx.setLineDash([S * 0.12, S * 0.09]);
+    ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+    ctx.lineWidth   = 2;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    // Destination glow
+    ctx.beginPath();
+    ctx.arc(tx, ty, holeR * 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(64,232,144,0.55)';
+    ctx.fill();
+  }
+
+  // Draw pegs
+  for (let i = 0; i < pegs.length; i++) {
+    if (!pegs[i].hasPeg) continue;
+    const { x, y } = pegXY(pegs[i]);
+    let col = C_PEG, shine = C_SHINE;
+    if      (hintMove && i === hintMove.from) { col = C_HINT_F; shine = '#ffb060'; }
+    else if (hintMove && i === hintMove.to)   { col = C_HINT_T; shine = '#80ffb0'; }
+    else if (i === selected)                  { col = C_SEL;    shine = C_SEL_SH; }
+    drawPeg(x, y, pegR, col, shine);
+  }
+}
+
+// ── OVERLAY / HUD HELPERS ────────────────────────────────────────────────────
+function showOverlay(icon, title, msg) {
+  document.getElementById('ov-icon').textContent  = icon;
+  document.getElementById('ov-title').textContent = title;
+  document.getElementById('ov-msg').textContent   = msg;
+  document.getElementById('overlay').classList.add('show');
+}
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+function selectBoard(type) {
+  document.getElementById('btn-tri').classList.toggle('active',  type === 'triangle');
+  document.getElementById('btn-plus').classList.toggle('active', type === 'plus');
+  boardType = type;
+  newGame();
+}
+
+function newGame() {
+  pegs      = makeBoard(boardType);
+  buildPegMap();
+  selected  = null;
+  hintMove  = null;
+  history   = [];
+  moveCount = 0;
+  gameOver  = false;
+  layout();
+  updateHUD();
+  render();
+}
+
+window.addEventListener('resize', () => { layout(); render(); });
+
+newGame();
+</script>
+</body>
+</html>

@@ -63,6 +63,33 @@ header h1 {
 .b-dice { font-size: 3em; letter-spacing: 2px; line-height: 1; min-width: 40px; }
 .b-total { font-size: 0.9em; font-weight: 800; min-width: 22px; text-align: left; padding-left: 2px; }
 .b-result { font-size: 0.82em; font-weight: 700; margin: 6px 0 4px; min-height: 1.2em; }
+.dice-row { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; align-items: center; min-height: 38px; padding: 2px 0; perspective: 300px; }
+
+/* ── 3D Dice ── */
+.die-3d {
+  width: 32px; height: 32px; position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(0deg) rotateY(0deg);
+  flex-shrink: 0;
+}
+.face {
+  position: absolute; width: 32px; height: 32px;
+  background: #ddd8f0;
+  border: 1.5px solid rgba(255,255,255,0.55);
+  border-radius: 5px;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.45);
+}
+.face.f-front  { transform: translateZ(16px); }
+.face.f-back   { transform: rotateY(180deg) translateZ(16px); }
+.face.f-right  { transform: rotateY(90deg)  translateZ(16px); }
+.face.f-left   { transform: rotateY(-90deg) translateZ(16px); }
+.face.f-top    { transform: rotateX(-90deg) translateZ(16px); }
+.face.f-bottom { transform: rotateX(90deg)  translateZ(16px); }
+.pip {
+  position: absolute; width: 6px; height: 6px;
+  background: #1a0a30; border-radius: 50%;
+  box-shadow: inset 0 1px 1px rgba(0,0,0,0.35);
+}
 
 #status-bar {
   width: min(560px, 100vw - 8px);
@@ -143,7 +170,51 @@ const AI_MS     = 320;
 
 const COLORS     = ['#4f8ef7','#ef4444','#22c55e','#f59e0b','#a855f7','#f97316'];
 const NAMES      = ['You','Red','Green','Amber','Purple','Orange'];
-const DICE_EMOJI = ['','⚀','⚁','⚂','⚃','⚄','⚅'];
+// ── 3D DICE ENGINE ────────────────────────────────────────────────────────────
+const _PIP_POS = [3, 13, 23];
+const _PIP_LAYOUTS = {
+  1:[[1,1]], 2:[[0,2],[2,0]], 3:[[0,2],[1,1],[2,0]],
+  4:[[0,0],[0,2],[2,0],[2,2]], 5:[[0,0],[0,2],[1,1],[2,0],[2,2]],
+  6:[[0,0],[0,2],[1,0],[1,2],[2,0],[2,2]],
+};
+const _FACE_NUMS = { front:1, back:6, right:3, left:4, top:2, bottom:5 };
+const _FACE_ROTS = { 1:[0,0], 2:[-90,0], 3:[0,90], 4:[0,-90], 5:[90,0], 6:[0,180] };
+const _dieState  = new Map();
+
+function _makePips(n) {
+  return (_PIP_LAYOUTS[n]||[]).map(([r,c])=>
+    `<div class="pip" style="top:${_PIP_POS[r]}px;left:${_PIP_POS[c]}px"></div>`
+  ).join('');
+}
+function _make3DDie(id) {
+  const faces = ['front','back','right','left','top','bottom'].map(f=>
+    `<div class="face f-${f}">${_makePips(_FACE_NUMS[f])}</div>`
+  ).join('');
+  return `<div class="die-3d" id="${id}">${faces}</div>`;
+}
+function _startDieSpin(el) {
+  const vx=3+Math.random()*5, vy=4+Math.random()*6, vz=1+Math.random()*3;
+  let rx=Math.random()*360, ry=Math.random()*360, rz=Math.random()*360;
+  el.style.transition='none';
+  function tick() {
+    rx+=vx; ry+=vy; rz+=vz;
+    el.style.transform=`rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+    _dieState.set(el,{rx,ry,rz,rafId:requestAnimationFrame(tick)});
+  }
+  _dieState.set(el,{rx,ry,rz:0,rafId:requestAnimationFrame(tick)});
+}
+function _landDie3D(el, face, delay) {
+  const s=_dieState.get(el);
+  if(s?.rafId) cancelAnimationFrame(s.rafId);
+  _dieState.delete(el);
+  const [tx,ty]=_FACE_ROTS[face]||[0,0];
+  const finalX=Math.round((s?.rx||0)/360)*360+tx;
+  const finalY=Math.round((s?.ry||0)/360)*360+ty;
+  setTimeout(()=>{
+    el.style.transition='transform 0.42s cubic-bezier(0.22,1.4,0.48,1)';
+    el.style.transform=`rotateX(${finalX}deg) rotateY(${finalY}deg)`;
+  }, delay);
+}
 const STRATEGIES = [null,'Reckless','Cautious','Greedy','Bold','Expand'];
 
 const WATER_FILL   = '#1a3d5a';
@@ -289,6 +360,7 @@ function newGame() {
   clearTimeout(aiTimer);
   clearBattleAnim();
   battleAnimating = false;
+  consecutivePasses = 0;
   document.getElementById('win-overlay').classList.remove('show');
   document.getElementById('battle-display').classList.remove('show');
   setupGame(Date.now() & 0x7fffffff);
@@ -441,99 +513,93 @@ function doAttack(fromId, toId) {
 }
 
 // ── BATTLE DISPLAY ────────────────────────────────────────────────────────────
-let battleSpinId  = null;
-let battleT1      = null, battleT2=null, battleT3=null;
+let battleT1=null, battleT2=null, battleT3=null;
 
 function clearBattleAnim() {
-  clearInterval(battleSpinId); battleSpinId=null;
   clearTimeout(battleT1); clearTimeout(battleT2); clearTimeout(battleT3);
+  // cancel any live RAF spins
+  const el=document.getElementById('battle-display');
+  el.querySelectorAll('.die-3d').forEach(d=>{
+    const s=_dieState.get(d);
+    if(s?.rafId) cancelAnimationFrame(s.rafId);
+    _dieState.delete(d);
+  });
 }
 
-function rand6(){ return Math.floor(Math.random()*6)+1; }
-
-// Phase 1: attacker rolling, defender greyed out
-// Phase 2: attacker settled, defender rolling
-// Phase 3: both final + result
-function bHTML_p1(ap,dp,aRand,drLen,as_){
-  const ac=COLORS[ap],dc=COLORS[dp];
-  const ghost='⚀'.repeat(drLen);
+function _buildBattleHTML(ap, dp, numA, numD, as_, ds, resultHTML) {
+  const ac=COLORS[ap], dc=COLORS[dp];
+  const aDice = Array.from({length:numA},(_,i)=>_make3DDie(`bd-a${i}`)).join('');
+  const dDice = Array.from({length:numD},(_,i)=>_make3DDie(`bd-d${i}`)).join('');
+  // Stable IDs so Phase 4 can update totals/result without rebuilding dice
+  const totA = `<span id="bd-totA" class="b-total" style="color:${ac};visibility:${as_!=null?'visible':'hidden'}">${as_??'0'}</span>`;
+  const totD = `<span id="bd-totD" class="b-total" style="color:${dc};visibility:${ds !=null?'visible':'hidden'}">${ds ??'0'}</span>`;
+  const res  = `<div id="bd-res">${resultHTML||'<div class="b-result" style="color:transparent">·</div>'}</div>`;
   return `
     <div class="b-row">
       <span class="b-name" style="color:${ac}">${NAMES[ap]}</span>
-      <span class="b-dice">${aRand.map(d=>DICE_EMOJI[d]).join('')}</span>
-    </div>
-    <div class="b-result" style="color:transparent">·</div>
-    <div class="b-row">
-      <span class="b-name" style="color:${dc}">${NAMES[dp]}</span>
-      <span class="b-dice" style="opacity:0.15">${ghost}</span>
-    </div>`;}
-
-function bHTML_p2(ap,dp,aFinal,dRand,as_){
-  const ac=COLORS[ap],dc=COLORS[dp];
-  return `
-    <div class="b-row">
-      <span class="b-name" style="color:${ac}">${NAMES[ap]}</span>
-      <span class="b-dice">${aFinal.map(d=>DICE_EMOJI[d]).join('')}</span>
-      <span class="b-total" style="color:${ac}">${as_}</span>
-    </div>
-    <div class="b-result" style="color:transparent">·</div>
-    <div class="b-row">
-      <span class="b-name" style="color:${dc}">${NAMES[dp]}</span>
-      <span class="b-dice">${dRand.map(d=>DICE_EMOJI[d]).join('')}</span>
-    </div>`;}
-
-function bHTML_p3(ap,dp,aFinal,dFinal,as_,ds,won){
-  const ac=COLORS[ap],dc=COLORS[dp];
-  const atkLabel = ap===0 ? 'You win'    : `${NAMES[ap]} wins`;
-  const defLabel = dp===0 ? 'You defend' : `${NAMES[dp]} defends`;
-  const res=won
-    ?`<div class="b-result" style="color:#22c55e">⚔️ ${atkLabel}!</div>`
-    :`<div class="b-result" style="color:#ef4444">🛡️ ${defLabel}!</div>`;
-  return `
-    <div class="b-row">
-      <span class="b-name" style="color:${ac}">${NAMES[ap]}</span>
-      <span class="b-dice">${aFinal.map(d=>DICE_EMOJI[d]).join('')}</span>
-      <span class="b-total" style="color:${ac}">${as_}</span>
+      <span class="b-dice"><div class="dice-row">${aDice}</div></span>${totA}
     </div>
     ${res}
     <div class="b-row">
       <span class="b-name" style="color:${dc}">${NAMES[dp]}</span>
-      <span class="b-dice">${dFinal.map(d=>DICE_EMOJI[d]).join('')}</span>
-      <span class="b-total" style="color:${dc}">${ds}</span>
-    </div>`;}
+      <span class="b-dice"><div class="dice-row">${dDice}</div></span>${totD}
+    </div>`;
+}
 
-// Sequential battle: attacker 500ms → defender 500ms → result 1000ms → callback
+function _spinAll(prefix, count) {
+  for(let i=0;i<count;i++){
+    const d=document.getElementById(`${prefix}${i}`);
+    if(d) _startDieSpin(d);
+  }
+}
+function _landAll(prefix, rolls, delay) {
+  rolls.forEach((val,i)=>{
+    const d=document.getElementById(`${prefix}${i}`);
+    if(d) _landDie3D(d, val, delay + i*60);
+  });
+}
+
+// Sequential battle: attacker spins 500ms → lands, defender spins 500ms → lands → result 1000ms → callback
 function showBattleSequential(ap,dp,ar,dr,as_,ds,won,onComplete){
   const el=document.getElementById('battle-display');
   clearBattleAnim();
   el.classList.add('show');
 
-  // Phase 1: attacker rolling
-  el.innerHTML=bHTML_p1(ap,dp,ar.map(rand6),dr.length,as_);
-  battleSpinId=setInterval(()=>{
-    el.innerHTML=bHTML_p1(ap,dp,ar.map(rand6),dr.length,as_);
-  },60);
+  const atkLabel = ap===0 ? 'You win'    : `${NAMES[ap]} wins`;
+  const defLabel = dp===0 ? 'You defend' : `${NAMES[dp]} defends`;
+  const resHTML  = won
+    ? `<div class="b-result" style="color:#22c55e">⚔️ ${atkLabel}!</div>`
+    : `<div class="b-result" style="color:#ef4444">🛡️ ${defLabel}!</div>`;
 
-  battleT1=setTimeout(()=>{
-    // Phase 2: defender rolling
-    clearInterval(battleSpinId);
-    el.innerHTML=bHTML_p2(ap,dp,ar,dr.map(rand6),as_);
-    battleSpinId=setInterval(()=>{
-      el.innerHTML=bHTML_p2(ap,dp,ar,dr.map(rand6),as_);
-    },60);
+  // Phase 1: all dice spinning
+  el.innerHTML = _buildBattleHTML(ap, dp, ar.length, dr.length, null, null, null);
+  _spinAll('bd-a', ar.length);
+  _spinAll('bd-d', dr.length);
 
-    battleT2=setTimeout(()=>{
-      // Phase 3: result
-      clearInterval(battleSpinId); battleSpinId=null;
-      el.innerHTML=bHTML_p3(ap,dp,ar,dr,as_,ds,won);
+  // Phase 2 @ 500ms: land attacker dice
+  battleT1 = setTimeout(()=>{
+    _landAll('bd-a', ar, 0);
 
-      battleT3=setTimeout(()=>{
-        el.classList.remove('show');
-        // Small delay so fade-out completes before territory recolors
-        setTimeout(onComplete,160);
-      },1000);
-    },500);
-  },500);
+    // Phase 3 @ +500ms: land defender dice
+    battleT2 = setTimeout(()=>{
+      _landAll('bd-d', dr, 0);
+
+      // Phase 4 @ +500ms: reveal totals + result in place (no dice rebuild)
+      battleT3 = setTimeout(()=>{
+        const tA=document.getElementById('bd-totA');
+        const tD=document.getElementById('bd-totD');
+        const res=document.getElementById('bd-res');
+        if(tA){ tA.textContent=as_; tA.style.visibility='visible'; }
+        if(tD){ tD.textContent=ds;  tD.style.visibility='visible'; }
+        if(res){ res.innerHTML=resHTML; }
+
+        battleT1 = setTimeout(()=>{
+          el.classList.remove('show');
+          setTimeout(onComplete, 160);
+        }, 2000);
+      }, 500);
+    }, 500);
+  }, 500);
 }
 
 // Quick display for AI vs AI battles
@@ -541,14 +607,23 @@ function showBattleQuick(ap,dp,ar,dr,as_,ds,won){
   const el=document.getElementById('battle-display');
   clearBattleAnim();
   el.classList.add('show');
-  // Brief spin then instant result
-  el.innerHTML=bHTML_p1(ap,dp,ar.map(rand6),dr.length,as_);
-  battleSpinId=setInterval(()=>el.innerHTML=bHTML_p1(ap,dp,ar.map(rand6),dr.length,as_),60);
-  battleT1=setTimeout(()=>{
-    clearInterval(battleSpinId); battleSpinId=null;
-    el.innerHTML=bHTML_p3(ap,dp,ar,dr,as_,ds,won);
-    battleT2=setTimeout(()=>el.classList.remove('show'),700);
-  },200);
+
+  const atkLabel = ap===0 ? 'You win'    : `${NAMES[ap]} wins`;
+  const defLabel = dp===0 ? 'You defend' : `${NAMES[dp]} defends`;
+  const resHTML  = won
+    ? `<div class="b-result" style="color:#22c55e">⚔️ ${atkLabel}!</div>`
+    : `<div class="b-result" style="color:#ef4444">🛡️ ${defLabel}!</div>`;
+
+  el.innerHTML = _buildBattleHTML(ap, dp, ar.length, dr.length, null, null, null);
+  _spinAll('bd-a', ar.length);
+  _spinAll('bd-d', dr.length);
+
+  battleT1 = setTimeout(()=>{
+    el.innerHTML = _buildBattleHTML(ap, dp, ar.length, dr.length, as_, ds, resHTML);
+    _landAll('bd-a', ar, 0);
+    _landAll('bd-d', dr, 0);
+    battleT2 = setTimeout(()=>el.classList.remove('show'), 1800);
+  }, 250);
 }
 
 // ── TURN / BONUS ──────────────────────────────────────────────────────────────
@@ -576,6 +651,8 @@ function distributeDice(player,count){
   }
 }
 
+let consecutivePasses=0;
+
 function endTurn(){
   distributeDice(currentPlayer,largestGroup(currentPlayer));
   let next=(currentPlayer+1)%NUM_PL,loops=0;
@@ -589,6 +666,7 @@ function endTurn(){
 
 function humanEndTurn(){
   if(phase!=='playing'||currentPlayer!==HUMAN||battleAnimating) return;
+  consecutivePasses=0;
   endTurn();
 }
 
@@ -625,8 +703,40 @@ function bestAttack(player){
 function aiStep(){
   if(phase!=='playing'||currentPlayer===HUMAN) return;
   const atk=bestAttack(currentPlayer);
-  if(atk) doAttack(atk.fromId,atk.toId);   // doAttack schedules next step
-  else    aiTimer=setTimeout(endTurn,AI_MS/2);
+  if(atk){
+    consecutivePasses=0;
+    doAttack(atk.fromId,atk.toId);   // doAttack schedules next step
+  } else {
+    consecutivePasses++;
+    // Count active (living) players
+    const activePlayers=new Set(territories.filter(t=>!waterSet.has(t.id)&&t.player>=0).map(t=>t.player));
+    if(consecutivePasses>=activePlayers.size){
+      // All remaining players passed — stalemate: winner by territory count
+      resolveStalemate();
+    } else {
+      aiTimer=setTimeout(endTurn,AI_MS/2);
+    }
+  }
+}
+
+function resolveStalemate(){
+  phase='gameover';
+  const counts={};
+  for(const t of territories){
+    if(waterSet.has(t.id)||t.player<0) continue;
+    counts[t.player]=(counts[t.player]||0)+1;
+  }
+  const winner=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0][0]|0;
+  const tied=Object.entries(counts).filter(([,v])=>v===counts[winner]).length>1;
+  if(tied){
+    document.getElementById('win-title').textContent='⏱️ Stalemate!';
+    document.getElementById('win-msg').textContent='No player can make progress. The game ends in a draw.';
+  } else {
+    document.getElementById('win-title').textContent= winner==HUMAN ? '🎉 You Win!' : `${NAMES[winner]} Wins!`;
+    document.getElementById('win-msg').textContent  = winner==HUMAN ? 'You controlled the most territory!' : `${NAMES[winner]} controlled the most territory.`;
+  }
+  document.getElementById('win-overlay').classList.add('show');
+  render();
 }
 
 // ── WIN CHECK ─────────────────────────────────────────────────────────────────

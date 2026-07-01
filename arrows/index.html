@@ -770,11 +770,11 @@ function drawSnake(pts, color, alpha, tipDir, hint, ox = 0, oy = 0) {
 
   // ── Head — elongated ellipse, wider in forward direction ─────────────────
   const tip     = pts[n - 1];
-  const headRX  = bodyW * 0.80;   // forward radius (long axis)
-  const headRY  = bodyW * 0.62;   // side radius   (short axis)
+  const headRX  = bodyW * 1.05;   // forward radius (long axis)
+  const headRY  = bodyW * 0.82;   // side radius   (short axis)
   const headRot = Math.atan2(fwdY, fwdX);
-  const hx = tip[0] + ox + fwdX * unit * 0.18;
-  const hy = tip[1] + oy + fwdY * unit * 0.18;
+  const hx = tip[0] + ox + fwdX * unit * 0.24;
+  const hy = tip[1] + oy + fwdY * unit * 0.24;
 
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -795,17 +795,25 @@ function drawSnake(pts, color, alpha, tipDir, hint, ox = 0, oy = 0) {
   }
 
   // ── Eyes ─────────────────────────────────────────────────────────────────
-  const eyeR   = bodyW * 0.14;
-  const eyeOff = headRY * 0.60;
-  const fwdOff = headRX * 0.28;
+  const eyeR   = bodyW * 0.30;
+  const eyeOff = headRY * 0.58;
+  const fwdOff = headRX * 0.22;
   const e1x = hx + perpX*eyeOff + fwdX*fwdOff, e1y = hy + perpY*eyeOff + fwdY*fwdOff;
   const e2x = hx - perpX*eyeOff + fwdX*fwdOff, e2y = hy - perpY*eyeOff + fwdY*fwdOff;
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.beginPath(); ctx.arc(e1x, e1y, eyeR, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(e2x, e2y, eyeR, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = 'rgba(0,0,0,0.85)';
-  ctx.beginPath(); ctx.arc(e1x+fwdX*eyeR*0.35, e1y+fwdY*eyeR*0.35, eyeR*0.55, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(e2x+fwdX*eyeR*0.35, e2y+fwdY*eyeR*0.35, eyeR*0.55, 0, Math.PI*2); ctx.fill();
+  // White sclera with subtle outline
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth   = 1.2 * DPR;
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.beginPath(); ctx.arc(e1x, e1y, eyeR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.arc(e2x, e2y, eyeR, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  // Pupil
+  ctx.fillStyle = 'rgba(0,0,0,0.88)';
+  ctx.beginPath(); ctx.arc(e1x+fwdX*eyeR*0.3, e1y+fwdY*eyeR*0.3, eyeR*0.52, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(e2x+fwdX*eyeR*0.3, e2y+fwdY*eyeR*0.3, eyeR*0.52, 0, Math.PI*2); ctx.fill();
+  // Tiny specular highlight
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.beginPath(); ctx.arc(e1x+fwdX*eyeR*0.1-perpX*eyeR*0.2, e1y+fwdY*eyeR*0.1-perpY*eyeR*0.2, eyeR*0.18, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(e2x+fwdX*eyeR*0.1+perpX*eyeR*0.2, e2y+fwdY*eyeR*0.1+perpY*eyeR*0.2, eyeR*0.18, 0, Math.PI*2); ctx.fill();
 
   // ── Nostrils ─────────────────────────────────────────────────────────────
   const nRad  = eyeR  * 0.33;
