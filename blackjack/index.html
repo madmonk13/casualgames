@@ -398,7 +398,7 @@ let numDecks     = 4;
 let shoe         = [];
 let runningCount = 0;
 
-let playerChips  = 1000;
+let playerChips  = +(localStorage.getItem('bj_chips') || 1000);
 let playerBet    = 25;
 
 const cpus = [
@@ -579,9 +579,12 @@ function updateHUD() {
   document.getElementById('hdr-chips').textContent  = '$' + playerChips;
   document.getElementById('info-chips').textContent = '$' + playerChips;
   document.getElementById('info-bet').textContent   = '$' + playerBet;
-  document.getElementById('bet-display').textContent = '$' + playerBet;
+  const betDisp = document.getElementById('bet-display');
+  if (betDisp) betDisp.textContent = '$' + playerBet;
   document.getElementById('cpu1-chips').textContent = '$' + cpus[0].chips;
   document.getElementById('cpu2-chips').textContent = '$' + cpus[1].chips;
+  // Persist chips across sessions
+  try { localStorage.setItem('bj_chips', playerChips); } catch(e) {}
 }
 
 function updateShoeCount() {
