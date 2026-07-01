@@ -4,11 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Klondike Solitaire</title>
+<link rel="stylesheet" href="../shared/cards.css">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
-  background: #0f1923;
-  background-image: radial-gradient(ellipse at center, #1a2e3d 0%, #0a1018 100%);
   font-family: system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   display: flex;
@@ -122,50 +121,8 @@ button:hover { background: linear-gradient(145deg, #ffe060, #e8b820); }
 /* spacer */
 .spacer { flex: 1; }
 
-/* ── Cards ── */
-.card {
-  position: absolute;
-  width: var(--cw);
-  height: var(--ch);
-  border-radius: var(--cr);
-  border: 1px solid rgba(0,0,0,0.25);
-  cursor: pointer;
-  transition: box-shadow .1s;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-}
-.card.face-down {
-  background: repeating-linear-gradient(
-    45deg, #1a4a7a 0px, #1a4a7a 4px, #1460a0 4px, #1460a0 8px
-  );
-  cursor: default;
-}
-.card.face-up {
-  background: #fafafa;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(0,0,0,0.06);
-}
-.card.selected {
-  box-shadow: 0 0 0 3px #f0c040, 0 4px 12px rgba(0,0,0,0.5);
-  z-index: 200 !important;
-}
-.card-corner {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-  padding: 2px 3px;
-  gap: 1px;
-}
-.card-corner.tl { position: absolute; top: 0; left: 0; }
-.card-corner.br { position: absolute; bottom: 0; right: 0; transform: rotate(180deg); }
-.card-rank { font-size: var(--fs); font-weight: 900; letter-spacing: -0.5px; }
-.card-suit { font-size: calc(var(--fs) * 1.0); line-height: 1; }
-.card-center { position: absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:var(--fs-lg); pointer-events:none; }
-.red  { color: #cc0000; }
-.black{ color: #000; }
+/* ── Cards (layout only — visuals from shared/cards.css) ── */
+.card { position: absolute; }
 
 /* waste fan — show up to 3 */
 #waste-pile { position: relative; width: var(--cw); height: var(--ch); flex-shrink:0; }
@@ -200,7 +157,7 @@ button:hover { background: linear-gradient(145deg, #ffe060, #e8b820); }
 #overlay-box p  { margin-bottom: 22px; color: rgba(255,255,255,.7); }
 </style>
 </head>
-<body>
+<body class="felt-bg">
 
 <div class="nav">
   <a href="../index.html">🎮 Game Center</a>

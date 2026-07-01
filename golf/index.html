@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Golf Solitaire</title>
+<link rel="stylesheet" href="../shared/cards.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  padding: 14px 10px 32px;
+  gap: 10px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1 {
+  font-size: 1.25em;
+  font-weight: 800;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #70e890;
+  margin-top: 2px;
+}
+
+/* ── HUD ── */
+#hud {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.hud-val {
+  font-size: 1.5em;
+  font-weight: 800;
+  line-height: 1;
+}
+.hud-lbl {
+  font-size: 0.68em;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+}
+.hud-divider { width: 1px; height: 32px; background: rgba(255,255,255,0.12); }
+
+/* ── Table ── */
+#table {
+  width: min(700px, 100vw - 16px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Tableau ── */
+#tableau {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  position: relative;
+}
+
+/* ── Cards (layout only — visuals from shared/cards.css) ── */
+.card { position: relative; }
+
+/* ── Piles row ── */
+#piles-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 4px;
+}
+.pile-label {
+  font-size: 0.65em;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  margin-top: 5px;
+}
+
+/* ── Buttons ── */
+.btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.btn {
+  background: #1a2e1a;
+  color: #aaa;
+  border: 1px solid #2e4e2e;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: 0.88em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.btn:hover:not(:disabled) { background: #264026; color: #fff; }
+.btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Overlay ── */
+#overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+#overlay.show { display: flex; }
+#overlay-box {
+  background: #0e1e10;
+  border: 2px solid #2a5a2a;
+  border-radius: 18px;
+  padding: 32px 44px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+}
+#ov-icon  { font-size: 3em; line-height: 1; }
+#ov-title { font-size: 1.5em; font-weight: 800; }
+#ov-msg   { font-size: 0.9em; color: rgba(255,255,255,0.55); }
+#overlay-box button {
+  margin-top: 8px;
+  background: #2a7a3a;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+#overlay-box button:hover { background: #3a9a4a; }
+
+/* ── Status ── */
+#status {
+  font-size: 0.78em;
+  color: rgba(255,255,255,0.38);
+  min-height: 1em;
+  text-align: center;
+}
+</style>
+</head>
+<body class="felt-bg">
+
+<h1>Golf Solitaire</h1>
+
+<div id="hud">
+  <div class="hud-stat">
+    <span class="hud-val" id="hud-left">35</span>
+    <span class="hud-lbl">Cards Left</span>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-stat">
+    <span class="hud-val" id="hud-stock">16</span>
+    <span class="hud-lbl">In Stock</span>
+  </div>
+  <div class="hud-divider"></div>
+  <div class="hud-stat">
+    <span class="hud-val" id="hud-wins">0</span>
+    <span class="hud-lbl">Wins</span>
+  </div>
+</div>
+
+<div id="table">
+  <div id="tableau"></div>
+  <div id="piles-row">
+    <div>
+      <div id="stock-pile"></div>
+      <div class="pile-label">Stock</div>
+    </div>
+    <div>
+      <div id="waste-pile"></div>
+      <div class="pile-label">Waste</div>
+    </div>
+  </div>
+</div>
+
+<div class="btn-row">
+  <button class="btn" id="btn-undo" onclick="doUndo()" disabled>↩ Undo</button>
+  <button class="btn" onclick="newGame()">↺ New Game</button>
+</div>
+<div id="status"></div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <div id="ov-icon"></div>
+    <div id="ov-title"></div>
+    <div id="ov-msg"></div>
+    <button onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const SUITS      = ['♠','♥','♦','♣'];
+const SUIT_RED   = new Set(['♥','♦']);
+const RANKS      = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const RANK_VAL   = Object.fromEntries(RANKS.map((r,i) => [r, i]));
+
+// ── SIZING ────────────────────────────────────────────────────────────────────
+function computeSizes() {
+  const tableW  = Math.min(700, window.innerWidth - 16);
+  const cols    = 7;
+  const gap     = 6;
+  const cw      = Math.floor((tableW - gap * (cols - 1)) / cols);
+  const ch      = Math.round(cw * 1.4);
+  const fs      = Math.max(9,  Math.round(cw * 0.20));
+  const fsLg    = Math.max(14, Math.round(cw * 0.38));
+  const overlap = Math.round(ch * 0.40);
+  document.documentElement.style.setProperty('--cw',    cw    + 'px');
+  document.documentElement.style.setProperty('--ch',    ch    + 'px');
+  document.documentElement.style.setProperty('--fs',    fs    + 'px');
+  document.documentElement.style.setProperty('--fs-lg', fsLg  + 'px');
+  return { cw, ch, overlap };
+}
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let tableau = [];   // 7 arrays of card objects (index 0 = bottom, last = top)
+let stock   = [];   // face-down draw pile
+let waste   = [];   // face-up played pile
+let history = [];   // for undo: [{tableau, stock, waste}]
+let wins    = parseInt(localStorage.getItem('golf_wins') || '0');
+let gameOver = false;
+
+function makeCard(rank, suit) {
+  return { rank, suit, red: SUIT_RED.has(suit) };
+}
+
+function shuffleDeck() {
+  const deck = [];
+  for (const s of SUITS) for (const r of RANKS) deck.push(makeCard(r, s));
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function newGame() {
+  closeOverlay();
+  const deck = shuffleDeck();
+  // Deal 7 columns × 5 cards
+  tableau = Array.from({ length: 7 }, () => []);
+  for (let row = 0; row < 5; row++)
+    for (let col = 0; col < 7; col++)
+      tableau[col].push(deck[row * 7 + col]);
+  // Remaining 17 cards: 1 to waste, rest to stock
+  waste = [deck[35]];
+  stock = deck.slice(36);   // 16 cards
+  history  = [];
+  gameOver = false;
+  updateHUD();
+  render();
+}
+
+// ── RULES ─────────────────────────────────────────────────────────────────────
+function canPlay(card) {
+  if (!waste.length) return false;
+  const top  = RANK_VAL[waste[waste.length - 1].rank];
+  const val  = RANK_VAL[card.rank];
+  const diff = Math.abs(top - val);
+  // Wraps: A(0) ↔ K(12)
+  return diff === 1 || diff === 12;
+}
+
+function hasAnyMove() {
+  for (const col of tableau) {
+    if (col.length && canPlay(col[col.length - 1])) return true;
+  }
+  return false;
+}
+
+function tableauCount() {
+  return tableau.reduce((s, c) => s + c.length, 0);
+}
+
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
+function saveHistory() {
+  history.push({
+    tableau: tableau.map(c => [...c]),
+    stock:   [...stock],
+    waste:   [...waste],
+  });
+}
+
+function playCard(colIdx) {
+  const col = tableau[colIdx];
+  if (!col.length) return;
+  const card = col[col.length - 1];
+  if (!canPlay(card)) return;
+  saveHistory();
+  col.pop();
+  waste.push(card);
+  checkEnd();
+  updateHUD();
+  render();
+}
+
+function drawStock() {
+  if (!stock.length) return;
+  saveHistory();
+  waste.push(stock.pop());
+  updateHUD();
+  render();
+}
+
+function doUndo() {
+  if (!history.length) return;
+  const state = history.pop();
+  tableau  = state.tableau;
+  stock    = state.stock;
+  waste    = state.waste;
+  gameOver = false;
+  closeOverlay();
+  updateHUD();
+  render();
+}
+
+function checkEnd() {
+  const left = tableauCount();
+  if (left === 0) {
+    gameOver = true;
+    wins++;
+    localStorage.setItem('golf_wins', wins);
+    updateHUD();
+    setTimeout(() => showOverlay('🏆', 'Hole in One!', 'You cleared the board!'), 400);
+    return;
+  }
+  if (!hasAnyMove() && !stock.length) {
+    gameOver = true;
+    setTimeout(() => showOverlay('⛳', 'Game Over', `${left} card${left !== 1 ? 's' : ''} remaining.`), 300);
+  }
+}
+
+function updateHUD() {
+  document.getElementById('hud-left').textContent  = tableauCount();
+  document.getElementById('hud-stock').textContent = stock.length;
+  document.getElementById('hud-wins').textContent  = wins;
+  document.getElementById('btn-undo').disabled = !history.length;
+
+  let status = '';
+  if (!gameOver) {
+    if (!hasAnyMove() && stock.length) status = 'No moves — draw from stock';
+    else if (!hasAnyMove())            status = 'No moves and no stock left';
+  }
+  document.getElementById('status').textContent = status;
+}
+
+// ── RENDERING ─────────────────────────────────────────────────────────────────
+function cardLabel(card) {
+  return card.rank + card.suit;
+}
+
+function makeCardEl(card, isTop, isValid) {
+  const color = card.red ? 'red' : 'black';
+  const el    = document.createElement('div');
+  el.className = 'card face-up' + (isValid && isTop ? ' valid' : '');
+  el.innerHTML =
+    `<div class="card-corner tl ${color}">` +
+      `<span class="card-rank">${card.rank}</span>` +
+      `<span class="card-suit">${card.suit}</span>` +
+    `</div>` +
+    `<div class="card-center ${color}">${card.suit}</div>` +
+    `<div class="card-corner br ${color}">` +
+      `<span class="card-rank">${card.rank}</span>` +
+      `<span class="card-suit">${card.suit}</span>` +
+    `</div>`;
+  return el;
+}
+
+function render() {
+  const { cw, ch, overlap } = computeSizes();
+  const tableauEl = document.getElementById('tableau');
+  tableauEl.innerHTML = '';
+
+  tableauEl.style.width = (Math.min(700, window.innerWidth - 16)) + 'px';
+
+  for (let c = 0; c < 7; c++) {
+    const col = tableau[c];
+    const colEl = document.createElement('div');
+    colEl.className = 'column';
+
+    colEl.style.width = cw + 'px';
+
+    if (!col.length) {
+      // Empty slot
+      const slot = document.createElement('div');
+      slot.className = 'card-slot';
+      slot.style.width  = cw + 'px';
+      slot.style.height = ch + 'px';
+      colEl.appendChild(slot);
+      colEl.style.height = ch + 'px';
+    } else {
+      // Height = (n-1)*overlap + ch
+      const totalH = (col.length - 1) * overlap + ch;
+      colEl.style.height = totalH + 'px';
+
+      col.forEach((card, i) => {
+        const isTop   = i === col.length - 1;
+        const isValid = isTop && canPlay(card);
+        const el = makeCardEl(card, isTop, isValid);
+        el.style.position = 'absolute';
+        el.style.top      = (i * overlap) + 'px';
+        el.style.width    = cw + 'px';
+        el.style.height   = ch + 'px';
+        if (isTop && isValid) {
+          el.onclick = () => playCard(c);
+        }
+        colEl.appendChild(el);
+      });
+    }
+
+    tableauEl.appendChild(colEl);
+  }
+
+  // Stock pile
+  const stockEl = document.getElementById('stock-pile');
+  stockEl.innerHTML = '';
+  const stockCard = document.createElement('div');
+  stockCard.style.width  = cw + 'px';
+  stockCard.style.height = ch + 'px';
+  if (stock.length) {
+    stockCard.className = 'card face-down';
+    stockCard.onclick   = drawStock;
+    const cnt = document.createElement('div');
+    cnt.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:calc(var(--ch) * 0.19);color:#fff;font-weight:900;z-index:3;';
+    cnt.textContent = stock.length;
+    stockCard.appendChild(cnt);
+  } else {
+    stockCard.className = 'card-slot';
+  }
+  stockEl.appendChild(stockCard);
+
+  // Waste pile
+  const wasteEl = document.getElementById('waste-pile');
+  wasteEl.innerHTML = '';
+  const wasteCard = document.createElement('div');
+  wasteCard.style.width  = cw + 'px';
+  wasteCard.style.height = ch + 'px';
+  if (waste.length) {
+    const top   = waste[waste.length - 1];
+    const color = top.red ? 'red' : 'black';
+    wasteCard.className = 'card face-up';
+    wasteCard.innerHTML =
+      `<div class="card-corner tl ${color}">` +
+        `<span class="card-rank">${top.rank}</span>` +
+        `<span class="card-suit">${top.suit}</span>` +
+      `</div>` +
+      `<div class="card-center ${color}">${top.suit}</div>` +
+      `<div class="card-corner br ${color}">` +
+        `<span class="card-rank">${top.rank}</span>` +
+        `<span class="card-suit">${top.suit}</span>` +
+      `</div>`;
+  } else {
+    wasteCard.className = 'card-slot';
+  }
+  wasteEl.appendChild(wasteCard);
+}
+
+// ── OVERLAY ───────────────────────────────────────────────────────────────────
+function showOverlay(icon, title, msg) {
+  document.getElementById('ov-icon').textContent  = icon;
+  document.getElementById('ov-title').textContent = title;
+  document.getElementById('ov-msg').textContent   = msg;
+  document.getElementById('overlay').classList.add('show');
+}
+function closeOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+}
+
+window.addEventListener('resize', render);
+
+newGame();
+</script>
+</body>
+</html>
