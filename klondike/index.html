@@ -140,6 +140,34 @@ button:hover { background: linear-gradient(145deg, #ffe060, #e8b820); }
   min-height: var(--ch);
 }
 
+/* ── Help modal ── */
+#help-backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,0.72);
+  align-items: center; justify-content: center; z-index: 400;
+}
+#help-backdrop.show { display: flex; }
+#help-box {
+  background: linear-gradient(145deg,#1e2d3d,#162030);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px; padding: 28px 32px;
+  max-width: min(420px, 90vw); width: 100%;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+}
+#help-box h2 { font-size: 1.1em; font-weight: 900; color: #f0c040; margin-bottom: 14px; }
+#help-box p  { font-size: 0.85em; color: rgba(255,255,255,0.7); line-height: 1.65; margin-bottom: 10px; }
+#help-box p:last-of-type { margin-bottom: 18px; }
+#help-close {
+  display: block; width: 100%; padding: 9px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; border-radius: 8px;
+  font-size: 0.85em; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  cursor: pointer; transition: background 0.12s;
+}
+#help-close:hover { background: rgba(255,255,255,0.15); }
+
 /* ── Win overlay ── */
 #overlay {
   display: none; position: fixed; inset:0;
@@ -175,6 +203,17 @@ button:hover { background: linear-gradient(145deg, #ffe060, #e8b820); }
     <button onclick="newGame()">🔀 New Game</button>
     <button onclick="undoMove()">↩ Undo</button>
     <button onclick="autoComplete()" id="auto-btn" style="display:none">✅ Auto</button>
+    <button onclick="document.getElementById('help-backdrop').classList.add('show')">? Help</button>
+  </div>
+</div>
+
+<div id="help-backdrop" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="help-box">
+    <h2>🃏 How to Play Klondike</h2>
+    <p>Build four foundation piles (top-right) in suit from Ace up to King. The tableau has seven columns — you can move cards or stacks onto a card of the opposite color and next higher rank.</p>
+    <p>Flip cards from the stock pile (top-left) to the waste pile one at a time. You can cycle through the stock as many times as you like.</p>
+    <p>Empty columns can only be filled with a King (or a stack led by a King). The game is won when all 52 cards are on the foundations.</p>
+    <button id="help-close" onclick="document.getElementById('help-backdrop').classList.remove('show')">Got it</button>
   </div>
 </div>
 

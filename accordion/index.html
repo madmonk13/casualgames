@@ -142,6 +142,34 @@
       text-align: center;
     }
 
+    /* ── Help modal ──────────────────────────────────────────*/
+    #help-backdrop {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72);
+      align-items: center; justify-content: center; z-index: 400;
+    }
+    #help-backdrop.show { display: flex; }
+    #help-box {
+      background: linear-gradient(145deg,#1e2d3d,#162030);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; padding: 28px 32px;
+      max-width: min(420px, 90vw); width: 100%;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+    }
+    #help-box h2 { font-size: 1.1em; font-weight: 900; color: #f0c040; margin-bottom: 14px; }
+    #help-box p  { font-size: 0.85em; color: rgba(255,255,255,0.7); line-height: 1.65; margin-bottom: 10px; }
+    #help-box p:last-of-type { margin-bottom: 18px; }
+    #help-close {
+      display: block; width: 100%; padding: 9px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff; border-radius: 8px;
+      font-size: 0.85em; font-weight: 700;
+      letter-spacing: 1.5px; text-transform: uppercase;
+      cursor: pointer; transition: background 0.12s;
+    }
+    #help-close:hover { background: rgba(255,255,255,0.15); }
+
     /* ── Overlays ─────────────────────────────────────────── */
     .overlay {
       display: none;
@@ -184,6 +212,18 @@
       </div>
       <button id="undo-btn" disabled>↩ Undo</button>
       <button id="new-btn">New Game</button>
+      <button onclick="document.getElementById('help-backdrop').classList.add('show')">? Help</button>
+    </div>
+  </div>
+
+  <div id="help-backdrop" onclick="if(event.target===this)this.classList.remove('show')">
+    <div id="help-box">
+      <h2>🪗 How to Play Accordion</h2>
+      <p>All 52 cards are dealt face-up in a row. Click a card to select it (it glows gold), then click a green-highlighted card to move the pile onto it.</p>
+      <p>A pile can move <strong>1 or 3 positions to the left</strong> if the top cards share the same suit or the same rank.</p>
+      <p>When a pile moves, everything to its right shifts left — this can open up new 3-left moves that didn't exist before. Think ahead! Moving 1 left is often the wrong call if it blocks a better 3-left move.</p>
+      <p>The goal is to compress all 52 cards into a single pile. Finishing with fewer than 10 piles is excellent — a perfect game is extremely rare.</p>
+      <button id="help-close" onclick="document.getElementById('help-backdrop').classList.remove('show')">Got it</button>
     </div>
   </div>
 
