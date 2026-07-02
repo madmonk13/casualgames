@@ -17,7 +17,7 @@ body {
 
 header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 header h1 {
   font-size: clamp(2em, 6vw, 3.2em);
@@ -36,6 +36,38 @@ header p {
   letter-spacing: 1px;
 }
 
+/* ── Filter tabs ───────────────────────────────────────── */
+.filters {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 1100px;
+  margin: 0 auto 32px;
+}
+.filter-btn {
+  padding: 7px 18px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.55);
+  font-size: 0.88em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.5px;
+}
+.filter-btn:hover {
+  border-color: rgba(240,192,64,0.4);
+  color: rgba(240,192,64,0.8);
+}
+.filter-btn.active {
+  background: linear-gradient(135deg, #f0c040, #d4a010);
+  border-color: transparent;
+  color: #2a1800;
+}
+
+/* ── Grid ──────────────────────────────────────────────── */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -43,6 +75,19 @@ header p {
   max-width: 1100px;
   margin: 0 auto;
 }
+
+.section-header {
+  grid-column: 1 / -1;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  padding: 8px 0 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  margin-top: 8px;
+}
+.section-header:first-child { margin-top: 0; }
 
 .card {
   background: linear-gradient(145deg, #1e2d3d, #162030);
@@ -62,26 +107,15 @@ header p {
   box-shadow: 0 12px 32px rgba(0,0,0,0.5);
   border-color: rgba(240,192,64,0.4);
 }
-.card-icon {
-  font-size: 3em;
-  line-height: 1;
-}
-.card-title {
-  font-size: 1.3em;
-  font-weight: 700;
-  color: #f0e0a0;
-}
+.card-icon { font-size: 3em; line-height: 1; }
+.card-title { font-size: 1.3em; font-weight: 700; color: #f0e0a0; }
 .card-desc {
   font-size: 0.9em;
   color: rgba(255,255,255,0.55);
   line-height: 1.5;
   flex: 1;
 }
-.card-tags {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
+.card-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .tag {
   font-size: 0.75em;
   padding: 3px 9px;
@@ -91,10 +125,8 @@ header p {
   border: 1px solid rgba(255,255,255,0.1);
 }
 .card-icon img {
-  height: 1em;
-  width: auto;
-  image-rendering: pixelated;
-  display: block;
+  height: 1em; width: auto;
+  image-rendering: pixelated; display: block;
 }
 .card-play {
   display: inline-block;
@@ -108,21 +140,17 @@ header p {
   text-align: center;
   transition: background 0.15s;
 }
-.card:hover .card-play {
-  background: linear-gradient(135deg, #ffe060, #e8b820);
-}
+.card:hover .card-play { background: linear-gradient(135deg, #ffe060, #e8b820); }
 
 /* Coming-soon card */
 .card.soon {
-  opacity: 0.45;
-  cursor: default;
-  pointer-events: none;
-  border-style: dashed;
+  opacity: 0.45; cursor: default;
+  pointer-events: none; border-style: dashed;
 }
-.card.soon .card-play {
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.4);
-}
+.card.soon .card-play { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
+
+/* Hidden during filter */
+.card.hidden, .section-header.hidden { display: none; }
 
 footer {
   text-align: center;
@@ -139,68 +167,21 @@ footer {
   <p>Solo games — no sign-up, no ads, just play</p>
 </header>
 
+<div class="filters">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="cards">Cards</button>
+  <button class="filter-btn" data-filter="dice">Dice</button>
+  <button class="filter-btn" data-filter="logic">Logic</button>
+  <button class="filter-btn" data-filter="other">Other</button>
+  <button class="filter-btn" data-filter="puzzle">Puzzle</button>
+</div>
+
 <div class="grid">
 
-  <a class="card" href="arrows/">
-    <div class="card-icon">🐍</div>
-    <div class="card-title">Snake Escape</div>
-    <div class="card-desc">A board packed with snakes — tap one to free it, but only if its exit path is clear. Wrong tap costs a life. Three strikes and it's over.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Infinite</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
+  <!-- ── Cards ─────────────────────────────────────────── -->
+  <div class="section-header" data-section="cards">♠ Cards</div>
 
-  <a class="card" href="beatmatch/">
-    <div class="card-icon">🥁</div>
-    <div class="card-title">Beat Match</div>
-    <div class="card-desc">A beat plays — you recreate it on a step sequencer. Start with just a kick drum and work up to full grooves across 24 levels.</div>
-    <div class="card-tags">
-      <span class="tag">Ear Training</span>
-      <span class="tag">24 levels</span>
-      <span class="tag">Rhythm</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="2048/">
-    <div class="card-icon">🔢</div>
-    <div class="card-title">2048</div>
-    <div class="card-desc">Slide tiles on a 4×4 grid to merge matching numbers. Reach the 2048 tile to win — then keep going!</div>
-    <div class="card-tags">
-      <span class="tag">Strategy</span>
-      <span class="tag">Arrow keys</span>
-      <span class="tag">Swipe</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="block/">
-    <div class="card-icon">🧱</div>
-    <div class="card-title">Block Puzzle</div>
-    <div class="card-desc">Drag pieces onto a 10×10 grid and clear full rows and columns. No time limit — plan ahead before the board fills up.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Drag &amp; drop</span>
-      <span class="tag">High score</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="dicewars/">
-    <div class="card-icon">🎲</div>
-    <div class="card-title">Dice Wars</div>
-    <div class="card-desc">Conquer a hex map by rolling dice against your neighbors. Attack where you outnumber, collect bonus dice for connected territory, eliminate all rivals.</div>
-    <div class="card-tags">
-      <span class="tag">Strategy</span>
-      <span class="tag">1 vs 5 AI</span>
-      <span class="tag">Turn-based</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="accordion/">
+  <a class="card" href="accordion/" data-category="cards">
     <div class="card-icon">🪗</div>
     <div class="card-title">Accordion Solitaire</div>
     <div class="card-desc">52 cards laid out in a row — move piles 1 or 3 spots left when they share a suit or rank. Compress everything down to a single pile to win.</div>
@@ -212,19 +193,19 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="videopoker/">
-    <div class="card-icon">🃏</div>
-    <div class="card-title">Video Poker</div>
-    <div class="card-desc">Jacks or Better — hold the cards you want and draw to complete your hand. Bet 1–5 credits per round. Royal Flush pays 800× at max bet.</div>
+  <a class="card" href="blackjack/" data-category="cards">
+    <div class="card-icon">♠</div>
+    <div class="card-title">Blackjack</div>
+    <div class="card-desc">Classic 21 with two CPU players, a real card shoe, and a built-in Hi-Lo card counting tracker. Choose 1–8 decks and watch the running count shift with every card.</div>
     <div class="card-tags">
       <span class="tag">Cards</span>
-      <span class="tag">Poker</span>
       <span class="tag">Strategy</span>
+      <span class="tag">Multiplayer</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="golf/">
+  <a class="card" href="golf/" data-category="cards">
     <div class="card-icon">⛳</div>
     <div class="card-title">Golf Solitaire</div>
     <div class="card-desc">Play cards from 7 columns onto the waste pile — one rank up or down. Clear the board before the stock runs out. Aces and Kings wrap.</div>
@@ -236,43 +217,7 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="pegs/">
-    <div class="card-icon">🪵</div>
-    <div class="card-title">Peg Solitaire</div>
-    <div class="card-desc">Jump pegs over each other to remove them — the goal is just one peg left. Choose the classic 15-peg triangle or the 33-peg plus board.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Classic</span>
-      <span class="tag">Two boards</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="https://madmonk13.github.io/Dragonslayer/dragonslayer.html" target="_blank" rel="noopener">
-    <div class="card-icon"><img src="https://madmonk13.github.io/Dragonslayer/sprites/dragon.png" alt="🐉" onerror="this.outerHTML='🐉'"></div>
-    <div class="card-title">Dragonslayer</div>
-    <div class="card-desc">Your daughter has been chosen as the dragon's sacrifice. You have 30 days to train, explore, and grow strong enough to defeat Pyraxis and save her.</div>
-    <div class="card-tags">
-      <span class="tag">RPG</span>
-      <span class="tag">Dice combat</span>
-      <span class="tag">30-day quest</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="flow/">
-    <div class="card-icon">🌊</div>
-    <div class="card-title">Flow</div>
-    <div class="card-desc">Connect matching colored dots with pipes — but every cell must be filled. 100 levels each on 5×5 up to 12×12 grids.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">800 levels</span>
-      <span class="tag">Drag to draw</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="klondike/">
+  <a class="card" href="klondike/" data-category="cards">
     <div class="card-icon">🃏</div>
     <div class="card-title">Klondike Solitaire</div>
     <div class="card-desc">The classic card game. Stack cards on 7 columns and build all four suits up from Ace to King.</div>
@@ -284,151 +229,46 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="gears/">
-    <div class="card-icon">⚙️</div>
-    <div class="card-title">Gears</div>
-    <div class="card-desc">Place gears on a hex grid to spin every target in the right direction. Adjacent gears always turn opposite ways — plan your chain carefully to avoid conflicts.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">32 levels</span>
-      <span class="tag">Hex grid</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="laser/">
-    <div class="card-icon">🔴</div>
-    <div class="card-title">Laser Lab</div>
-    <div class="card-desc">Place mirrors, splitters, and color filters to guide laser beams onto their targets. Mix red, green, and blue light to hit every target with the right color.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">30 levels</span>
-      <span class="tag">Color mixing</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="mahjong/">
-    <div class="card-icon">🀄</div>
-    <div class="card-title">Mahjong Solitaire</div>
-    <div class="card-desc">Clear the board by matching pairs of identical free tiles. Six classic layouts from Turtle to Dragon.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">6 layouts</span>
-      <span class="tag">Hint &amp; Undo</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="mastermind/">
-    <div class="card-icon">🔐</div>
-    <div class="card-title">Mastermind</div>
-    <div class="card-desc">Crack the secret color code in 10 guesses. Black clue = right color &amp; spot. White = right color, wrong spot.</div>
-    <div class="card-tags">
-      <span class="tag">Logic</span>
-      <span class="tag">Classic &amp; Hard</span>
-      <span class="tag">Color pegs</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="maze/">
-    <div class="card-icon">🌀</div>
-    <div class="card-title">Maze</div>
-    <div class="card-desc">Navigate a procedurally generated maze from start to exit. Three difficulty sizes — Easy to Hard — with a new maze every time.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Procedural</span>
-      <span class="tag">Arrow keys</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="memory/">
+  <a class="card" href="videopoker/" data-category="cards">
     <div class="card-icon">🃏</div>
-    <div class="card-title">Memory</div>
-    <div class="card-desc">Flip cards to find matching emoji pairs. Three difficulty levels from 8 to 18 pairs.</div>
+    <div class="card-title">Video Poker</div>
+    <div class="card-desc">Jacks or Better — hold the cards you want and draw to complete your hand. Bet 1–5 credits per round. Royal Flush pays 800× at max bet.</div>
     <div class="card-tags">
-      <span class="tag">Memory</span>
-      <span class="tag">3 difficulties</span>
-      <span class="tag">Timer</span>
+      <span class="tag">Cards</span>
+      <span class="tag">Poker</span>
+      <span class="tag">Strategy</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="minesweeper/">
-    <div class="card-icon">💣</div>
-    <div class="card-title">Minesweeper</div>
-    <div class="card-desc">Uncover every safe cell without triggering a mine. Three difficulty levels from Beginner to Expert.</div>
+  <!-- ── Dice ──────────────────────────────────────────── -->
+  <div class="section-header" data-section="dice">🎲 Dice</div>
+
+  <a class="card" href="dicewars/" data-category="dice">
+    <div class="card-icon">🎲</div>
+    <div class="card-title">Dice Wars</div>
+    <div class="card-desc">Conquer a hex map by rolling dice against your neighbors. Attack where you outnumber, collect bonus dice for connected territory, eliminate all rivals.</div>
     <div class="card-tags">
-      <span class="tag">Logic</span>
-      <span class="tag">3 difficulties</span>
-      <span class="tag">Flagging</span>
+      <span class="tag">Strategy</span>
+      <span class="tag">1 vs 5 AI</span>
+      <span class="tag">Turn-based</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="pipes/">
-    <div class="card-icon">🔧</div>
-    <div class="card-title">Pipes</div>
-    <div class="card-desc">Rotate pipe segments to connect every piece into a single network with no open ends. Three grid sizes from 5×5 to 10×10.</div>
+  <a class="card" href="https://madmonk13.github.io/Dragonslayer/dragonslayer.html" target="_blank" rel="noopener" data-category="dice">
+    <div class="card-icon"><img src="https://madmonk13.github.io/Dragonslayer/sprites/dragon.png" alt="🐉" onerror="this.outerHTML='🐉'"></div>
+    <div class="card-title">Dragonslayer</div>
+    <div class="card-desc">Your daughter has been chosen as the dragon's sacrifice. You have 30 days to train, explore, and grow strong enough to defeat Pyraxis and save her.</div>
     <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Logic</span>
-      <span class="tag">Rotation</span>
+      <span class="tag">RPG</span>
+      <span class="tag">Dice combat</span>
+      <span class="tag">30-day quest</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="sudoku/">
-    <div class="card-icon">🧩</div>
-    <div class="card-title">Sudoku</div>
-    <div class="card-desc">Fill the 9×9 grid so every row, column, and box contains each digit 1–9. Three difficulty levels.</div>
-    <div class="card-tags">
-      <span class="tag">Numbers</span>
-      <span class="tag">Notes mode</span>
-      <span class="tag">Hints</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="tetris/">
-    <div class="card-icon">🟦</div>
-    <div class="card-title">Tetris</div>
-    <div class="card-desc">Stack falling tetrominoes and clear lines to score. Speed increases every 10 lines.</div>
-    <div class="card-tags">
-      <span class="tag">Classic</span>
-      <span class="tag">Arrow keys</span>
-      <span class="tag">Swipe</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="unblock/">
-    <div class="card-icon">🚗</div>
-    <div class="card-title">Unblock</div>
-    <div class="card-desc">Slide cars and trucks out of the way to free the red car. Drag pieces along their axis — they can only move in one direction.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Sliding</span>
-      <span class="tag">Logic</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="vexed/">
-    <div class="card-icon">🧩</div>
-    <div class="card-title">Vexed</div>
-    <div class="card-desc">Slide colored blocks left and right — gravity pulls them down. Match adjacent same-color blocks to make them vanish. Chain reactions score big. A cult classic from the Palm Pilot era.</div>
-    <div class="card-tags">
-      <span class="tag">Puzzle</span>
-      <span class="tag">Classic + Expansion</span>
-      <span class="tag">Par scoring</span>
-    </div>
-    <div class="card-play">▶ Play</div>
-  </a>
-
-  <a class="card" href="yahtzee/">
+  <a class="card" href="yahtzee/" data-category="dice">
     <div class="card-icon">🎲</div>
     <div class="card-title">Yahtzee Solitaire</div>
     <div class="card-desc">Roll 5 dice up to 3 times per turn. Score all 13 categories — upper bonus, Full House, Straights, and the coveted Yahtzee.</div>
@@ -440,9 +280,260 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
+  <!-- ── Logic ─────────────────────────────────────────── -->
+  <div class="section-header" data-section="logic">🔐 Logic</div>
+
+  <a class="card" href="mastermind/" data-category="logic">
+    <div class="card-icon">🔐</div>
+    <div class="card-title">Mastermind</div>
+    <div class="card-desc">Crack the secret color code in 10 guesses. Black clue = right color &amp; spot. White = right color, wrong spot.</div>
+    <div class="card-tags">
+      <span class="tag">Logic</span>
+      <span class="tag">Classic &amp; Hard</span>
+      <span class="tag">Color pegs</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="memory/" data-category="logic">
+    <div class="card-icon">🃏</div>
+    <div class="card-title">Memory</div>
+    <div class="card-desc">Flip cards to find matching emoji pairs. Three difficulty levels from 8 to 18 pairs.</div>
+    <div class="card-tags">
+      <span class="tag">Memory</span>
+      <span class="tag">3 difficulties</span>
+      <span class="tag">Timer</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="minesweeper/" data-category="logic">
+    <div class="card-icon">💣</div>
+    <div class="card-title">Minesweeper</div>
+    <div class="card-desc">Uncover every safe cell without triggering a mine. Three difficulty levels from Beginner to Expert.</div>
+    <div class="card-tags">
+      <span class="tag">Logic</span>
+      <span class="tag">3 difficulties</span>
+      <span class="tag">Flagging</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="sudoku/" data-category="logic">
+    <div class="card-icon">🧩</div>
+    <div class="card-title">Sudoku</div>
+    <div class="card-desc">Fill the 9×9 grid so every row, column, and box contains each digit 1–9. Three difficulty levels.</div>
+    <div class="card-tags">
+      <span class="tag">Numbers</span>
+      <span class="tag">Notes mode</span>
+      <span class="tag">Hints</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <!-- ── Other ─────────────────────────────────────────── -->
+  <div class="section-header" data-section="other">✦ Other</div>
+
+  <a class="card" href="2048/" data-category="other">
+    <div class="card-icon">🔢</div>
+    <div class="card-title">2048</div>
+    <div class="card-desc">Slide tiles on a 4×4 grid to merge matching numbers. Reach the 2048 tile to win — then keep going!</div>
+    <div class="card-tags">
+      <span class="tag">Strategy</span>
+      <span class="tag">Arrow keys</span>
+      <span class="tag">Swipe</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="beatmatch/" data-category="other">
+    <div class="card-icon">🥁</div>
+    <div class="card-title">Beat Match</div>
+    <div class="card-desc">A beat plays — you recreate it on a step sequencer. Start with just a kick drum and work up to full grooves across 24 levels.</div>
+    <div class="card-tags">
+      <span class="tag">Ear Training</span>
+      <span class="tag">24 levels</span>
+      <span class="tag">Rhythm</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="tetris/" data-category="other">
+    <div class="card-icon">🟦</div>
+    <div class="card-title">Tetris</div>
+    <div class="card-desc">Stack falling tetrominoes and clear lines to score. Speed increases every 10 lines.</div>
+    <div class="card-tags">
+      <span class="tag">Classic</span>
+      <span class="tag">Arrow keys</span>
+      <span class="tag">Swipe</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <!-- ── Puzzle ─────────────────────────────────────────── -->
+  <div class="section-header" data-section="puzzle">🧩 Puzzle</div>
+
+  <a class="card" href="block/" data-category="puzzle">
+    <div class="card-icon">🧱</div>
+    <div class="card-title">Block Puzzle</div>
+    <div class="card-desc">Drag pieces onto a 10×10 grid and clear full rows and columns. No time limit — plan ahead before the board fills up.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Drag &amp; drop</span>
+      <span class="tag">High score</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="flow/" data-category="puzzle">
+    <div class="card-icon">🌊</div>
+    <div class="card-title">Flow</div>
+    <div class="card-desc">Connect matching colored dots with pipes — but every cell must be filled. 100 levels each on 5×5 up to 12×12 grids.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">800 levels</span>
+      <span class="tag">Drag to draw</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="gears/" data-category="puzzle">
+    <div class="card-icon">⚙️</div>
+    <div class="card-title">Gears</div>
+    <div class="card-desc">Place gears on a hex grid to spin every target in the right direction. Adjacent gears always turn opposite ways — plan your chain carefully to avoid conflicts.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">32 levels</span>
+      <span class="tag">Hex grid</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="laser/" data-category="puzzle">
+    <div class="card-icon">🔴</div>
+    <div class="card-title">Laser Lab</div>
+    <div class="card-desc">Place mirrors, splitters, and color filters to guide laser beams onto their targets. Mix red, green, and blue light to hit every target with the right color.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">30 levels</span>
+      <span class="tag">Color mixing</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="mahjong/" data-category="puzzle">
+    <div class="card-icon">🀄</div>
+    <div class="card-title">Mahjong Solitaire</div>
+    <div class="card-desc">Clear the board by matching pairs of identical free tiles. Six classic layouts from Turtle to Dragon.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">6 layouts</span>
+      <span class="tag">Hint &amp; Undo</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="maze/" data-category="puzzle">
+    <div class="card-icon">🌀</div>
+    <div class="card-title">Maze</div>
+    <div class="card-desc">Navigate a procedurally generated maze from start to exit. Three difficulty sizes — Easy to Hard — with a new maze every time.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Procedural</span>
+      <span class="tag">Arrow keys</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="pegs/" data-category="puzzle">
+    <div class="card-icon">🪵</div>
+    <div class="card-title">Peg Solitaire</div>
+    <div class="card-desc">Jump pegs over each other to remove them — the goal is just one peg left. Choose the classic 15-peg triangle or the 33-peg plus board.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Classic</span>
+      <span class="tag">Two boards</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="pipes/" data-category="puzzle">
+    <div class="card-icon">🔧</div>
+    <div class="card-title">Pipes</div>
+    <div class="card-desc">Rotate pipe segments to connect every piece into a single network with no open ends. Three grid sizes from 5×5 to 10×10.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Logic</span>
+      <span class="tag">Rotation</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="arrows/" data-category="puzzle">
+    <div class="card-icon">🐍</div>
+    <div class="card-title">Snake Escape</div>
+    <div class="card-desc">A board packed with snakes — tap one to free it, but only if its exit path is clear. Wrong tap costs a life. Three strikes and it's over.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Infinite</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="unblock/" data-category="puzzle">
+    <div class="card-icon">🚗</div>
+    <div class="card-title">Unblock</div>
+    <div class="card-desc">Slide cars and trucks out of the way to free the red car. Drag pieces along their axis — they can only move in one direction.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Sliding</span>
+      <span class="tag">Logic</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="vexed/" data-category="puzzle">
+    <div class="card-icon">🧩</div>
+    <div class="card-title">Vexed</div>
+    <div class="card-desc">Slide colored blocks left and right — gravity pulls them down. Match adjacent same-color blocks to make them vanish. Chain reactions score big. A cult classic from the Palm Pilot era.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Classic + Expansion</span>
+      <span class="tag">Par scoring</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
 </div>
 
 <footer>Open any game — everything runs locally in your browser.</footer>
 
+<script>
+const filterBtns = document.querySelectorAll('.filter-btn');
+const cards      = document.querySelectorAll('.card');
+const headers    = document.querySelectorAll('.section-header');
+
+filterBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const f = btn.dataset.filter;
+
+    // Update active button
+    filterBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    if (f === 'all') {
+      cards.forEach(c   => c.classList.remove('hidden'));
+      headers.forEach(h => h.classList.remove('hidden'));
+    } else {
+      cards.forEach(c => {
+        c.classList.toggle('hidden', c.dataset.category !== f);
+      });
+      headers.forEach(h => {
+        h.classList.toggle('hidden', h.dataset.section !== f);
+      });
+    }
+  });
+});
+</script>
 </body>
 </html>
