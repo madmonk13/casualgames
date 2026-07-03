@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sleepwalker</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #0d1117;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* ── HUD ─────────────────────────────────────────────────────────── */
+#hud {
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 6px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#hud-level  { font-size: 1.05rem; font-weight: 700; color: #f0c060; }
+#hud-floor  { font-size: 0.85rem; color: #aaa; }
+#hud-lives  { font-size: 1.1rem; letter-spacing: 2px; }
+#hud-hint   {
+  width: 100%; font-size: 0.8rem; color: #8aafc8; font-style: italic;
+  padding: 0 2px; min-height: 1.2em;
+}
+
+/* ── GAME WRAP & GRID ────────────────────────────────────────────── */
+#game-wrap {
+  position: relative;
+  overflow: visible;
+  margin: 8px auto 80px;
+}
+
+#grid {
+  display: grid;
+  position: relative;   /* absolute children (Sam, pieces) anchor here */
+  user-select: none;
+}
+
+/* ── CELLS ───────────────────────────────────────────────────────── */
+.cell {
+  width: 52px; height: 52px;
+  position: relative;
+}
+.cell-W {
+  background: #2a2a2a;
+  box-shadow: inset 0 0 0 1px #111;
+  background-image:
+    linear-gradient(135deg, #333 25%, transparent 25%),
+    linear-gradient(225deg, #222 25%, transparent 25%);
+  background-size: 8px 8px;
+}
+.cell-F {
+  background: #5c3d1e;
+  background-image:
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(0deg,  rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 13px 13px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3);
+}
+.cell-H {
+  background: radial-gradient(ellipse at center, #000 40%, #1a0800 100%);
+  box-shadow: inset 0 4px 12px rgba(0,0,0,0.9), inset 0 0 0 2px #111;
+}
+
+/* ── PIECES (shared) ─────────────────────────────────────────────── */
+.piece {
+  position: absolute;
+  width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+.piece[style*="cursor"] { pointer-events: auto; }
+
+.piece-inner {
+  width: 40px; height: 40px;
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; font-weight: bold;
+  transition: transform 0.18s ease;
+}
+
+/* EXIT */
+.exit-inner {
+  background: #1a4a1a;
+  border: 2px solid #4caf50;
+  color: #4caf50;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+  box-shadow: 0 0 10px rgba(76,175,80,0.4);
+  animation: exit-pulse 1.4s ease-in-out infinite;
+}
+@keyframes exit-pulse {
+  0%,100% { box-shadow: 0 0 6px rgba(76,175,80,0.3); }
+  50%      { box-shadow: 0 0 16px rgba(76,175,80,0.7); }
+}
+
+/* ARROW */
+.piece-arrow .piece-inner {
+  background: rgba(255,255,255,0.06);
+  border: 2px solid #888;
+  color: #ccc;
+  font-size: 1.5rem;
+}
+/* free (player-controlled) arrows get a teal border */
+.piece-arrow[style*="cursor"] .piece-inner {
+  border-color: #4dd0e1;
+  color: #4dd0e1;
+  background: rgba(77,208,225,0.08);
+}
+
+/* BRIDGE */
+.piece-bridge .piece-inner {
+  background: rgba(255,255,255,0.05);
+  border: 2px solid #888;
+  overflow: hidden;
+  position: relative;
+}
+.piece-bridge[style*="cursor"] .piece-inner {
+  border-color: #4dd0e1;
+}
+.bridge-H { width: 100%; height: 16px; border-radius: 3px; }
+.bridge-V { width: 16px; height: 100%; border-radius: 3px; }
+.bridge-H::before, .bridge-V::before {
+  content: '';
+  position: absolute;
+  background: #a0734a;
+  border-radius: 2px;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+}
+.bridge-H {
+  display: flex; align-items: center;
+  position: relative; left: 50%; top: 50%;
+  transform: translate(-50%,-50%);
+}
+.bridge-H::before {
+  width: 100%; height: 100%;
+}
+.bridge-V {
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; left: 50%; top: 50%;
+  transform: translate(-50%,-50%);
+}
+.bridge-V::before {
+  width: 100%; height: 100%;
+}
+
+/* BELT */
+.piece-belt .piece-inner {
+  background: #1a1a1a;
+  border: 2px solid #c8a020;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+.belt-track {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    #c8a020 0px, #c8a020 4px,
+    #2a2a2a 4px, #2a2a2a 14px
+  );
+  background-size: 18px 100%;
+  animation: belt-scroll-h 0.5s linear infinite;
+  opacity: 0.85;
+}
+.belt-track.belt-v {
+  background: repeating-linear-gradient(
+    0deg,
+    #c8a020 0px, #c8a020 4px,
+    #2a2a2a 4px, #2a2a2a 14px
+  );
+  background-size: 100% 18px;
+  animation: belt-scroll-v 0.5s linear infinite;
+}
+/* Reverse animation for W and N belts */
+.belt-track.belt-rev-h { animation-direction: reverse; }
+.belt-track.belt-rev-v { animation-direction: reverse; }
+.belt-arrow {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: #f0c060;
+  text-shadow: 0 0 4px rgba(0,0,0,0.8);
+}
+@keyframes belt-scroll-h {
+  from { background-position: 0 0; }
+  to   { background-position: 18px 0; }
+}
+@keyframes belt-scroll-v {
+  from { background-position: 0 0; }
+  to   { background-position: 0 18px; }
+}
+
+/* PRESS */
+.piece-press .piece-inner {
+  background: #1a0a1a;
+  border: 2px solid #cc44cc;
+  overflow: hidden; position: relative;
+}
+.press-base {
+  position: absolute; bottom: 0; left: 10%; width: 80%; height: 10px;
+  background: #cc44cc; border-radius: 2px 2px 0 0;
+}
+.press-ram {
+  position: absolute; top: 4px; left: 10%; width: 80%; height: 60%;
+  background: linear-gradient(180deg, #ee88ee, #aa22aa);
+  border-radius: 3px;
+  transform: scaleY(0.25) translateY(-150%);
+  transform-origin: top center;
+  transition: transform 0.15s ease-in;
+  box-shadow: 0 4px 8px rgba(200,0,200,0.5);
+}
+
+/* PUSHER */
+.piece-pusher .piece-inner {
+  background: #0a1a2a;
+  border: 2px solid #44aacc;
+  overflow: hidden; position: relative;
+}
+.pusher-arrow {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; color: #44aacc;
+  transition: transform 0.15s ease-in;
+}
+
+/* BLOCK */
+.piece-block .piece-inner {
+  background: #3a2a1a;
+  border: 2px solid #5a4a3a;
+  color: #888;
+}
+.block-inner {
+  width: 34px; height: 34px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #4a3a2a, #2a1a0a);
+  border: 2px solid #5a4a3a;
+  box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+}
+
+/* ELEVATOR */
+.elevator-inner {
+  background: #1a1a4a;
+  border: 2px solid #5555cc;
+  color: #8888ff;
+  box-shadow: 0 0 8px rgba(85,85,200,0.4);
+  animation: elev-pulse 1.8s ease-in-out infinite;
+}
+@keyframes elev-pulse {
+  0%,100% { box-shadow: 0 0 6px rgba(85,85,200,0.3); }
+  50%      { box-shadow: 0 0 14px rgba(85,85,200,0.6); }
+}
+
+/* ── WALKER SPRITE ───────────────────────────────────────────────── */
+#sam {
+  position: absolute;
+  width: 52px; height: 52px;
+  z-index: 50;
+  pointer-events: none;
+  transition: left 0.32s linear, top 0.32s linear;
+  display: flex; align-items: center; justify-content: center;
+}
+#sam-emoji {
+  font-size: 34px;
+  line-height: 1;
+  transition: transform 0.1s;
+  user-select: none;
+}
+#sam-emoji.flip { transform: scaleX(-1); }
+#sam.falling {
+  animation: fall-in 0.6s ease-in forwards;
+}
+@keyframes fall-in {
+  0%   { transform: scale(1) rotate(0deg);   opacity: 1; }
+  50%  { transform: scale(0.5) rotate(160deg); opacity: 0.8; }
+  100% { transform: scale(0) rotate(340deg); opacity: 0; }
+}
+
+/* ── OVERLAY ─────────────────────────────────────────────────────── */
+#overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 200;
+  align-items: center; justify-content: center;
+}
+.ov-box {
+  background: #1e2433;
+  border: 1px solid #3a4060;
+  border-radius: 12px;
+  padding: 28px 36px;
+  text-align: center;
+  max-width: 340px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.7);
+}
+.ov-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; color: #f0c060; }
+.ov-body  { font-size: 0.95rem; color: #aaa; margin-bottom: 22px; }
+.ov-btns  { display: flex; flex-direction: column; gap: 10px; }
+.ov-btn {
+  padding: 10px 24px;
+  border: 1px solid #4a5a80;
+  border-radius: 8px;
+  background: #252f45;
+  color: #e0e0e0;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ov-btn:hover { background: #2e3c5c; }
+
+/* ── BOTTOM BAR ──────────────────────────────────────────────────── */
+#action-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.88), rgba(0,0,0,0));
+  padding: 10px 16px 14px;
+  display: flex; justify-content: center; gap: 12px;
+  z-index: 100;
+}
+.bar-btn {
+  padding: 8px 20px;
+  border: 1px solid #3a4a6a;
+  border-radius: 8px;
+  background: rgba(30,36,52,0.95);
+  color: #ccc;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.bar-btn:hover { background: rgba(50,60,90,0.95); }
+
+/* ── FLOOR FADE OVERLAY ──────────────────────────────────────────── */
+#floor-fade {
+  display: none;
+  position: fixed; inset: 0;
+  background: #000;
+  z-index: 150;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── GHOST (drag preview) ────────────────────────────────────────── */
+.piece-ghost {
+  z-index: 300;
+  pointer-events: none;
+  border-radius: 8px;
+  opacity: 0.65;
+}
+</style>
+</head>
+<body>
+
+<div id="test-banner" style="display:none;background:#2a1a00;border-bottom:1px solid #f0a020;padding:6px 16px;align-items:center;gap:12px;font-size:0.8rem;color:#f0c060;">
+  🔧 <strong>Test Mode</strong> — this level is not saved yet.
+  <a href="editor.html" style="margin-left:auto;color:#4dd0e1;text-decoration:none;font-weight:600;">← Back to Editor</a>
+</div>
+<div id="hud">
+  <span id="hud-level">Sleepwalker</span>
+  <span id="hud-floor"></span>
+  <span id="hud-lives"></span>
+  <div id="hud-hint"></div>
+</div>
+
+<div id="game-wrap">
+  <div id="grid"></div>
+  <div id="sam">
+    <span id="sam-emoji">🧍‍♂️</span>
+  </div>
+</div>
+
+<div id="overlay"></div>
+<div id="floor-fade"></div>
+
+<div id="action-bar">
+  <button class="bar-btn" id="btn-restart">↩ Restart</button>
+  <button class="bar-btn" id="btn-prev">◀ Prev</button>
+  <button class="bar-btn" id="btn-next">Next ▶</button>
+  <a class="bar-btn" href="editor.html">🔧 Editor</a>
+  <a class="bar-btn" href="../index.html">🏠 Home</a>
+</div>
+
+<script src="levels.js"></script>
+<script>
+'use strict';
+
+// ── CONSTANTS ──────────────────────────────────────────────────────
+const DX  = { N: 0, S: 0, E: 1, W: -1 };
+const DY  = { N:-1, S: 1, E: 0, W:  0 };
+const REV = { N:'S', S:'N', E:'W', W:'E' };
+const ROT = { N:'E', E:'S', S:'W', W:'N' };  // clockwise
+
+const CELL_SIZE  = 52;   // px
+const TICK_MS    = 380;  // ms per step
+const DRAG_PX    = 10;   // pixels to start drag
+
+// ── STATE ──────────────────────────────────────────────────────────
+let levels, levelIdx, floorIdx, floor;
+let CELL;          // floor.cells  (array of strings)
+let sam;           // { x, y, dir }
+let fixedPieces, freePieces, origFree;
+let lives, phase, ticker;
+let tickCount = 0;
+let pending = null;
+
+// ── DOM ────────────────────────────────────────────────────────────
+const gridEl    = document.getElementById('grid');
+const samEl     = document.getElementById('sam');
+const overlayEl = document.getElementById('overlay');
+const fadEl     = document.getElementById('floor-fade');
+
+// ── WALKER EMOJI ───────────────────────────────────────────────────
+const samEmojiEl = document.getElementById('sam-emoji');
+
+function updateSamEmoji() {
+  if (!sam || !samEmojiEl) return;
+  if (sam.dir === 'E' || sam.dir === 'W') {
+    samEmojiEl.textContent = '🚶‍♂️';
+    samEmojiEl.classList.toggle('flip', sam.dir === 'E');
+  } else {
+    samEmojiEl.textContent = '🧍‍♂️';
+    samEmojiEl.classList.remove('flip');
+  }
+}
+
+// ── BOOT ───────────────────────────────────────────────────────────
+function init() {
+  const testData = sessionStorage.getItem('sw_test_level');
+  if (testData) {
+    sessionStorage.removeItem('sw_test_level');
+    levels = [JSON.parse(testData)];
+    levelIdx = 0;
+    // Show test-mode banner
+    const banner = document.getElementById('test-banner');
+    if (banner) banner.style.display = 'flex';
+    // Hide prev/next since there's only the test level
+    document.getElementById('btn-prev').style.display = 'none';
+    document.getElementById('btn-next').style.display = 'none';
+  } else {
+    levels   = SW_LEVELS;
+    levelIdx = clamp(+(localStorage.getItem('sw_level') || 0), 0, levels.length - 1);
+  }
+  startLevel(levelIdx);
+}
+
+function startLevel(li) {
+  levelIdx = clamp(li, 0, levels.length - 1);
+  localStorage.setItem('sw_level', levelIdx);
+  lives = 3;
+  clearInterval(ticker);
+  phase = 'load';
+  loadFloor(0, null);
+}
+
+// ── FLOOR LOAD ─────────────────────────────────────────────────────
+function loadFloor(fi, spawnOverride) {
+  floorIdx = fi;
+  floor    = levels[levelIdx].floors[fi];
+  CELL     = floor.cells;
+
+  fixedPieces = [];
+  freePieces  = [];
+  let startPiece = null;
+
+  floor.pieces.forEach(p => {
+    if (p.type === 'start') { startPiece = p; return; }
+    const copy = { ...p };
+    if (p.type === 'exit' || p.type === 'elevator' || p.fixed) {
+      fixedPieces.push(copy);
+    } else {
+      freePieces.push(copy);
+    }
+  });
+
+  origFree = freePieces.map(p => ({ ...p }));
+
+  // Sam position: use spawnOverride (elevator arrival) or start piece
+  if (spawnOverride) {
+    sam = { ...spawnOverride };
+  } else if (startPiece) {
+    sam = { x: startPiece.x, y: startPiece.y, dir: startPiece.dir };
+  }
+
+  render();
+  placeSam(true);
+  updateHUD();
+  setTimeout(startTick, 120);
+}
+
+// ── TICK ───────────────────────────────────────────────────────────
+function startTick() {
+  clearInterval(ticker);
+  tickCount = 0;
+  phase  = 'play';
+  ticker = setInterval(tick, TICK_MS);
+}
+
+function tick() {
+  if (phase !== 'play') return;
+  tickCount++;
+
+  const nx = sam.x + DX[sam.dir];
+  const ny = sam.y + DY[sam.dir];
+
+  const nextCell  = cellAt(nx, ny);
+  const blocker   = pieceAt(nx, ny, 'block');
+
+  // Wall or blocker → bounce
+  if (nextCell === 'W' || blocker) {
+    sam.dir = REV[sam.dir];
+    placeSam();
+    return;
+  }
+
+  // Hole handling
+  if (nextCell === 'H') {
+    const bridge = pieceAt(nx, ny, 'bridge');
+    const crosses = bridge && (
+      (['E','W'].includes(sam.dir) && bridge.dir === 'H') ||
+      (['N','S'].includes(sam.dir) && bridge.dir === 'V')
+    );
+    if (!crosses) {
+      sam.x = nx; sam.y = ny;
+      placeSam();
+      phase = 'dying';
+      clearInterval(ticker);
+      setTimeout(loseLife, 180);
+      return;
+    }
+  }
+
+  // Move
+  sam.x = nx; sam.y = ny;
+
+
+  // Conveyor belt — push one extra cell without changing facing direction
+  const belt = pieceAt(sam.x, sam.y, 'belt');
+  if (belt) {
+    const bx = sam.x + DX[belt.dir];
+    const by = sam.y + DY[belt.dir];
+    const bCell = cellAt(bx, by);
+    const bBlock = pieceAt(bx, by, 'block');
+    if (bCell !== 'W' && !bBlock) {
+      if (bCell === 'H') {
+        const bridge = pieceAt(bx, by, 'bridge');
+        const crosses = bridge && (
+          (['E','W'].includes(belt.dir) && bridge.dir === 'H') ||
+          (['N','S'].includes(belt.dir) && bridge.dir === 'V')
+        );
+        if (!crosses) {
+          sam.x = bx; sam.y = by;
+          placeSam();
+          phase = 'dying';
+          clearInterval(ticker);
+          setTimeout(loseLife, 180);
+          return;
+        }
+      }
+      sam.x = bx; sam.y = by;
+    }
+  }
+
+  // Arrow redirector
+  const arrow = pieceAt(sam.x, sam.y, 'arrow');
+  if (arrow) sam.dir = arrow.dir;
+
+  // Exit
+  if (pieceAt(sam.x, sam.y, 'exit')) {
+    phase = 'win';
+    clearInterval(ticker);
+    placeSam();
+    setTimeout(winLevel, 380);
+    return;
+  }
+
+  // Elevator
+  const elev = pieceAt(sam.x, sam.y, 'elevator');
+  if (elev) {
+    phase = 'elevator';
+    clearInterval(ticker);
+    placeSam();
+    setTimeout(() => doElevator(elev), 320);
+    return;
+  }
+
+  // Press — crushes Sam if press is in DOWN phase (odd tickCount)
+  const press = pieceAt(sam.x, sam.y, 'press');
+  if (press && (tickCount % 2 === 1)) {
+    placeSam();
+    phase = 'dying';
+    clearInterval(ticker);
+    setTimeout(loseLife, 180);
+    return;
+  }
+
+  // Pusher — shoves Sam 1 cell in pusher's direction when active (odd tickCount), no life loss
+  const pusher = pieceAt(sam.x, sam.y, 'pusher');
+  if (pusher && (tickCount % 2 === 1)) {
+    const px = sam.x + DX[pusher.dir];
+    const py = sam.y + DY[pusher.dir];
+    const pCell = cellAt(px, py);
+    const pBlock = pieceAt(px, py, 'block');
+    if (pCell !== 'W' && !pBlock) {
+      if (pCell === 'H') {
+        const bridge = pieceAt(px, py, 'bridge');
+        const crosses = bridge && (
+          (['E','W'].includes(pusher.dir) && bridge.dir === 'H') ||
+          (['N','S'].includes(pusher.dir) && bridge.dir === 'V')
+        );
+        if (!crosses) {
+          sam.x = px; sam.y = py;
+          placeSam();
+          phase = 'dying';
+          clearInterval(ticker);
+          setTimeout(loseLife, 180);
+          return;
+        }
+      }
+      sam.x = px; sam.y = py;
+    }
+  }
+
+  placeSam();
+  updateHazardAnimations();
+}
+
+function updateHazardAnimations() {
+  const isActive = tickCount % 2 === 1;
+  // Press: ram extends down on odd ticks
+  document.querySelectorAll('.press-ram').forEach(el => {
+    el.style.transform = isActive ? 'scaleY(1) translateY(0)' : 'scaleY(0.25) translateY(-150%)';
+  });
+  // Pusher: arrow shifts outward on odd ticks
+  document.querySelectorAll('[data-pusher-arrow]').forEach(el => {
+    el.style.transform = isActive ? 'scale(1.4)' : 'scale(1)';
+  });
+}
+
+// ── DEATH ──────────────────────────────────────────────────────────
+function loseLife() {
+  lives--;
+  samEl.classList.add('falling');
+  updateHUD();
+
+  setTimeout(() => {
+    samEl.classList.remove('falling');
+    if (lives <= 0) {
+      showOverlay('Game Over', 'No lives remaining.', [
+        { label: 'Restart Level', fn: () => startLevel(levelIdx) }
+      ]);
+    } else {
+      respawn();
+    }
+  }, 600);
+}
+
+function respawn() {
+  freePieces = origFree.map(p => ({ ...p }));
+  const sp = floor.pieces.find(p => p.type === 'start');
+  sam = sp ? { x: sp.x, y: sp.y, dir: sp.dir } : { ...sam };
+  renderPieces();
+  placeSam(true);
+  setTimeout(startTick, 320);
+}
+
+// ── WIN ────────────────────────────────────────────────────────────
+function winLevel() {
+  const isLast = levelIdx >= levels.length - 1;
+  showOverlay('🎉 Safe!', `Level ${levelIdx + 1} complete!`, [
+    isLast
+      ? { label: '🏆 All done! Play again', fn: () => startLevel(0) }
+      : { label: 'Next Level →', fn: () => startLevel(levelIdx + 1) },
+    { label: 'Replay', fn: () => startLevel(levelIdx) }
+  ]);
+}
+
+// ── ELEVATOR ───────────────────────────────────────────────────────
+function doElevator(elev) {
+  fadEl.style.display = 'block';
+  fadEl.style.opacity = '0';
+
+  let op = 0;
+  const fadeIn = setInterval(() => {
+    op = Math.min(1, op + 0.12);
+    fadEl.style.opacity = op;
+    if (op >= 1) {
+      clearInterval(fadeIn);
+      loadFloor(elev.toFloor, { x: elev.toX, y: elev.toY, dir: elev.toDir });
+
+      const fadeOut = setInterval(() => {
+        op = Math.max(0, op - 0.12);
+        fadEl.style.opacity = op;
+        if (op <= 0) {
+          clearInterval(fadeOut);
+          fadEl.style.display = 'none';
+        }
+      }, 40);
+    }
+  }, 40);
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────
+function render() {
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${floor.cols}, ${CELL_SIZE}px)`;
+  gridEl.style.gridTemplateRows    = `repeat(${floor.rows}, ${CELL_SIZE}px)`;
+  gridEl.style.width  = (floor.cols * CELL_SIZE) + 'px';
+  gridEl.style.height = (floor.rows * CELL_SIZE) + 'px';
+
+  for (let y = 0; y < floor.rows; y++) {
+    for (let x = 0; x < floor.cols; x++) {
+      const ch  = CELL[y][x] || 'W';
+      const div = document.createElement('div');
+      div.className      = 'cell cell-' + ch;
+      div.dataset.x      = x;
+      div.dataset.y      = y;
+      gridEl.appendChild(div);
+    }
+  }
+
+  renderPieces();
+}
+
+function renderPieces() {
+  gridEl.querySelectorAll('.piece').forEach(el => el.remove());
+
+  [...fixedPieces, ...freePieces].forEach(p => {
+    if (p.type === 'start') return;
+    const el = makePieceEl(p);
+    gridEl.appendChild(el);
+  });
+}
+
+function makePieceEl(p) {
+  const el = document.createElement('div');
+  el.className      = `piece piece-${p.type}`;
+  el.dataset.type   = p.type;
+  el.dataset.x      = p.x;
+  el.dataset.y      = p.y;
+  if (p.dir) el.dataset.dir = p.dir;
+  el.style.left     = (p.x * CELL_SIZE) + 'px';
+  el.style.top      = (p.y * CELL_SIZE) + 'px';
+  el.innerHTML      = pieceHTML(p);
+
+  const isFree = !p.fixed && p.type !== 'exit' && p.type !== 'elevator';
+  if (isFree) {
+    el.style.cursor = 'pointer';
+    bindInteraction(el, p);
+  }
+
+  return el;
+}
+
+const DIR_DEG = { N: 0, E: 90, S: 180, W: 270 };
+
+function pieceHTML(p) {
+  switch (p.type) {
+    case 'exit':
+      return `<div class="piece-inner exit-inner">EXIT</div>`;
+    case 'arrow':
+      return `<div class="piece-inner" style="background:rgba(255,255,255,0.06);border:2px solid ${p.fixed ? '#888' : '#4dd0e1'};color:${p.fixed ? '#ccc' : '#4dd0e1'};font-size:1.5rem;border-radius:6px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;transform:rotate(${DIR_DEG[p.dir]}deg)">↑</div>`;
+    case 'bridge': {
+      const bc  = p.fixed ? '#888' : '#4dd0e1';
+      const rot = p.dir === 'V' ? 90 : 0;
+      return `<div class="piece-inner" style="border:2px solid ${bc};border-radius:6px;display:flex;align-items:center;justify-content:center;width:40px;height:40px;position:relative;overflow:hidden;background:rgba(255,255,255,0.04)">
+        <div class="bridge-plank" style="position:absolute;background:#a0734a;border-radius:3px;width:100%;height:14px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.5);transform:rotate(${rot}deg);transition:transform 0.18s ease"></div>
+      </div>`;
+    }
+    case 'belt': {
+      const isV   = (p.dir === 'N' || p.dir === 'S');
+      const isRev = (p.dir === 'W' || p.dir === 'N');
+      const arrow = { N:'↑', S:'↓', E:'→', W:'←' }[p.dir];
+      const trackClass = `belt-track${isV ? ' belt-v' : ''}${isRev ? (isV ? ' belt-rev-v' : ' belt-rev-h') : ''}`;
+      return `<div class="piece-inner piece-belt" style="width:40px;height:40px">
+        <div class="${trackClass}"></div>
+        <div class="belt-arrow">${arrow}</div>
+      </div>`;
+    }
+    case 'block':
+      return `<div class="piece-inner" style="width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center">
+        <div style="width:30px;height:30px;background:linear-gradient(135deg,#5a4a3a,#2a1a0a);border:2px solid #5a4a3a;border-radius:4px"></div>
+      </div>`;
+    case 'press':
+      return `<div class="piece-inner piece-press" style="width:40px;height:40px;border-radius:6px">
+        <div class="press-ram"></div>
+        <div class="press-base"></div>
+      </div>`;
+    case 'pusher': {
+      const parr = { N:'↑', S:'↓', E:'→', W:'←' }[p.dir] || '→';
+      return `<div class="piece-inner piece-pusher" style="width:40px;height:40px;border-radius:6px">
+        <div class="pusher-arrow" data-pusher-arrow>${parr}</div>
+      </div>`;
+    }
+    case 'elevator':
+      return `<div class="piece-inner elevator-inner" style="width:40px;height:40px;border-radius:6px;display:flex;align-items:center;justify-content:center">▲</div>`;
+    default:
+      return '';
+  }
+}
+
+// ── SAM PLACEMENT ──────────────────────────────────────────────────
+function placeSam(instant) {
+  if (instant) {
+    samEl.style.transition = 'none';
+    void samEl.offsetWidth; // flush
+  } else {
+    samEl.style.transition = `left ${TICK_MS * 0.84}ms linear, top ${TICK_MS * 0.84}ms linear`;
+  }
+  samEl.style.left = (sam.x * CELL_SIZE) + 'px';
+  samEl.style.top  = (sam.y * CELL_SIZE) + 'px';
+  updateSamEmoji();
+}
+
+// ── PIECE INTERACTION ──────────────────────────────────────────────
+function bindInteraction(el, pieceData) {
+  let startX, startY, dragging, ghost;
+
+  el.addEventListener('mousedown', e => {
+    if (phase !== 'play') return;
+    e.preventDefault();
+    startX   = e.clientX;
+    startY   = e.clientY;
+    dragging = false;
+    ghost    = null;
+    pending  = pieceData;
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup',   onUp);
+  });
+
+  // Touch support
+  el.addEventListener('touchstart', e => {
+    if (phase !== 'play') return;
+    e.preventDefault();
+    const t = e.touches[0];
+    startX   = t.clientX;
+    startY   = t.clientY;
+    dragging = false;
+    ghost    = null;
+    pending  = pieceData;
+
+    window.addEventListener('touchmove',  onTMove, { passive: false });
+    window.addEventListener('touchend',   onTUp);
+  });
+
+  function onMove(e) {
+    if (pending !== pieceData) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!dragging && Math.hypot(dx, dy) > DRAG_PX) {
+      dragging = true;
+      ghost    = makeGhost(el);
+    }
+    if (dragging && ghost) {
+      ghost.style.left = (e.clientX - CELL_SIZE / 2) + 'px';
+      ghost.style.top  = (e.clientY - CELL_SIZE / 2) + 'px';
+    }
+  }
+
+  function onUp(e) {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup',   onUp);
+    if (pending !== pieceData) return;
+    if (ghost) { ghost.remove(); ghost = null; }
+
+    if (!dragging) {
+      rotatePiece(pieceData);
+    } else {
+      const { tx, ty } = screenToCell(e.clientX, e.clientY);
+      dropPiece(pieceData, tx, ty);
+    }
+    pending = null;
+  }
+
+  function onTMove(e) {
+    e.preventDefault();
+    const t  = e.touches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (!dragging && Math.hypot(dx, dy) > DRAG_PX) {
+      dragging = true;
+      ghost    = makeGhost(el);
+    }
+    if (dragging && ghost) {
+      ghost.style.left = (t.clientX - CELL_SIZE / 2) + 'px';
+      ghost.style.top  = (t.clientY - CELL_SIZE / 2) + 'px';
+    }
+  }
+
+  function onTUp(e) {
+    window.removeEventListener('touchmove', onTMove);
+    window.removeEventListener('touchend',  onTUp);
+    if (pending !== pieceData) return;
+    if (ghost) { ghost.remove(); ghost = null; }
+
+    if (!dragging) {
+      rotatePiece(pieceData);
+    } else {
+      const t = e.changedTouches[0];
+      const { tx, ty } = screenToCell(t.clientX, t.clientY);
+      dropPiece(pieceData, tx, ty);
+    }
+    pending = null;
+  }
+}
+
+function makeGhost(sourceEl) {
+  const g = document.createElement('div');
+  g.className        = 'piece-ghost';
+  g.style.position   = 'fixed';
+  g.style.width      = CELL_SIZE + 'px';
+  g.style.height     = CELL_SIZE + 'px';
+  g.style.zIndex     = '300';
+  g.style.pointerEvents = 'none';
+  g.innerHTML        = sourceEl.innerHTML;
+  document.body.appendChild(g);
+  return g;
+}
+
+function screenToCell(cx, cy) {
+  const rect = gridEl.getBoundingClientRect();
+  const tx   = Math.floor((cx - rect.left)  / CELL_SIZE);
+  const ty   = Math.floor((cy - rect.top)   / CELL_SIZE);
+  return { tx, ty };
+}
+
+function rotatePiece(p) {
+  if (p.type === 'arrow') {
+    p.dir = ROT[p.dir];
+    renderPieces();
+  } else if (p.type === 'bridge') {
+    p.dir = p.dir === 'H' ? 'V' : 'H';
+    // Animate the existing plank in-place so CSS transition fires
+    const el = gridEl.querySelector(`.piece[data-x="${p.x}"][data-y="${p.y}"]`);
+    const plank = el && el.querySelector('.bridge-plank');
+    if (plank) {
+      plank.style.transform = `rotate(${p.dir === 'V' ? 90 : 0}deg)`;
+    } else {
+      renderPieces(); // fallback if element not found
+    }
+  }
+}
+
+function dropPiece(p, tx, ty) {
+  if (tx < 0 || ty < 0 || tx >= floor.cols || ty >= floor.rows) return;
+  if (cellAt(tx, ty) === 'W') return;
+
+  // don't stack on another free piece (exit/elevator overlap OK for bridges on holes)
+  const conflict = freePieces.find(q => q !== p && q.x === tx && q.y === ty);
+  if (conflict) return;
+
+  p.x = tx; p.y = ty;
+  renderPieces();
+}
+
+// ── HELPERS ────────────────────────────────────────────────────────
+function cellAt(x, y) {
+  if (y < 0 || y >= floor.rows || x < 0 || x >= floor.cols) return 'W';
+  return (CELL[y] && CELL[y][x]) || 'W';
+}
+
+function pieceAt(x, y, type) {
+  return [...fixedPieces, ...freePieces].find(p =>
+    p.x === x && p.y === y && (!type || p.type === type)
+  ) || null;
+}
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+// ── HUD ────────────────────────────────────────────────────────────
+function updateHUD() {
+  const lvl = levels[levelIdx];
+  document.getElementById('hud-level').textContent =
+    `Level ${lvl.id}: ${lvl.name}`;
+  document.getElementById('hud-floor').textContent =
+    lvl.floors.length > 1 ? `Floor ${floorIdx + 1} / ${lvl.floors.length}` : '';
+  document.getElementById('hud-lives').textContent = '❤️'.repeat(lives);
+  document.getElementById('hud-hint').textContent  = lvl.hint || '';
+}
+
+// ── OVERLAY ────────────────────────────────────────────────────────
+function showOverlay(title, body, buttons) {
+  overlayEl.innerHTML = `
+    <div class="ov-box">
+      <div class="ov-title">${title}</div>
+      <div class="ov-body">${body}</div>
+      <div class="ov-btns">
+        ${buttons.map((b, i) =>
+          `<button class="ov-btn" data-i="${i}">${b.label}</button>`
+        ).join('')}
+      </div>
+    </div>`;
+  overlayEl.style.display  = 'flex';
+  overlayEl.style.opacity  = '1';
+
+  overlayEl.querySelectorAll('.ov-btn').forEach((btn, i) => {
+    btn.addEventListener('click', () => {
+      overlayEl.style.display = 'none';
+      buttons[i].fn();
+    });
+  });
+}
+
+// ── BOTTOM BAR ────────────────────────────────────────────────────
+document.getElementById('btn-restart').addEventListener('click', () => startLevel(levelIdx));
+document.getElementById('btn-prev').addEventListener('click', () => {
+  if (levelIdx > 0) startLevel(levelIdx - 1);
+});
+document.getElementById('btn-next').addEventListener('click', () => {
+  if (levelIdx < levels.length - 1) startLevel(levelIdx + 1);
+});
+
+// ── GO ─────────────────────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>

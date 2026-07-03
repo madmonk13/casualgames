@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sleepwalker — Level Editor</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:   #0d1117;
+  --panel:#161c28;
+  --border:#2a3448;
+  --text: #d0d8e8;
+  --muted:#6a7a98;
+  --accent:#4dd0e1;
+  --cell: 46px;
+}
+body {
+  background: var(--bg); color: var(--text);
+  font: 13px/1.4 'Segoe UI', Arial, sans-serif;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+
+/* ── TOP BAR ─────────────────────────────────────────────────── */
+#topbar {
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 12px; flex-shrink: 0; flex-wrap: wrap;
+}
+#topbar h1 { font-size: 0.9rem; color: var(--accent); white-space: nowrap; }
+.meta-field { display: flex; align-items: center; gap: 4px; }
+.meta-field label { color: var(--muted); font-size: 0.78rem; }
+.meta-field input {
+  background: #1e2538; border: 1px solid var(--border); color: var(--text);
+  border-radius: 4px; padding: 3px 7px; font-size: 0.8rem;
+}
+.meta-field input[type=number] { width: 48px; }
+#btn-play { margin-left: auto; }
+
+/* ── MAIN LAYOUT ─────────────────────────────────────────────── */
+#main { display: flex; flex: 1; overflow: hidden; }
+
+/* ── TOOLBAR (left) ──────────────────────────────────────────── */
+#toolbar {
+  width: 168px; background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 8px; overflow-y: auto; flex-shrink: 0;
+}
+.tool-section { border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.tool-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.6px; }
+.tool-grid  { display: flex; flex-wrap: wrap; gap: 4px; }
+.tool-btn {
+  padding: 5px 8px; border-radius: 5px; border: 1px solid var(--border);
+  background: #1e2538; color: var(--text); font-size: 0.78rem; cursor: pointer;
+  transition: background 0.12s; user-select: none;
+}
+.tool-btn:hover { background: #283050; }
+.tool-btn.active { background: rgba(77,208,225,0.15); border-color: var(--accent); color: var(--accent); }
+
+/* Colour swatches for tiles */
+.tile-W { background: #2a2a2a !important; color: #777 !important; }
+.tile-F { background: #5c3d1e !important; color: #d4a060 !important; }
+.tile-H { background: #0a0a0a !important; color: #555 !important; }
+.tile-W.active, .tile-F.active, .tile-H.active { outline: 2px solid var(--accent); }
+
+.dir-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 3px; }
+.dir-group .tool-btn { padding: 4px; text-align: center; }
+
+.prop-row { display: flex; flex-direction: column; gap: 3px; }
+.prop-row label { font-size: 0.72rem; color: var(--muted); }
+.prop-row input, .prop-row select {
+  background: #1e2538; border: 1px solid var(--border); color: var(--text);
+  border-radius: 4px; padding: 3px 6px; font-size: 0.78rem; width: 100%;
+}
+.fixed-row { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; }
+.fixed-row input[type=checkbox] { accent-color: var(--accent); }
+
+/* ── CANVAS ──────────────────────────────────────────────────── */
+#canvas-wrap {
+  flex: 1; overflow: auto;
+  display: flex; align-items: flex-start; justify-content: flex-start;
+  padding: 16px;
+  background: #0a0e18;
+}
+#grid {
+  display: grid; position: relative;
+  cursor: crosshair; user-select: none;
+}
+/* cell styles (same as game) */
+.cell { width: var(--cell); height: var(--cell); position: relative; }
+.cell-W { background: #2a2a2a; background-image: linear-gradient(135deg,#333 25%,transparent 25%),linear-gradient(225deg,#222 25%,transparent 25%); background-size: 7px 7px; }
+.cell-F { background: #5c3d1e; background-image: linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(0deg,rgba(255,255,255,0.04) 1px,transparent 1px); background-size: 12px 12px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3); }
+.cell-H { background: radial-gradient(ellipse at center,#000 40%,#1a0800 100%); box-shadow: inset 0 4px 12px rgba(0,0,0,0.9); }
+
+/* hover highlight */
+.cell:hover::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(77,208,225,0.15); pointer-events: none;
+}
+
+/* ── PIECES on grid ──────────────────────────────────────────── */
+.ep {
+  position: absolute; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+}
+.ep-inner {
+  width: 36px; height: 36px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; font-weight: bold;
+}
+
+/* ── RIGHT PANEL: floors + JSON ──────────────────────────────── */
+#right-panel {
+  width: 220px; background: var(--panel); border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
+}
+#floor-tabs {
+  display: flex; align-items: center; gap: 4px;
+  padding: 8px 8px 0; flex-wrap: wrap; border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+.ftab {
+  padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+  background: #1e2538; color: var(--muted); font-size: 0.78rem; cursor: pointer;
+}
+.ftab.active { background: rgba(77,208,225,0.12); border-color: var(--accent); color: var(--accent); }
+#btn-add-floor, #btn-del-floor {
+  padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);
+  background: #1e2538; color: var(--text); font-size: 0.8rem; cursor: pointer;
+}
+#btn-del-floor { color: #e06060; }
+
+#json-section {
+  display: flex; flex-direction: column; flex: 1; overflow: hidden;
+  padding: 8px;
+}
+#json-section h3 { font-size: 0.75rem; color: var(--muted); margin-bottom: 6px; }
+#json-out {
+  flex: 1; background: #0d1117; color: #8dbbff;
+  border: 1px solid var(--border); border-radius: 4px;
+  font: 11px/1.4 monospace; padding: 6px; overflow: auto; resize: none; min-height: 0;
+}
+.json-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.json-btn {
+  flex: 1; padding: 5px; font-size: 0.75rem; border-radius: 4px;
+  border: 1px solid var(--border); background: #1e2538; color: var(--text); cursor: pointer;
+}
+.json-btn:hover { background: #283050; }
+
+/* ── COMMON BTN ──────────────────────────────────────────────── */
+.btn {
+  padding: 5px 12px; border-radius: 5px; border: 1px solid var(--border);
+  background: #1e2538; color: var(--text); font-size: 0.8rem; cursor: pointer;
+}
+.btn:hover { background: #283050; }
+.btn-accent { border-color: var(--accent); color: var(--accent); }
+
+/* ── TOAST ───────────────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  background: #1e2538; border: 1px solid var(--accent); border-radius: 6px;
+  padding: 8px 20px; color: var(--accent); font-size: 0.85rem;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+}
+</style>
+</head>
+<body>
+
+<!-- ── TOP BAR ────────────────────────────────────────────────────── -->
+<div id="topbar">
+  <h1>🔧 Sleepwalker Editor</h1>
+  <div class="meta-field">
+    <label>ID</label>
+    <input type="number" id="lvl-id" value="5" min="1" style="width:50px">
+  </div>
+  <div class="meta-field">
+    <label>Name</label>
+    <input type="text" id="lvl-name" value="New Level" style="width:130px">
+  </div>
+  <div class="meta-field">
+    <label>Hint</label>
+    <input type="text" id="lvl-hint" placeholder="Optional hint…" style="width:200px">
+  </div>
+  <button class="btn btn-accent" id="btn-test">▶ Test Level</button>
+  <a class="btn" href="index.html" target="_blank">🎮 Play</a>
+  <a class="btn" href="../index.html">🏠 Home</a>
+</div>
+
+<!-- ── MAIN ──────────────────────────────────────────────────────── -->
+<div id="main">
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+
+    <div class="tool-section">
+      <div class="tool-label">Tiles</div>
+      <div class="tool-grid">
+        <button class="tool-btn tile-W" data-tool="tile-W">Wall</button>
+        <button class="tool-btn tile-F active" data-tool="tile-F">Floor</button>
+        <button class="tool-btn tile-H" data-tool="tile-H">Hole</button>
+      </div>
+    </div>
+
+    <div class="tool-section">
+      <div class="tool-label">Pieces</div>
+      <div class="tool-grid">
+        <button class="tool-btn" data-tool="start"    title="Sam's start">▶ Start</button>
+        <button class="tool-btn" data-tool="exit"     title="Exit">🚪 Exit</button>
+        <button class="tool-btn" data-tool="arrow"    title="Arrow redirector">↑ Arrow</button>
+        <button class="tool-btn" data-tool="bridge"   title="Bridge/plank">─ Bridge</button>
+        <button class="tool-btn" data-tool="block"    title="Solid block">█ Block</button>
+        <button class="tool-btn" data-tool="elevator" title="Elevator">▲ Lift</button>
+        <button class="tool-btn" data-tool="belt"     title="Conveyor belt">⇒ Belt</button>
+        <button class="tool-btn" data-tool="press"    title="Mechanical press (2-tick crush)">⬛ Press</button>
+        <button class="tool-btn" data-tool="pusher"   title="Pusher (2-tick shove, no life loss)">⇨ Push</button>
+        <button class="tool-btn" data-tool="erase"    title="Erase piece">✕ Erase</button>
+      </div>
+    </div>
+
+    <!-- Direction (for arrow / belt / start) -->
+    <div class="tool-section" id="dir-section">
+      <div class="tool-label">Direction</div>
+      <div class="dir-group">
+        <div></div>
+        <button class="tool-btn active" data-dir="N">↑</button>
+        <div></div>
+        <button class="tool-btn" data-dir="W">←</button>
+        <div></div>
+        <button class="tool-btn" data-dir="E">→</button>
+        <div></div>
+        <button class="tool-btn" data-dir="S">↓</button>
+        <div></div>
+      </div>
+    </div>
+
+    <!-- Bridge orientation -->
+    <div class="tool-section" id="bridge-section" style="display:none">
+      <div class="tool-label">Bridge</div>
+      <div class="tool-grid">
+        <button class="tool-btn active" data-bdir="H">── H</button>
+        <button class="tool-btn" data-bdir="V">│ V</button>
+      </div>
+    </div>
+
+    <!-- Fixed toggle -->
+    <div class="tool-section" id="fixed-section">
+      <div class="fixed-row">
+        <input type="checkbox" id="chk-fixed">
+        <label for="chk-fixed">Fixed (immovable)</label>
+      </div>
+    </div>
+
+    <!-- Elevator destination -->
+    <div class="tool-section" id="elev-section" style="display:none">
+      <div class="tool-label">Elevator → Floor</div>
+      <div class="prop-row">
+        <label>To Floor (0-based)</label>
+        <input type="number" id="elev-tofloor" value="1" min="0">
+      </div>
+      <div class="prop-row">
+        <label>To X</label>
+        <input type="number" id="elev-tox" value="1" min="0">
+      </div>
+      <div class="prop-row">
+        <label>To Y</label>
+        <input type="number" id="elev-toy" value="3" min="0">
+      </div>
+      <div class="prop-row">
+        <label>To Dir</label>
+        <select id="elev-todir">
+          <option>N</option><option selected>E</option><option>S</option><option>W</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="tool-section">
+      <div class="tool-label">Grid Size</div>
+      <div class="prop-row">
+        <label>Columns</label>
+        <input type="number" id="grid-cols" value="12" min="4" max="28">
+      </div>
+      <div class="prop-row">
+        <label>Rows</label>
+        <input type="number" id="grid-rows" value="12" min="4" max="20">
+      </div>
+      <button class="btn btn-accent" id="btn-apply-size" style="width:100%;margin-top:4px">Apply</button>
+    </div>
+
+    <button class="btn btn-accent" id="btn-fill-walls">Fill Border Walls</button>
+
+  </div><!-- /toolbar -->
+
+  <!-- CANVAS -->
+  <div id="canvas-wrap">
+    <div id="grid"></div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right-panel">
+    <div id="floor-tabs"></div>
+
+    <div id="json-section">
+      <h3>Level JSON</h3>
+      <textarea id="json-out" spellcheck="false" readonly></textarea>
+      <div class="json-btns">
+        <button class="json-btn" id="btn-export">Export</button>
+        <button class="json-btn" id="btn-copy">Copy</button>
+        <button class="json-btn" id="btn-import">Import</button>
+        <button class="json-btn" id="btn-dl">Download</button>
+      </div>
+      <div id="import-area" style="display:none; margin-top:6px;">
+        <textarea id="json-in" placeholder="Paste level JSON here…"
+          style="width:100%;height:80px;background:#0d1117;color:#8dbbff;border:1px solid var(--border);border-radius:4px;font:11px monospace;padding:5px;resize:none"></textarea>
+        <button class="json-btn" id="btn-import-ok" style="margin-top:4px;width:100%">Load JSON</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+
+// ── STATE ──────────────────────────────────────────────────────────
+let level = {
+  id: 5, name: 'New Level', hint: '',
+  floors: [newFloor(12, 12)]
+};
+let floorIdx = 0;
+
+let tool     = 'tile-F';
+let dir      = 'E';
+let bdir     = 'H';
+let isFixed  = false;
+let painting = false;
+let lastCell = null;
+
+const CS = 46; // cell size px
+
+// ── FLOOR FACTORY ─────────────────────────────────────────────────
+function newFloor(cols, rows) {
+  const cells = [];
+  for (let y = 0; y < rows; y++) {
+    let row = '';
+    for (let x = 0; x < cols; x++) {
+      row += (x === 0 || x === cols-1 || y === 0 || y === rows-1) ? 'W' : 'F';
+    }
+    cells.push(row);
+  }
+  return { cols, rows, cells, pieces: [] };
+}
+
+function resizeFloor(fl, newCols, newRows) {
+  // rebuild cells preserving existing data
+  const newCells = [];
+  for (let y = 0; y < newRows; y++) {
+    let row = '';
+    for (let x = 0; x < newCols; x++) {
+      if (x === 0 || x === newCols-1 || y === 0 || y === newRows-1) {
+        row += 'W';
+      } else if (y < fl.rows && x < fl.cols) {
+        row += fl.cells[y][x] || 'F';
+      } else {
+        row += 'F';
+      }
+    }
+    newCells.push(row);
+  }
+  fl.cols  = newCols;
+  fl.rows  = newRows;
+  fl.cells = newCells;
+  // remove out-of-bounds pieces
+  fl.pieces = fl.pieces.filter(p => p.x < newCols && p.y < newRows);
+}
+
+// ── FLOOR ACCESS ──────────────────────────────────────────────────
+function floor() { return level.floors[floorIdx]; }
+
+function setCell(x, y, ch) {
+  const fl = floor();
+  if (x < 0 || y < 0 || x >= fl.cols || y >= fl.rows) return;
+  const row = fl.cells[y];
+  fl.cells[y] = row.slice(0, x) + ch + row.slice(x + 1);
+}
+
+function getCell(x, y) {
+  const fl = floor();
+  if (y < 0 || y >= fl.rows || x < 0 || x >= fl.cols) return 'W';
+  return fl.cells[y][x] || 'W';
+}
+
+function pieceAt(x, y) {
+  return floor().pieces.find(p => p.x === x && p.y === y) || null;
+}
+
+function removePiece(x, y) {
+  floor().pieces = floor().pieces.filter(p => !(p.x === x && p.y === y));
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────
+const gridEl = document.getElementById('grid');
+
+function render() {
+  const fl = floor();
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${fl.cols}, ${CS}px)`;
+  gridEl.style.gridTemplateRows    = `repeat(${fl.rows}, ${CS}px)`;
+  gridEl.style.width  = (fl.cols * CS) + 'px';
+  gridEl.style.height = (fl.rows * CS) + 'px';
+
+  for (let y = 0; y < fl.rows; y++) {
+    for (let x = 0; x < fl.cols; x++) {
+      const ch = fl.cells[y][x] || 'W';
+      const d  = document.createElement('div');
+      d.className  = 'cell cell-' + ch;
+      d.dataset.x  = x;
+      d.dataset.y  = y;
+      gridEl.appendChild(d);
+    }
+  }
+
+  fl.pieces.forEach(p => {
+    const el = document.createElement('div');
+    el.className  = 'ep';
+    el.style.left = (p.x * CS) + 'px';
+    el.style.top  = (p.y * CS) + 'px';
+    el.style.width  = CS + 'px';
+    el.style.height = CS + 'px';
+    el.innerHTML = epHTML(p);
+    gridEl.appendChild(el);
+  });
+}
+
+const DEG = { N:0, E:90, S:180, W:270 };
+
+function epHTML(p) {
+  const fc = p.fixed ? '#aaa' : '#4dd0e1';
+  switch (p.type) {
+    case 'start':
+      return `<div class="ep-inner" style="background:#1a3a1a;border:2px solid #4caf50;color:#4caf50;transform:rotate(${DEG[p.dir]}deg)">▶</div>`;
+    case 'exit':
+      return `<div class="ep-inner" style="background:#1a4a1a;border:2px solid #4caf50;color:#4caf50;font-size:0.6rem;letter-spacing:1px">EXIT</div>`;
+    case 'arrow':
+      return `<div class="ep-inner" style="background:rgba(255,255,255,0.05);border:2px solid ${fc};color:${fc};transform:rotate(${DEG[p.dir]}deg)">↑</div>`;
+    case 'bridge': {
+      const isH = p.dir === 'H';
+      return `<div class="ep-inner" style="border:2px solid ${fc};background:rgba(255,255,255,0.03);overflow:hidden;position:relative">
+        <div style="position:absolute;background:#a0734a;border-radius:2px;${isH?'width:100%;height:12px;top:50%;transform:translateY(-50%)':'width:12px;height:100%;left:50%;transform:translateX(-50%)'};box-shadow:inset 0 2px 4px rgba(0,0,0,0.5)"></div>
+      </div>`;
+    }
+    case 'block':
+      return `<div class="ep-inner" style="background:#3a2a1a;border:2px solid #5a4a3a;"><div style="width:26px;height:26px;background:linear-gradient(135deg,#4a3a2a,#2a1a0a);border:1px solid #5a4a3a;border-radius:3px"></div></div>`;
+    case 'elevator':
+      return `<div class="ep-inner" style="background:#1a1a4a;border:2px solid #5555cc;color:#8888ff;font-size:1rem">▲</div>`;
+    case 'belt': {
+      const isV   = (p.dir === 'N' || p.dir === 'S');
+      const isRev = (p.dir === 'W' || p.dir === 'N');
+      const arrow = { N:'↑', S:'↓', E:'→', W:'←' }[p.dir];
+      const bc    = p.fixed ? '#8a6a10' : '#c8a020';
+      const stripeAngle = isV ? '0deg' : '90deg';
+      const trackAnim   = `belt-scroll-${isV?'v':'h'}${isRev?'-rev':''}`;
+      return `<div class="ep-inner" style="background:#1a1a1a;border:2px solid ${bc};overflow:hidden;position:relative">
+        <div style="position:absolute;inset:0;background:repeating-linear-gradient(${stripeAngle},${bc} 0px,${bc} 4px,#2a2a2a 4px,#2a2a2a 14px);opacity:0.5"></div>
+        <div style="position:relative;z-index:1;color:${bc};font-size:1rem">${arrow}</div>
+      </div>`;
+    }
+    case 'press':
+      return `<div class="ep-inner" style="background:#2a1a2a;border:2px solid #cc44cc;overflow:hidden;position:relative">
+        <div style="position:absolute;bottom:0;left:10%;width:80%;height:8px;background:#cc44cc;border-radius:2px 2px 0 0"></div>
+        <div style="position:absolute;top:4px;left:10%;width:80%;height:50%;background:linear-gradient(180deg,#ee88ee,#aa22aa);border-radius:3px;opacity:0.85"></div>
+      </div>`;
+    case 'pusher': {
+      const pa = { N:'↑', S:'↓', E:'→', W:'←' }[p.dir] || '→';
+      return `<div class="ep-inner" style="background:#0a1a2a;border:2px solid #44aacc;color:#44aacc;font-size:1.4rem">${pa}</div>`;
+    }
+    default: return '';
+  }
+}
+
+// ── GRID INTERACTION ───────────────────────────────────────────────
+gridEl.addEventListener('mousedown', e => {
+  if (!e.target.dataset.x) return;
+  painting = true;
+  lastCell = null;
+  applyTool(e);
+});
+gridEl.addEventListener('mousemove', e => {
+  if (!painting) return;
+  applyTool(e);
+});
+window.addEventListener('mouseup', () => { painting = false; lastCell = null; });
+
+gridEl.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  const x = +e.target.dataset.x, y = +e.target.dataset.y;
+  if (isNaN(x)) return;
+  removePiece(x, y);
+  render(); exportJSON();
+});
+
+function applyTool(e) {
+  const cell = e.target.closest('[data-x]');
+  if (!cell) return;
+  const x = +cell.dataset.x, y = +cell.dataset.y;
+  const key = x + ',' + y;
+  if (key === lastCell) return;
+  lastCell = key;
+
+  if (tool.startsWith('tile-')) {
+    const ch = tool.split('-')[1];
+    setCell(x, y, ch);
+    if (ch !== 'H') removePiece(x, y); // holes can have bridges
+    render(); exportJSON();
+    return;
+  }
+
+  if (tool === 'erase') {
+    removePiece(x, y);
+    render(); exportJSON();
+    return;
+  }
+
+  // piece placement
+  placePiece(x, y);
+}
+
+function placePiece(x, y) {
+  const fl = floor();
+  // Remove existing piece at this cell (replace)
+  fl.pieces = fl.pieces.filter(p => !(p.x === x && p.y === y));
+
+  // Start: only one allowed per floor
+  if (tool === 'start') {
+    fl.pieces = fl.pieces.filter(p => p.type !== 'start');
+  }
+
+  const p = { type: tool, x, y };
+  if (tool === 'arrow' || tool === 'start' || tool === 'belt' || tool === 'pusher') p.dir = dir;
+  if (tool === 'bridge') p.dir = bdir;
+  if (tool === 'elevator') {
+    p.toFloor = +document.getElementById('elev-tofloor').value || 1;
+    p.toX     = +document.getElementById('elev-tox').value     || 1;
+    p.toY     = +document.getElementById('elev-toy').value     || 3;
+    p.toDir   = document.getElementById('elev-todir').value    || 'E';
+  }
+  // Apply fixed to applicable types
+  if (['arrow','bridge','block','belt'].includes(tool)) p.fixed = isFixed;
+
+  fl.pieces.push(p);
+  render(); exportJSON();
+}
+
+// ── FILL BORDER WALLS ─────────────────────────────────────────────
+document.getElementById('btn-fill-walls').addEventListener('click', () => {
+  const fl = floor();
+  for (let y = 0; y < fl.rows; y++) {
+    for (let x = 0; x < fl.cols; x++) {
+      if (x === 0 || x === fl.cols-1 || y === 0 || y === fl.rows-1) {
+        setCell(x, y, 'W');
+      }
+    }
+  }
+  render(); exportJSON();
+});
+
+// ── APPLY SIZE ─────────────────────────────────────────────────────
+document.getElementById('btn-apply-size').addEventListener('click', () => {
+  const c = +document.getElementById('grid-cols').value;
+  const r = +document.getElementById('grid-rows').value;
+  resizeFloor(floor(), c, r);
+  render(); exportJSON();
+});
+
+// ── TOOL BUTTONS ───────────────────────────────────────────────────
+document.querySelectorAll('[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    tool = btn.dataset.tool;
+    document.querySelectorAll('[data-tool]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // show/hide direction sections
+    const needsDir    = ['arrow','start','belt','pusher'].includes(tool);
+    const needsBridge = tool === 'bridge';
+    const needsElev   = tool === 'elevator';
+    const needsFixed  = ['arrow','bridge','block','belt'].includes(tool);
+
+    document.getElementById('dir-section').style.display    = needsDir    ? '' : 'none';
+    document.getElementById('bridge-section').style.display = needsBridge ? '' : 'none';
+    document.getElementById('elev-section').style.display   = needsElev   ? '' : 'none';
+    document.getElementById('fixed-section').style.display  = needsFixed  ? '' : 'none';
+  });
+});
+
+// ── DIRECTION BUTTONS ─────────────────────────────────────────────
+document.querySelectorAll('[data-dir]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    dir = btn.dataset.dir;
+    document.querySelectorAll('[data-dir]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ── BRIDGE DIR ────────────────────────────────────────────────────
+document.querySelectorAll('[data-bdir]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    bdir = btn.dataset.bdir;
+    document.querySelectorAll('[data-bdir]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// ── FIXED ─────────────────────────────────────────────────────────
+document.getElementById('chk-fixed').addEventListener('change', e => {
+  isFixed = e.target.checked;
+});
+
+// ── FLOOR TABS ────────────────────────────────────────────────────
+function renderFloorTabs() {
+  const cont = document.getElementById('floor-tabs');
+  cont.innerHTML = '';
+  level.floors.forEach((_, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ftab' + (i === floorIdx ? ' active' : '');
+    btn.textContent = `Floor ${i + 1}`;
+    btn.addEventListener('click', () => { floorIdx = i; syncGridSizeInputs(); render(); renderFloorTabs(); exportJSON(); });
+    cont.appendChild(btn);
+  });
+  const addBtn = document.createElement('button');
+  addBtn.id = 'btn-add-floor'; addBtn.textContent = '+';
+  addBtn.addEventListener('click', () => {
+    const fl = floor();
+    level.floors.push(newFloor(fl.cols, fl.rows));
+    floorIdx = level.floors.length - 1;
+    syncGridSizeInputs(); render(); renderFloorTabs(); exportJSON();
+  });
+  const delBtn = document.createElement('button');
+  delBtn.id = 'btn-del-floor'; delBtn.textContent = '−';
+  delBtn.addEventListener('click', () => {
+    if (level.floors.length <= 1) { toast('Must have at least 1 floor'); return; }
+    level.floors.splice(floorIdx, 1);
+    floorIdx = Math.min(floorIdx, level.floors.length - 1);
+    syncGridSizeInputs(); render(); renderFloorTabs(); exportJSON();
+  });
+  cont.appendChild(addBtn);
+  cont.appendChild(delBtn);
+}
+
+function syncGridSizeInputs() {
+  const fl = floor();
+  document.getElementById('grid-cols').value = fl.cols;
+  document.getElementById('grid-rows').value = fl.rows;
+}
+
+// ── META SYNC ─────────────────────────────────────────────────────
+['lvl-id','lvl-name','lvl-hint'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    level.id   = +document.getElementById('lvl-id').value   || 1;
+    level.name =  document.getElementById('lvl-name').value || '';
+    level.hint =  document.getElementById('lvl-hint').value || '';
+    exportJSON();
+  });
+});
+
+// ── JSON EXPORT ───────────────────────────────────────────────────
+function exportJSON() {
+  const out = document.getElementById('json-out');
+  out.value = JSON.stringify(level, null, 2);
+}
+
+document.getElementById('btn-export').addEventListener('click', exportJSON);
+
+document.getElementById('btn-copy').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('json-out').value)
+    .then(() => toast('Copied to clipboard!'));
+});
+
+document.getElementById('btn-dl').addEventListener('click', () => {
+  // Merge this level into the currently loaded SW_LEVELS array, then download levels.js
+  let all = (typeof SW_LEVELS !== 'undefined') ? JSON.parse(JSON.stringify(SW_LEVELS)) : [];
+  const idx = all.findIndex(l => l.id === level.id);
+  if (idx >= 0) all[idx] = level;
+  else all.push(level);
+  all.sort((a, b) => a.id - b.id);
+
+  const js = '/* Sleepwalker Sam — level data */\n\nvar SW_LEVELS = ' +
+             JSON.stringify(all, null, 2) + ';\n';
+  const blob = new Blob([js], { type: 'application/javascript' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'levels.js';
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('levels.js downloaded — replace the file in the sleepwalker folder.');
+});
+
+// ── JSON IMPORT ───────────────────────────────────────────────────
+document.getElementById('btn-import').addEventListener('click', () => {
+  const area = document.getElementById('import-area');
+  area.style.display = area.style.display === 'none' ? '' : 'none';
+});
+
+document.getElementById('btn-import-ok').addEventListener('click', () => {
+  try {
+    const parsed = JSON.parse(document.getElementById('json-in').value);
+    // Accept single level object or array
+    const lv = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (!lv.floors) throw new Error('No floors');
+    level    = lv;
+    floorIdx = 0;
+    document.getElementById('lvl-id').value   = lv.id   || '';
+    document.getElementById('lvl-name').value = lv.name || '';
+    document.getElementById('lvl-hint').value = lv.hint || '';
+    syncGridSizeInputs();
+    render(); renderFloorTabs(); exportJSON();
+    document.getElementById('import-area').style.display = 'none';
+    toast('Level loaded!');
+  } catch (e) {
+    toast('Invalid JSON: ' + e.message);
+  }
+});
+
+// ── TOAST ─────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.style.opacity = '0'; }, 2400);
+}
+
+// ── TEST MODE ─────────────────────────────────────────────────────
+document.getElementById('btn-test').addEventListener('click', () => {
+  // Save editor state so it can be restored if user comes back
+  sessionStorage.setItem('sw_editor_restore', JSON.stringify(level));
+  sessionStorage.setItem('sw_test_level', JSON.stringify(level));
+  window.open('index.html', '_blank');
+});
+
+// ── INIT ──────────────────────────────────────────────────────────
+// Restore level if returning from test mode
+const restoreData = sessionStorage.getItem('sw_editor_restore');
+if (restoreData) {
+  sessionStorage.removeItem('sw_editor_restore');
+  try {
+    level    = JSON.parse(restoreData);
+    floorIdx = 0;
+    document.getElementById('lvl-id').value   = level.id   || '';
+    document.getElementById('lvl-name').value = level.name || '';
+    document.getElementById('lvl-hint').value = level.hint || '';
+  } catch (_) {}
+}
+
+// Hide direction sections for default tool (tile-F)
+document.getElementById('dir-section').style.display    = 'none';
+document.getElementById('bridge-section').style.display = 'none';
+document.getElementById('elev-section').style.display   = 'none';
+document.getElementById('fixed-section').style.display  = 'none';
+
+syncGridSizeInputs();
+render();
+renderFloorTabs();
+exportJSON();
+</script>
+<script src="levels.js"></script>
+</body>
+</html>
