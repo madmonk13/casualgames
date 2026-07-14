@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Perfection</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100dvw;height:100dvh;
+  background:#12101e;
+  font-family:'Segoe UI',Arial,sans-serif;
+  user-select:none;-webkit-user-select:none;
+  touch-action:none;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;
+}
+#hud{
+  width:100%;flex-shrink:0;
+  background:rgba(0,0,0,.85);
+  display:flex;align-items:center;gap:10px;
+  padding:5px 12px;
+}
+#tbar-wrap{
+  flex:1;height:11px;background:#222;border-radius:6px;overflow:hidden;
+  border:1px solid #333;
+}
+#tbar{height:100%;width:100%;border-radius:6px;transition:background .4s;}
+.stat{color:#fff;font-size:clamp(.75rem,2vw,.9rem);white-space:nowrap}
+.stat b{color:#ff0;margin-left:2px}
+canvas{display:block;flex-shrink:0;cursor:pointer;}
+/* Overlay */
+#ov{
+  position:fixed;inset:0;z-index:20;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(10,8,20,.88);color:#ff0;gap:10px;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .25s;
+}
+#ov.show{opacity:1;pointer-events:auto}
+#ov h2{font-size:clamp(1.4rem,5vw,2.2rem);letter-spacing:3px;text-shadow:0 0 18px #fa0}
+#ov p{color:#ccc;font-size:clamp(.8rem,2vw,1rem);line-height:1.5;max-width:340px;}
+#diffrow{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;justify-content:center;}
+#diffrow button{
+  padding:5px 13px;border:1.5px solid #444;border-radius:5px;
+  background:#1c1c2e;color:#aaa;cursor:pointer;font-size:.82rem;
+  transition:all .12s;
+}
+#diffrow button.active{border-color:#ff0;color:#ff0;background:#2a2a10;}
+#diffrow button:hover{border-color:#888;}
+#startbtn{
+  margin-top:4px;padding:10px 32px;
+  background:#ff0;color:#12101e;
+  border:none;border-radius:7px;
+  font-size:clamp(.9rem,2.5vw,1.15rem);font-weight:700;cursor:pointer;
+}
+#startbtn:hover{background:#ffd000;}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span class="stat">⏱<b id="hTime">60</b>s</span>
+  <div id="tbar-wrap"><div id="tbar" style="background:#0f0"></div></div>
+  <span class="stat"><b id="hDone">0</b>/20 placed</span>
+</div>
+<canvas id="gc"></canvas>
+
+<div id="ov" class="show">
+  <h2 id="ovTitle">PERFECTION</h2>
+  <p id="ovMsg">Match every piece to its hole<br>before the timer runs out!</p>
+  <div id="diffrow">
+    <button class="active" onclick="setDiff(0)">Normal · 60s</button>
+    <button onclick="setDiff(1)">Hard · 40s</button>
+    <button onclick="setDiff(2)">Expert · 25s</button>
+  </div>
+  <button id="startbtn" onclick="startGame()">START</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  SHAPES
+// ═══════════════════════════════════════════════════════
+const SID=[
+  'circle','square','triangle','rtriangle','diamond',
+  'star5','star4','cross','pentagon','hexagon',
+  'octagon','arrowR','heart','hourglass','tshape',
+  'lshape','trapezoid','parallelogram','semicircle','shield'
+];
+
+const SCOL=[
+  '#FF4040','#FF8800','#FFD000','#AACC00','#22CC55',
+  '#00BBAA','#0099FF','#5566FF','#9944FF','#CC44FF',
+  '#FF44AA','#FF5533','#FF2277','#CCAA00','#44BB44',
+  '#2299CC','#AA44CC','#FF9900','#00AABB','#CC5500',
+];
+
+// Draw shape path centered at 0,0 for a cell of given size
+function shapePath(ctx,id,sz){
+  const r=sz*0.37;
+  ctx.beginPath();
+  switch(id){
+    case 'circle':
+      ctx.arc(0,0,r,0,Math.PI*2);
+      break;
+    case 'square':{
+      const h=r*0.92;
+      ctx.rect(-h,-h,h*2,h*2);
+      break;}
+    case 'triangle':
+      ctx.moveTo(0,-r*1.12);
+      ctx.lineTo(r*0.97,r*0.56);
+      ctx.lineTo(-r*0.97,r*0.56);
+      ctx.closePath();
+      break;
+    case 'rtriangle':
+      ctx.moveTo(-r*0.9,-r*0.9);
+      ctx.lineTo(r*0.9,r*0.9);
+      ctx.lineTo(-r*0.9,r*0.9);
+      ctx.closePath();
+      break;
+    case 'diamond':
+      ctx.moveTo(0,-r*1.2);
+      ctx.lineTo(r*0.72,0);
+      ctx.lineTo(0,r*1.2);
+      ctx.lineTo(-r*0.72,0);
+      ctx.closePath();
+      break;
+    case 'star5':{
+      for(let i=0;i<5;i++){
+        const a=-Math.PI/2+i*Math.PI*2/5;
+        const b=a+Math.PI/5;
+        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)
+             :ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+        ctx.lineTo(Math.cos(b)*r*0.4,Math.sin(b)*r*0.4);
+      }
+      ctx.closePath();
+      break;}
+    case 'star4':{
+      for(let i=0;i<4;i++){
+        const a=-Math.PI/2+i*Math.PI/2;
+        const b=a+Math.PI/4;
+        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)
+             :ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+        ctx.lineTo(Math.cos(b)*r*0.22,Math.sin(b)*r*0.22);
+      }
+      ctx.closePath();
+      break;}
+    case 'cross':{
+      const t=r*0.32,l=r*0.9;
+      ctx.moveTo(-t,-l);ctx.lineTo(t,-l);
+      ctx.lineTo(t,-t);ctx.lineTo(l,-t);
+      ctx.lineTo(l,t); ctx.lineTo(t,t);
+      ctx.lineTo(t,l); ctx.lineTo(-t,l);
+      ctx.lineTo(-t,t);ctx.lineTo(-l,t);
+      ctx.lineTo(-l,-t);ctx.lineTo(-t,-t);
+      ctx.closePath();
+      break;}
+    case 'pentagon':{
+      for(let i=0;i<5;i++){
+        const a=-Math.PI/2+i*Math.PI*2/5;
+        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)
+             :ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+      }
+      ctx.closePath();
+      break;}
+    case 'hexagon':{
+      for(let i=0;i<6;i++){
+        const a=i*Math.PI/3;
+        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)
+             :ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+      }
+      ctx.closePath();
+      break;}
+    case 'octagon':{
+      for(let i=0;i<8;i++){
+        const a=Math.PI/8+i*Math.PI/4;
+        i===0?ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r)
+             :ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r);
+      }
+      ctx.closePath();
+      break;}
+    case 'arrowR':
+      ctx.moveTo(-r*0.9, -r*0.36);
+      ctx.lineTo(r*0.18, -r*0.36);
+      ctx.lineTo(r*0.18, -r*0.82);
+      ctx.lineTo(r*0.95, 0);
+      ctx.lineTo(r*0.18,  r*0.82);
+      ctx.lineTo(r*0.18,  r*0.36);
+      ctx.lineTo(-r*0.9,  r*0.36);
+      ctx.closePath();
+      break;
+    case 'heart':
+      ctx.moveTo(0, r*0.62);
+      ctx.bezierCurveTo( r*1.0, r*0.12,  r*1.0,-r*0.55,  r*0.5,-r*0.55);
+      ctx.bezierCurveTo( r*0.2,-r*0.55,  0,    -r*0.18,  0,    -r*0.18);
+      ctx.bezierCurveTo( 0,    -r*0.18, -r*0.2,-r*0.55, -r*0.5,-r*0.55);
+      ctx.bezierCurveTo(-r*1.0,-r*0.55, -r*1.0, r*0.12,  0,     r*0.62);
+      ctx.closePath();
+      break;
+    case 'hourglass':
+      ctx.moveTo(-r*0.9,-r*0.9);
+      ctx.lineTo( r*0.9,-r*0.9);
+      ctx.lineTo( 0,     0);
+      ctx.lineTo( r*0.9, r*0.9);
+      ctx.lineTo(-r*0.9, r*0.9);
+      ctx.lineTo( 0,     0);
+      ctx.closePath();
+      break;
+    case 'tshape':{
+      const t=r*0.34,w=r,h=r*0.86;
+      ctx.moveTo(-w,-h);    ctx.lineTo(w,-h);
+      ctx.lineTo(w,-h+t*2); ctx.lineTo(t,-h+t*2);
+      ctx.lineTo(t,h);      ctx.lineTo(-t,h);
+      ctx.lineTo(-t,-h+t*2);ctx.lineTo(-w,-h+t*2);
+      ctx.closePath();
+      break;}
+    case 'lshape':{
+      const t=r*0.36,w=r*0.9,h=r;
+      ctx.moveTo(-t,-h);    ctx.lineTo(t,-h);
+      ctx.lineTo(t,h-t*2);  ctx.lineTo(w,h-t*2);
+      ctx.lineTo(w,h);      ctx.lineTo(-t,h);
+      ctx.closePath();
+      break;}
+    case 'trapezoid':
+      ctx.moveTo(-r*0.52,-r*0.72);
+      ctx.lineTo( r*0.52,-r*0.72);
+      ctx.lineTo( r*0.95, r*0.72);
+      ctx.lineTo(-r*0.95, r*0.72);
+      ctx.closePath();
+      break;
+    case 'parallelogram':
+      ctx.moveTo(-r*0.22,-r*0.72);
+      ctx.lineTo( r*0.78,-r*0.72);
+      ctx.lineTo( r*0.22, r*0.72);
+      ctx.lineTo(-r*0.78, r*0.72);
+      ctx.closePath();
+      break;
+    case 'semicircle':
+      ctx.arc(0,r*0.12,r*0.96,Math.PI,0,false);
+      ctx.closePath();
+      break;
+    case 'shield':
+      ctx.moveTo(-r*0.9,-r*0.62);
+      ctx.lineTo( r*0.9,-r*0.62);
+      ctx.lineTo( r*0.9, r*0.14);
+      ctx.lineTo( 0,     r*0.92);
+      ctx.lineTo(-r*0.9, r*0.14);
+      ctx.closePath();
+      break;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════
+const NCOLS=4, NROWS=5, NSHAPES=20;
+let CELL=80;        // board/tray cell size in px
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════════════════
+let _ac=null, _tickInterval=null;
+function getAC(){
+  if(!_ac) _ac=new(window.AudioContext||window.webkitAudioContext)();
+  if(_ac.state==='suspended') _ac.resume();
+  return _ac;
+}
+
+function playTick(){
+  try{
+    const ac=getAC(), t=ac.currentTime;
+    // Short noise burst through bandpass — sounds like a mechanical escapement
+    const len=Math.floor(ac.sampleRate*0.012);
+    const buf=ac.createBuffer(1,len,ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    const src=ac.createBufferSource(); src.buffer=buf;
+    // Bandpass gives it that hollow woody "tick" resonance
+    const bp=ac.createBiquadFilter(); bp.type='bandpass';
+    bp.frequency.value=3200; bp.Q.value=1.8;
+    const g=ac.createGain();
+    g.gain.setValueAtTime(0.9,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.012);
+    src.connect(bp); bp.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t+0.015);
+  }catch(e){}
+}
+
+function startTick(){
+  stopTick();
+  _tickInterval=setInterval(playTick, 500);
+}
+
+function stopTick(){
+  if(_tickInterval){ clearInterval(_tickInterval); _tickInterval=null; }
+}
+
+function playPop(){
+  try{
+    const ac=getAC(), t=ac.currentTime;
+
+    // ── Distortion waveshaper (shared) ──────────────────
+    const ws=ac.createWaveShaper();
+    const curve=new Float32Array(512);
+    for(let i=0;i<512;i++){
+      const x=i*2/512-1;
+      curve[i]=((Math.PI+200)*x)/(Math.PI+200*Math.abs(x));
+    }
+    ws.curve=curve; ws.oversample='4x';
+    ws.connect(ac.destination);
+
+    // ── Sharp initial crack (short highpass noise) ──────
+    const crBuf=ac.createBuffer(1,Math.floor(ac.sampleRate*.06),ac.sampleRate);
+    const crData=crBuf.getChannelData(0);
+    for(let i=0;i<crData.length;i++) crData[i]=(Math.random()*2-1)*(1-i/crData.length);
+    const cr=ac.createBufferSource(); cr.buffer=crBuf;
+    const hpf=ac.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=1800;
+    const crG=ac.createGain();
+    crG.gain.setValueAtTime(5,t);
+    crG.gain.exponentialRampToValueAtTime(.001,t+.06);
+    cr.connect(hpf); hpf.connect(crG); crG.connect(ws);
+    cr.start(t); cr.stop(t+.06);
+
+    // ── Noise body (lowpass, decaying) ──────────────────
+    const nBuf=ac.createBuffer(1,Math.floor(ac.sampleRate*.55),ac.sampleRate);
+    const nData=nBuf.getChannelData(0);
+    for(let i=0;i<nData.length;i++) nData[i]=Math.random()*2-1;
+    const ns=ac.createBufferSource(); ns.buffer=nBuf;
+    const lpf=ac.createBiquadFilter(); lpf.type='lowpass';
+    lpf.frequency.setValueAtTime(2800,t);
+    lpf.frequency.exponentialRampToValueAtTime(180,t+.5);
+    const nG=ac.createGain();
+    nG.gain.setValueAtTime(2.8,t);
+    nG.gain.exponentialRampToValueAtTime(.001,t+.5);
+    ns.connect(lpf); lpf.connect(nG); nG.connect(ws);
+    ns.start(t); ns.stop(t+.55);
+
+    // ── Low thump (pitch-dropping sine) ─────────────────
+    const osc=ac.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(110,t);
+    osc.frequency.exponentialRampToValueAtTime(22,t+.28);
+    const oG=ac.createGain();
+    oG.gain.setValueAtTime(4,t);
+    oG.gain.exponentialRampToValueAtTime(.001,t+.3);
+    osc.connect(oG); oG.connect(ac.destination); // thump direct (no distort)
+    osc.start(t); osc.stop(t+.35);
+
+  }catch(e){}
+}
+let BX,BY,TX,TY;   // board origin, tray origin
+let portrait=false;
+
+const TIMELIMITS=[60,40,25];
+let diff=0, timeLimit=60;
+
+let holes, pieces;  // game objects
+let selected=-1;    // index into pieces[]
+let timer=0, placed=0;
+let phase='menu';   // menu|playing|popping|win|lose
+let popParts=[];    // flying pieces during pop
+let flashHole=-1, flashT=0; // wrong-placement feedback
+let lastT=0;
+
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d');
+
+// ═══════════════════════════════════════════════════════
+//  LAYOUT
+// ═══════════════════════════════════════════════════════
+function resize(){
+  const hudH=document.getElementById('hud').offsetHeight||40;
+  const aw=window.innerWidth, ah=window.innerHeight-hudH;
+  canvas.width=aw; canvas.height=ah;
+  portrait=aw<ah;
+
+  if(portrait){
+    // Board top, tray bottom — each panel stacks vertically
+    // Total vertical: NROWS*CELL + gap + NROWS*CELL = (2*NROWS+0.4)*CELL
+    CELL=Math.max(28,Math.min(88,Math.floor(aw/NCOLS),Math.floor(ah/(NROWS*2+0.4))));
+    const totalH=NROWS*CELL*2+Math.floor(CELL*0.4);
+    const oy=Math.floor((ah-totalH)/2);
+    BX=Math.floor((aw-NCOLS*CELL)/2); BY=oy;
+    TX=BX; TY=oy+NROWS*CELL+Math.floor(CELL*0.4);
+  } else {
+    // Board left, tray right — side by side
+    CELL=Math.max(34,Math.min(88,Math.floor(ah/NROWS),Math.floor(aw/8.4)));
+    const totalW=NCOLS*CELL*2+Math.floor(CELL*0.4);
+    const ox=Math.floor((aw-totalW)/2);
+    BX=ox; BY=Math.floor((ah-NROWS*CELL)/2);
+    TX=ox+NCOLS*CELL+Math.floor(CELL*0.4); TY=BY;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  GENERATE
+// ═══════════════════════════════════════════════════════
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+}
+
+function generateGame(){
+  const hi=[...Array(NSHAPES).keys()]; shuffle(hi);
+  holes=hi.map((si,i)=>({si,col:i%NCOLS,row:Math.floor(i/NCOLS),filled:false}));
+
+  const pi=[...Array(NSHAPES).keys()]; shuffle(pi);
+  pieces=pi.map((si,tp)=>({si,tp,placed:false}));
+
+  selected=-1; placed=0;
+  timer=timeLimit; flashHole=-1;
+  popParts=[];
+}
+
+// ═══════════════════════════════════════════════════════
+//  CENTRES (pixel coords of cell centre)
+// ═══════════════════════════════════════════════════════
+function hc(h){return {x:BX+(h.col+.5)*CELL, y:BY+(h.row+.5)*CELL};}
+function pc(p){return {x:TX+(p.tp%NCOLS+.5)*CELL, y:TY+(Math.floor(p.tp/NCOLS)+.5)*CELL};}
+
+// ═══════════════════════════════════════════════════════
+//  HIT TESTING
+// ═══════════════════════════════════════════════════════
+function hitHole(x,y){
+  for(let i=0;i<holes.length;i++){
+    const c=hc(holes[i]);
+    if(Math.abs(x-c.x)<CELL*.5&&Math.abs(y-c.y)<CELL*.5) return i;
+  }
+  return -1;
+}
+function hitPiece(x,y){
+  for(let i=0;i<pieces.length;i++){
+    if(pieces[i].placed) continue;
+    const c=pc(pieces[i]);
+    if(Math.abs(x-c.x)<CELL*.5&&Math.abs(y-c.y)<CELL*.5) return i;
+  }
+  return -1;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW HELPERS
+// ═══════════════════════════════════════════════════════
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+
+function drawHole(h,i){
+  const{x,y}=hc(h);
+  ctx.save(); ctx.translate(x,y);
+
+  // Hole well (recessed dark)
+  const flash=(i===flashHole&&flashT>0);
+  ctx.fillStyle=flash?'#3a0808':h.filled?'#1a1a1a':'#0c0c18';
+  rrect(-CELL*.44,-CELL*.44,CELL*.88,CELL*.88,CELL*.06);
+  ctx.fill();
+  ctx.strokeStyle=flash?'#ff4444':h.filled?'#2a2a2a':'#252535';
+  ctx.lineWidth=1.5;
+  rrect(-CELL*.44,-CELL*.44,CELL*.88,CELL*.88,CELL*.06);
+  ctx.stroke();
+
+  if(h.filled){
+    // Filled — draw piece snapped in (slightly smaller, dim)
+    shapePath(ctx,SID[h.si],CELL*0.88);
+    ctx.fillStyle=SCOL[h.si];
+    ctx.globalAlpha=0.75;
+    ctx.fill();
+    ctx.globalAlpha=1;
+    // Check mark
+    ctx.strokeStyle='rgba(255,255,255,.45)';
+    ctx.lineWidth=CELL*.05;
+    ctx.beginPath();
+    ctx.moveTo(-CELL*.12,CELL*.04);
+    ctx.lineTo(-CELL*.02,CELL*.14);
+    ctx.lineTo(CELL*.15,-CELL*.1);
+    ctx.stroke();
+  } else {
+    // Empty — show ghost outline of the needed shape
+    shapePath(ctx,SID[h.si],CELL*0.82);
+    ctx.fillStyle=SCOL[h.si]+'18';
+    ctx.fill();
+    ctx.strokeStyle=SCOL[h.si]+(flash?'cc':'44');
+    ctx.lineWidth=flash?2:1.2;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawPiece(p,i){
+  if(p.placed) return;
+  const{x,y}=pc(p);
+  const isSel=(i===selected);
+  ctx.save(); ctx.translate(x,y);
+
+  // Slot background
+  ctx.fillStyle=isSel?'#2a2a18':'#16161e';
+  rrect(-CELL*.44,-CELL*.44,CELL*.88,CELL*.88,CELL*.06);
+  ctx.fill();
+
+  // Drop shadow
+  ctx.shadowColor='rgba(0,0,0,.5)';
+  ctx.shadowBlur=isSel?14:6;
+  ctx.shadowOffsetX=isSel?0:2;
+  ctx.shadowOffsetY=isSel?0:3;
+
+  // Piece body
+  shapePath(ctx,SID[p.si],CELL*0.82);
+  ctx.fillStyle=SCOL[p.si];
+  ctx.fill();
+  ctx.shadowColor='transparent';
+
+  // Inner sheen
+  ctx.strokeStyle='rgba(255,255,255,.3)';
+  ctx.lineWidth=1;
+  shapePath(ctx,SID[p.si],CELL*0.68);
+  ctx.stroke();
+
+  if(isSel){
+    // Bright pulsing outline
+    const pulse=0.7+0.3*Math.sin(Date.now()*.006);
+    ctx.strokeStyle=`rgba(255,255,180,${pulse})`;
+    ctx.lineWidth=3;
+    shapePath(ctx,SID[p.si],CELL*0.9);
+    ctx.stroke();
+    // Colour glow
+    ctx.strokeStyle=SCOL[p.si]+'88';
+    ctx.lineWidth=7;
+    shapePath(ctx,SID[p.si],CELL*0.9);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN DRAW
+// ═══════════════════════════════════════════════════════
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(phase==='menu') return;
+
+  const bw=NCOLS*CELL, bh=NROWS*CELL;
+
+  // ── Board panel ─────────────────────────────────────
+  ctx.fillStyle='#0a0a18';
+  rrect(BX-8,BY-8,bw+16,bh+16,10);
+  ctx.fill();
+  ctx.strokeStyle='#2a2a44';
+  ctx.lineWidth=1.5;
+  rrect(BX-8,BY-8,bw+16,bh+16,10);
+  ctx.stroke();
+  ctx.fillStyle='#33334a';
+  ctx.font=`${CELL*.14}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillText('BOARD',BX+bw*.5,BY-10);
+
+  // Holes
+  for(let i=0;i<holes.length;i++) drawHole(holes[i],i);
+
+  // ── Tray panel ──────────────────────────────────────
+  ctx.fillStyle='#0a0a18';
+  rrect(TX-8,TY-8,bw+16,bh+16,10);
+  ctx.fill();
+  ctx.strokeStyle='#2a2a44';
+  ctx.lineWidth=1.5;
+  rrect(TX-8,TY-8,bw+16,bh+16,10);
+  ctx.stroke();
+  ctx.fillStyle='#33334a';
+  ctx.fillText('PIECES',TX+bw*.5,TY-10);
+
+  // Pieces
+  for(let i=0;i<pieces.length;i++) drawPiece(pieces[i],i);
+
+  // Hovering a hole while a piece is selected: highlight matching/wrong
+  if(selected>=0&&hoverHole>=0&&!holes[hoverHole].filled){
+    const{x,y}=hc(holes[hoverHole]);
+    const match=pieces[selected].si===holes[hoverHole].si;
+    ctx.save(); ctx.translate(x,y);
+    ctx.strokeStyle=match?'rgba(80,255,80,.7)':'rgba(255,80,80,.5)';
+    ctx.lineWidth=3;
+    rrect(-CELL*.44,-CELL*.44,CELL*.88,CELL*.88,CELL*.06);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Pop particles ────────────────────────────────────
+  for(const pp of popParts){
+    ctx.save();
+    ctx.translate(pp.x,pp.y);
+    ctx.rotate(pp.angle);
+    ctx.globalAlpha=Math.max(0,pp.life);
+    shapePath(ctx,SID[pp.si],CELL*.75);
+    ctx.fillStyle=SCOL[pp.si];
+    ctx.fill();
+    ctx.globalAlpha=1;
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════════════
+let hoverHole=-1;
+
+function update(dt){
+  timer=Math.max(0,timer-dt);
+  if(flashT>0) flashT-=dt;
+
+  // Update HUD
+  document.getElementById('hTime').textContent=Math.ceil(timer);
+  document.getElementById('hDone').textContent=placed;
+  const frac=timer/timeLimit;
+  document.getElementById('tbar').style.width=(frac*100)+'%';
+  document.getElementById('tbar').style.background=
+    frac>0.5?'#0f0':frac>0.25?'#fa0':'#f44';
+
+  if(timer<=0) triggerPop();
+}
+
+function updatePop(dt){
+  for(const pp of popParts){
+    pp.x+=pp.vx*dt; pp.y+=pp.vy*dt;
+    pp.vy+=280*dt;  // gravity
+    pp.vx*=0.995;
+    pp.angle+=pp.spin*dt;
+    pp.life-=dt*0.7;
+  }
+  popParts=popParts.filter(p=>p.life>0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME LOOP
+// ═══════════════════════════════════════════════════════
+function loop(t){
+  const dt=Math.min((t-lastT)/1000,.1);
+  lastT=t;
+  if(phase==='playing') update(dt);
+  else if(phase==='popping') updatePop(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════
+//  POP ANIMATION
+// ═══════════════════════════════════════════════════════
+function triggerPop(){
+  if(phase==='popping'||phase==='lose') return;
+  phase='popping';
+  stopTick();
+  playPop();
+
+  function scatter(x,y,si){
+    const spd=380+Math.random()*480;
+    const ang=(Math.random()-0.5)*Math.PI*2;
+    popParts.push({
+      x,y,
+      vx:Math.cos(ang)*spd*(0.5+Math.random()),
+      vy:Math.sin(ang)*spd-120,
+      si,
+      angle:Math.random()*Math.PI*2,
+      spin:(Math.random()-0.5)*10,
+      life:1.4,
+    });
+  }
+
+  // Scatter unplaced pieces from tray
+  for(const p of pieces){
+    if(p.placed) continue;
+    const c=pc(p);
+    scatter(c.x,c.y,p.si);
+    p.placed=true;
+  }
+  // Also scatter already-placed pieces from their holes
+  for(const h of holes){
+    if(!h.filled) continue;
+    const c=hc(h);
+    scatter(c.x,c.y,h.si);
+    h.filled=false;
+  }
+  setTimeout(()=>{
+    phase='lose';
+    document.getElementById('ovTitle').textContent='⏰ TIME\'S UP!';
+    document.getElementById('ovMsg').textContent=
+      `You placed ${placed} of 20 pieces.`;
+    document.getElementById('startbtn').textContent='TRY AGAIN';
+    showOv();
+  }, 1600);
+}
+
+// ═══════════════════════════════════════════════════════
+//  CLICK / TOUCH
+// ═══════════════════════════════════════════════════════
+function getXY(e){
+  const rect=canvas.getBoundingClientRect();
+  const src=(e.changedTouches&&e.changedTouches[0])||(e.touches&&e.touches[0])||e;
+  return {x:src.clientX-rect.left, y:src.clientY-rect.top};
+}
+
+canvas.addEventListener('mousemove',e=>{
+  if(phase!=='playing') return;
+  const{x,y}=getXY(e);
+  hoverHole=hitHole(x,y);
+});
+canvas.addEventListener('mouseleave',()=>{hoverHole=-1;});
+
+canvas.addEventListener('click',e=>{handleInput(getXY(e));});
+canvas.addEventListener('touchend',e=>{e.preventDefault();handleInput(getXY(e));},{passive:false});
+
+function handleInput({x,y}){
+  if(phase!=='playing') return;
+
+  const hi=hitHole(x,y);
+  const pi=hitPiece(x,y);
+
+  if(selected>=0){
+    if(hi>=0&&!holes[hi].filled){
+      // Try to place
+      if(pieces[selected].si===holes[hi].si){
+        // ✓ Correct!
+        pieces[selected].placed=true;
+        holes[hi].filled=true;
+        placed++;
+        selected=-1;
+        if(placed===NSHAPES) winGame();
+      } else {
+        // ✗ Wrong hole — flash it
+        flashHole=hi; flashT=0.5;
+        selected=-1;
+      }
+    } else if(pi>=0&&pi!==selected){
+      selected=pi; // switch selection
+    } else {
+      selected=-1; // deselect
+    }
+  } else {
+    if(pi>=0) selected=pi;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  WIN
+// ═══════════════════════════════════════════════════════
+function winGame(){
+  phase='win';
+  stopTick();
+  document.getElementById('ovTitle').textContent='🎉 PERFECT!';
+  document.getElementById('ovMsg').textContent=
+    `All 20 pieces placed with ${Math.ceil(timer)}s to spare!`;
+  document.getElementById('startbtn').textContent='PLAY AGAIN';
+  showOv();
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function startGame(){
+  hideOv();
+  getAC();          // unlock AudioContext on user gesture
+  generateGame();
+  phase='playing';
+  startTick();
+  resize();
+}
+
+function setDiff(d){
+  diff=d; timeLimit=TIMELIMITS[d];
+  document.querySelectorAll('#diffrow button').forEach((b,i)=>b.classList.toggle('active',i===d));
+}
+
+function showOv(){document.getElementById('ov').classList.add('show');}
+function hideOv(){document.getElementById('ov').classList.remove('show');}
+
+// ═══════════════════════════════════════════════════════
+//  RESIZE & BOOT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('resize',()=>{resize();});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&selected>=0){selected=-1;}
+});
+
+resize();
+requestAnimationFrame(t=>{lastT=t;loop(t);});
+</script>
+</body>
+</html>

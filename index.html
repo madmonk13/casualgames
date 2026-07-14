@@ -149,6 +149,20 @@ header p {
 }
 .card.soon .card-play { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
 
+/* Work-in-progress card */
+.card.wip { position: relative; }
+.card.wip::after {
+  content: '🚧 Work in Progress';
+  position: absolute; top: 10px; right: -2px;
+  background: #d97706;
+  color: #fff;
+  font-size: 0.68rem; font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px 0 0 4px;
+  letter-spacing: .03em;
+  pointer-events: none;
+}
+
 /* Hidden during filter */
 .card.hidden, .section-header.hidden { display: none; }
 
@@ -373,6 +387,18 @@ footer {
   <!-- ── Puzzle ─────────────────────────────────────────── -->
   <div class="section-header" data-section="puzzle">🧩 Puzzle</div>
 
+  <a class="card" href="perfection/index.html" data-category="puzzle">
+    <div class="card-icon">🔷</div>
+    <div class="card-title">Perfection</div>
+    <div class="card-desc">Match 20 uniquely shaped pieces into their holes before the timer runs out — or watch them all fly! Four difficulty levels from 75 seconds down to a brutal 25.</div>
+    <div class="card-tags">
+      <span class="tag">Puzzle</span>
+      <span class="tag">Speed</span>
+      <span class="tag">20 shapes</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
   <a class="card" href="block/index.html" data-category="puzzle">
     <div class="card-icon">🧱</div>
     <div class="card-title">Block Puzzle</div>
@@ -381,6 +407,29 @@ footer {
       <span class="tag">Puzzle</span>
       <span class="tag">Drag &amp; drop</span>
       <span class="tag">High score</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="td/index.html" data-category="other">
+    <div class="card-icon">🏰</div>
+    <div class="card-title">Tower Defense</div>
+    <div class="card-desc">Classic top-down tower defense with a procedurally generated enemy path every game. Place Archers, Gunners, Mortars, and Frost towers to survive 20 waves of increasingly tough enemies.</div>
+    <div class="card-tags">
+      <span class="tag">Strategy</span>
+      <span class="tag">Procedural</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="pacman/index.html" data-category="other">
+    <div class="card-icon">👾</div>
+    <div class="card-title">Pac-Man</div>
+    <div class="card-desc">A procedurally generated Pac-Man clone. Each level generates a new maze via DFS with mirror symmetry. Outrun four ghosts, eat power pellets to turn the tables, and chain ghost combos for big scores.</div>
+    <div class="card-tags">
+      <span class="tag">Arcade</span>
+      <span class="tag">Procedural</span>
+      <span class="tag">Ghosts</span>
     </div>
     <div class="card-play">▶ Play</div>
   </a>
@@ -409,7 +458,7 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="gears/index.html" data-category="puzzle">
+  <a class="card wip" href="gears/index.html" data-category="puzzle">
     <div class="card-icon">⚙️</div>
     <div class="card-title">Gears</div>
     <div class="card-desc">Place gears on a hex grid to spin every target in the right direction. Adjacent gears always turn opposite ways — plan your chain carefully to avoid conflicts.</div>
@@ -504,7 +553,7 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
-  <a class="card" href="sleepwalker/index.html" data-category="puzzle">
+  <a class="card wip" href="sleepwalker/index.html" data-category="puzzle">
     <div class="card-icon">🚶</div>
     <div class="card-title">Sleepwalker</div>
     <div class="card-desc">The walker won't stop — you have to save them. Rotate arrows, place bridges over holes, and trigger elevators to guide the sleepwalker safely to the exit before they fall.</div>
