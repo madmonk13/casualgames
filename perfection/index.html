@@ -344,6 +344,12 @@ function playPop(){
     osc.connect(oG); oG.connect(ac.destination); // thump direct (no distort)
     osc.start(t); osc.stop(t+.35);
 
+    // Disconnect the waveshaper once all sources have ended —
+    // iOS Safari generates noise from orphaned connected nodes
+    setTimeout(()=>{
+      try{ ws.disconnect(); crG.disconnect(); nG.disconnect(); }catch(e){}
+    }, 700);
+
   }catch(e){}
 }
 let BX,BY,TX,TY;   // board origin, tray origin
@@ -623,10 +629,14 @@ function update(dt){
 function updatePop(dt){
   for(const pp of popParts){
     pp.x+=pp.vx*dt; pp.y+=pp.vy*dt;
-    pp.vy+=280*dt;  // gravity
+    pp.vy+=380*dt;  // gravity
     pp.vx*=0.995;
     pp.angle+=pp.spin*dt;
     pp.life-=dt*0.7;
+    // Bounce off top so board pieces don't vanish immediately on portrait mobile
+    if(pp.y<0){ pp.y=0; pp.vy=Math.abs(pp.vy)*0.7; }
+    // Cull once off the sides or bottom
+    if(pp.x<-CELL*2||pp.x>canvas.width+CELL*2||pp.y>canvas.height+CELL*2) pp.life=0;
   }
   popParts=popParts.filter(p=>p.life>0);
 }
