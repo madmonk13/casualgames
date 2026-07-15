@@ -248,16 +248,22 @@ function getAC(){
   return _ac;
 }
 
-function playTick(){
+// Lookahead scheduler — immune to setInterval jitter.
+// The JS timer fires every 25ms just to check; actual audio is
+// pre-scheduled on the AudioContext's sample-accurate clock.
+const TICK_INTERVAL=0.5;   // seconds between ticks
+const TICK_LOOKAHEAD=0.12; // schedule this far ahead (s)
+const TICK_SCHED_MS=25;    // how often the scheduler polls (ms)
+let _nextTickTime=0;
+
+function _scheduleTick(t){
   try{
-    const ac=getAC(), t=ac.currentTime;
-    // Short noise burst through bandpass — sounds like a mechanical escapement
+    const ac=getAC();
     const len=Math.floor(ac.sampleRate*0.012);
     const buf=ac.createBuffer(1,len,ac.sampleRate);
     const d=buf.getChannelData(0);
     for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
     const src=ac.createBufferSource(); src.buffer=buf;
-    // Bandpass gives it that hollow woody "tick" resonance
     const bp=ac.createBiquadFilter(); bp.type='bandpass';
     bp.frequency.value=3200; bp.Q.value=1.8;
     const g=ac.createGain();
@@ -268,9 +274,20 @@ function playTick(){
   }catch(e){}
 }
 
+function _tickScheduler(){
+  try{
+    const ac=getAC();
+    while(_nextTickTime < ac.currentTime+TICK_LOOKAHEAD){
+      _scheduleTick(_nextTickTime);
+      _nextTickTime+=TICK_INTERVAL;
+    }
+  }catch(e){}
+}
+
 function startTick(){
   stopTick();
-  _tickInterval=setInterval(playTick, 500);
+  _nextTickTime=getAC().currentTime+0.1;
+  _tickInterval=setInterval(_tickScheduler,TICK_SCHED_MS);
 }
 
 function stopTick(){
