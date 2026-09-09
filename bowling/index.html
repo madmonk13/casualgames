@@ -84,7 +84,7 @@ a.back:hover{color:#9fb0d8;}
   <a class="back" href="../index.html">← Game Center</a>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="lib/three.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 //  REGULATION DIMENSIONS (inches) — courtdimensions.net / USBC
@@ -100,12 +100,13 @@ const NEIGH_LANES=4;                               // decorative lanes on EACH s
 // asset folders (served over http:// — run serve.command)
 const IMG='images/', TEX='textures/', SFX='sfx/';
 
-// selectable assets (add more here as you drop files in textures/ and images/)
-const BALL_TEXTURES=[['Purple / Blue','purple-blue.png'],['Photo (22)','22.jpg']];
-const WALL_MURALS=[['Default','default.png'],['1970s','1970s.png'],['1980s','1980s.png'],['Cosmic','cosmic.png']];
+// selectable ball colors (label, hex)
+const BALL_COLORS=[['Red','#d21f2b'],['Orange','#e8720c'],['Yellow','#f2c200'],['Green','#1f9e3a'],
+  ['Blue','#1f5fd2'],['Indigo','#3b2fb0'],['Violet','#8a2be2'],['Black','#141418']];
+const WALL_MURALS=[['Default','default.png'],['1970s','1970s.png'],['1980s','1980s.png'],['Dive','dive.jpg'],['Cosmic','cosmic.png']];
 
 // live settings
-const settings={ ball:'purple-blue.png', mural:'default.png', bumpers:false, cosmic:false };
+const settings={ ball:'#141418', mural:'default.png', bumpers:false, cosmic:false };
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
@@ -314,8 +315,7 @@ function buildPinMeshes(){
 
 function buildBallMesh(){
   const grp=new THREE.Group();
-  ballMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.3,metalness:0.1});
-  ballMat.map=loadTex(TEX+settings.ball, ()=>{ ballMat.needsUpdate=true; });   // equirectangular wrap
+  ballMat=new THREE.MeshStandardMaterial({color:settings.ball,roughness:0.28,metalness:0.15});
   pinGlow.push(ballMat);
   const sphere=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,48,36),ballMat);
   grp.add(sphere);
@@ -345,11 +345,22 @@ let _ac=null, rollAudio=null, hitAudio=null, strikeAudio=null, spareAudio=null;
 function getAC(){ if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)(); if(_ac.state==='suspended')_ac.resume(); return _ac; }
 function initSfx(){
   if(rollAudio) return;
-  rollAudio=new Audio(SFX+'roll.mp3'); rollAudio.loop=true; rollAudio.preload='auto'; rollAudio.volume=0.6;
-  hitAudio =new Audio(SFX+'hit.mp3');  hitAudio.preload='auto';  hitAudio.volume=0.9;
-  // celebration stings (optional — drop strike.mp3 / spare.mp3 in sfx/ later)
-  strikeAudio=new Audio(SFX+'strike.mp3'); strikeAudio.volume=0.9;
-  spareAudio =new Audio(SFX+'spare.mp3');  spareAudio.volume=0.9;
+  const mk=(f,loop,vol)=>{ const a=new Audio(SFX+f); a.loop=!!loop; a.preload='auto'; a.volume=vol; a.load(); return a; };
+  rollAudio =mk('roll.mp3',true,0.6);
+  hitAudio  =mk('hit.mp3',false,0.9);
+  strikeAudio=mk('strike.mp3',false,0.9);   // optional — drop strike.mp3 / spare.mp3 in sfx/ later
+  spareAudio =mk('spare.mp3',false,0.9);
+  warmUp();   // decode/prime during the START gesture so the first throw has no delay
+}
+// silently play→pause each clip once to force decoding and unlock playback
+function warmUp(){
+  for(const a of [rollAudio,hitAudio,strikeAudio,spareAudio]){
+    if(!a) continue;
+    const vol=a.volume, lp=a.loop; a.muted=true; a.loop=false;
+    const restore=()=>{ try{ a.pause(); a.currentTime=0; }catch(e){} a.muted=false; a.loop=lp; a.volume=vol; };
+    try{ const p=a.play(); if(p&&p.then) p.then(restore).catch(restore); else restore(); }
+    catch(e){ restore(); }
+  }
 }
 function playSting(type){
   const a=(type==='STRIKE')?strikeAudio:spareAudio; if(!a) return;
@@ -424,9 +435,23 @@ function step(dt){
     if(!p.down && (sp>25||disp>2.2)){ p.down=true; const m=Math.hypot(p.vx,p.vy)||1; p.fdx=(p.vx/m)||(Math.random()-.5); p.fdz=(p.vy/m)||0.2; }
     if(p.down) p.fall=Math.min(1,p.fall+dt*3.2);
     if(sp>2) moving=true;
+    if(p.down && p.fall<1) moving=true;          // keep settling until fallers finish tipping (chains)
   }
   for(let i=0;i<pins.length;i++){ if(!pins[i].racked) continue;
     for(let j=i+1;j<pins.length;j++){ if(pins[j].racked) collide(pins[i],PIN_R,pins[j],PIN_R,1.0,dt,false); } }
+  // a toppling pin sweeps its length — knock down any standing pin it falls across (chain reaction)
+  for(let i=0;i<pins.length;i++){ const a=pins[i]; if(!a.racked||!a.down) continue;
+    const reach=a.fall*PIN_H, segx=a.fdx*reach, segy=a.fdz*reach, segLen2=segx*segx+segy*segy||1;
+    for(let j=0;j<pins.length;j++){ if(j===i) continue; const b=pins[j]; if(!b.racked||b.down) continue;
+      let t=((b.x-a.x)*segx+(b.y-a.y)*segy)/segLen2; t=t<0?0:t>1?1:t;
+      const cx=a.x+segx*t, cy=a.y+segy*t, dx=b.x-cx, dy=b.y-cy, d=Math.hypot(dx,dy);
+      if(d<PIN_R*2 && d>1e-4){
+        const nx=dx/d, ny=dy/d, kick=35+Math.hypot(a.vx,a.vy);
+        b.vx+=nx*kick*0.6+a.vx*0.4; b.vy+=ny*kick*0.6+a.vy*0.4;
+        b.down=true; const m=Math.hypot(b.vx,b.vy)||1; b.fdx=b.vx/m; b.fdz=b.vy/m; moving=true;
+      }
+    }
+  }
   if(!clattered){ for(const p of pins){ if(p.racked&&p.down){ clattered=true; clatter(6); break; } } }
   const ballGone=ball.y>LANE_LEN;
   if(ballGone && !moving){ settleT+=dt; if(settleT>0.35) endBall(); }
@@ -698,7 +723,7 @@ function applyCosmic(){
   for(const m of laneGlow){ if(m&&m.emissive){ m.emissive.set(on?0x0a1e5a:0x000000); m.emissiveIntensity=on?0.7:1; m.needsUpdate=true; } }
   for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(on?0x1b4fff:0x000000); m.emissiveIntensity=on?1.4:1; m.needsUpdate=true; } }
 }
-function applyBall(file){ settings.ball=file; if(ballMat){ ballMat.map=loadTex(TEX+file,()=>{ballMat.needsUpdate=true;}); ballMat.needsUpdate=true; } }
+function applyBall(hex){ settings.ball=hex; if(ballMat){ ballMat.map=null; ballMat.color.set(hex); ballMat.needsUpdate=true; } }
 function applyMural(file){ settings.mural=file; if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(0xffffff);muralMat.needsUpdate=true;}); } }
 function setBumpers(on){ settings.bumpers=on; if(bumperGroup) bumperGroup.visible=on; }
 function setCosmic(on){
@@ -710,7 +735,7 @@ function setCosmic(on){
 }
 function setupSettings(){
   const sb=document.getElementById('setBall'), sm=document.getElementById('setMural');
-  for(const [label,file] of BALL_TEXTURES){ const o=document.createElement('option'); o.value=file; o.textContent=label; sb.appendChild(o); }
+  for(const [label,val] of BALL_COLORS){ const o=document.createElement('option'); o.value=val; o.textContent=label; sb.appendChild(o); }
   for(const [label,file] of WALL_MURALS){ const o=document.createElement('option'); o.value=file; o.textContent=label; sm.appendChild(o); }
   sb.value=settings.ball; sm.value=settings.mural;
   document.getElementById('setBumpers').checked=settings.bumpers;
