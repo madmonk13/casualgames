@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Superfection</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{
+  width:100dvw;height:100dvh;
+  background:#12101e;
+  font-family:'Segoe UI',Arial,sans-serif;
+  user-select:none;-webkit-user-select:none;
+  touch-action:none;overflow:hidden;
+  display:flex;flex-direction:column;align-items:center;
+}
+#hud{
+  width:100%;flex-shrink:0;
+  background:rgba(0,0,0,.85);
+  display:flex;align-items:center;gap:8px;
+  padding:5px 10px;
+}
+#tbar-wrap{flex:1;height:11px;background:#222;border-radius:6px;overflow:hidden;border:1px solid #333;}
+#tbar{height:100%;width:100%;border-radius:6px;transition:background .4s;}
+.stat{color:#fff;font-size:clamp(.7rem,2vw,.88rem);white-space:nowrap}
+.stat b{color:#ff0;margin-left:2px}
+#asmHud{display:none;align-items:center;gap:5px;padding:0 4px;}
+#asmHud.show{display:flex;}
+#asmPrev{border-radius:3px;display:block;}
+canvas#gc{display:block;flex-shrink:0;cursor:pointer;}
+#ov{
+  position:fixed;inset:0;z-index:20;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:rgba(10,8,20,.9);color:#ff0;gap:10px;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .25s;
+}
+#ov.show{opacity:1;pointer-events:auto}
+#ov h2{font-size:clamp(1.4rem,5vw,2.2rem);letter-spacing:3px;text-shadow:0 0 18px #fa0}
+#ov p{color:#ccc;font-size:clamp(.78rem,2vw,.98rem);line-height:1.6;max-width:360px;}
+#ov .hint{color:#888;font-size:clamp(.68rem,1.6vw,.82rem);margin-top:-4px;}
+#diffrow{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;justify-content:center;}
+#diffrow button{
+  padding:5px 13px;border:1.5px solid #444;border-radius:5px;
+  background:#1c1c2e;color:#aaa;cursor:pointer;font-size:.82rem;transition:all .12s;
+}
+#diffrow button.active{border-color:#ff0;color:#ff0;background:#2a2a10;}
+#diffrow button:hover{border-color:#888;}
+#startbtn{
+  margin-top:4px;padding:10px 32px;background:#ff0;color:#12101e;
+  border:none;border-radius:7px;font-size:clamp(.9rem,2.5vw,1.15rem);font-weight:700;cursor:pointer;
+}
+#startbtn:hover{background:#ffd000;}
+a.back{color:#666;font-size:.75rem;text-decoration:none;margin-top:4px;}
+a.back:hover{color:#aaa;}
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <span class="stat">⏱<b id="hTime">2:00</b></span>
+  <div id="tbar-wrap"><div id="tbar" style="background:#0f0"></div></div>
+  <div id="asmHud">
+    <canvas id="asmPrev" width="32" height="32"></canvas>
+    <span style="font-size:.68rem;color:#4f8;letter-spacing:.5px">▶ PLACE</span>
+  </div>
+  <span class="stat"><b id="hDone">0</b>/16</span>
+</div>
+<canvas id="gc"></canvas>
+
+<div id="ov" class="show">
+  <h2 id="ovTitle">SUPERFECTION</h2>
+  <p id="ovMsg">Every square is cut in two by a<br>unique jigsaw seam. Join the two<br>halves that fit, then place them<br>in the board before time runs out!</p>
+  <p class="hint">Tap a half · tap its matching half · tap the board slot</p>
+  <div id="diffrow">
+    <button class="active" onclick="setDiff(0)">Normal · 2:00</button>
+    <button onclick="setDiff(1)">Hard · 1:30</button>
+    <button onclick="setDiff(2)">Expert · 1:00</button>
+  </div>
+  <button id="startbtn" onclick="startGame()">START</button>
+  <a class="back" href="../index.html">← Game Center</a>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  16 UNIQUE 2-PIECE PUZZLES — modeled on the physical set
+//  Each square is cut in two. Cut kinds:
+//   'poly'  : rectilinear/diagonal cut. o:'h'|'v', pts in unit coords
+//             (0..1, y down). 'h': x runs 0→1; 'v': y runs 0→1.
+//             side 'T' = top('h')/left('v') region, 'I' = the other.
+//   'knob'  : straight cut with one semicircle bump.
+//   'circle'/'square'/'cross'/'heart' : inset shape.
+//             side 'T' = outer square with hole, 'I' = the inset shape.
+//  side 'T' = COLOR[0], side 'I' = COLOR[1]
+// ═══════════════════════════════════════════════════════
+const PUZZLES = [
+  // Row 1
+  {cut:'poly', o:'h', pts:[[0,.40],[.55,.40],[.55,.66],[1,.66]]},               // 0 green/blue L-step (cell 0)
+  {cut:'cross', t:.15, l:.40},                                                  // 1 blue + red cross
+  {cut:'circle', r:.27},                                                        // 2 green + blue circle
+  {cut:'poly', o:'v', pts:[[.58,0],[.58,.45],[.40,.45],[.40,1]]},               // 3 yellow/green step (cell 3)
+  // Row 2
+  {cut:'square', s:.19},                                                        // 4 yellow + red square
+  {cut:'poly', o:'v', pts:[[.42,0],[.42,.34],[.68,.34],[.68,.68],[.40,.68],[.40,1]]}, // 5 green/yellow key
+  {cut:'poly', o:'h', pts:[[0,.55],[.30,.55],[.30,.32],[.60,.32],[.60,.55],[1,.55]]}, // 6 blue/yellow up-tab (cell 6)
+  {cut:'poly', o:'h', pts:[[0,.62],[.48,.62],[.48,.80],[1,.80]]},               // 7 red/yellow band (cell 7)
+  // Row 3
+  {cut:'knob', o:'h', at:.5, kt:.5, kr:.17, kd:1},                              // 8 blue/yellow notch
+  {cut:'poly', o:'h', pts:[[0,1],[1,0]]},                                       // 9 green/red diagonal
+  {cut:'poly', o:'h', pts:[[0,.38],[.28,.38],[.28,.60],[.58,.60],[.58,.34],[1,.34]]}, // 10 red/yellow zigzag (cell 10)
+  {cut:'poly', o:'v', pts:[[.55,0],[.55,.35],[.75,.35],[.75,.65],[.55,.65],[.55,1]]}, // 11 red/blue right-tab (cell 11)
+  // Row 4
+  {cut:'poly', o:'h', pts:[[0,0],[1,1]]},                                       // 12 blue/yellow diagonal
+  {cut:'poly', o:'v', pts:[[.36,0],[.36,.38],[.62,.38],[.62,.64],[.40,.64],[.40,1]]}, // 13 green/yellow S-stair (cell 5)
+  {cut:'poly', o:'h', pts:[[0,.46],[.4,.46],[.4,.70],[.7,.70],[.7,.48],[1,.48]]}, // 14 red/green step
+  {cut:'poly', o:'h', pts:[[0,1],[1,0]]},                                       // 15 yellow/blue anti-diagonal (cell 12)
+];
+const NSHAPES = 16;
+
+// ── Per-puzzle color pairs [T-half color, I-half color] (from photo)
+const PIECE_COLORS = [
+  ['green',  'blue'  ], // 0
+  ['blue',   'red'   ], // 1  bg blue, cross red
+  ['green',  'blue'  ], // 2  bg green, circle blue
+  ['yellow', 'green' ], // 3
+  ['yellow', 'red'   ], // 4  bg yellow, square red
+  ['green',  'yellow'], // 5
+  ['blue',   'yellow'], // 6
+  ['red',    'yellow'], // 7
+  ['blue',   'yellow'], // 8
+  ['green',  'red'   ], // 9
+  ['red',    'yellow'], // 10
+  ['red',    'blue'  ], // 11
+  ['blue',   'yellow'], // 12
+  ['green',  'yellow'], // 13 S-stair (cell 5)
+  ['red',    'green' ], // 14
+  ['yellow', 'blue'  ], // 15 anti-diagonal (cell 12)
+];
+
+// Flat hex per color
+const COLOR_HEX = {red:'#EE3B30',blue:'#2E9BE6',green:'#5CC63A',yellow:'#F5C518'};
+
+// ═══════════════════════════════════════════════════════
+//  PUZZLE PATHS (centered at 0,0; takes any canvas context)
+//  Unit coords: u,v in 0..1 (v down) → centered pixel coords.
+// ═══════════════════════════════════════════════════════
+function _u(u,v,sz){ return [(u-0.5)*sz, (v-0.5)*sz]; }
+
+// Inset shape (single subpath, centered). dir<0 traces reversed (for holes w/ nonzero winding — we use evenodd so dir is cosmetic).
+function insetShape(fctx, P, sz){
+  if(P.cut==='circle'){
+    fctx.arc(0,0,P.r*sz,0,Math.PI*2);
+  } else if(P.cut==='square'){
+    const s=P.s*sz; fctx.rect(-s,-s,s*2,s*2);
+  } else if(P.cut==='cross'){
+    const t=P.t*sz, l=P.l*sz;
+    fctx.moveTo(-t,-l); fctx.lineTo(t,-l); fctx.lineTo(t,-t); fctx.lineTo(l,-t);
+    fctx.lineTo(l,t);   fctx.lineTo(t,t);  fctx.lineTo(t,l);  fctx.lineTo(-t,l);
+    fctx.lineTo(-t,t);  fctx.lineTo(-l,t); fctx.lineTo(-l,-t);fctx.lineTo(-t,-t);
+    fctx.closePath();
+  } else if(P.cut==='heart'){
+    const s=P.r*sz;
+    fctx.moveTo(0, s*0.95);
+    fctx.bezierCurveTo(-s*1.5, -s*0.1, -s*0.75, -s*1.35, 0, -s*0.35);
+    fctx.bezierCurveTo( s*0.75, -s*1.35,  s*1.5, -s*0.1, 0, s*0.95);
+    fctx.closePath();
+  }
+}
+
+// Trace a poly cut across the square (used for seam-only stroking).
+function polyTrace(fctx, P, sz){
+  const p0=_u(P.pts[0][0],P.pts[0][1],sz); fctx.moveTo(p0[0],p0[1]);
+  for(let i=1;i<P.pts.length;i++){const p=_u(P.pts[i][0],P.pts[i][1],sz); fctx.lineTo(p[0],p[1]);}
+}
+
+// Trace a knob cut (straight line at at, one semicircle at kt).
+function knobTrace(fctx, P, sz){
+  const hs=sz/2, kr=P.kr*sz;
+  if(P.o==='h'){
+    const y=(P.at-0.5)*sz, cx=(P.kt-0.5)*sz;
+    fctx.moveTo(-hs,y); fctx.lineTo(cx-kr,y);
+    fctx.arc(cx,y,kr,Math.PI,0,P.kd<0);
+    fctx.lineTo(hs,y);
+  } else {
+    const x=(P.at-0.5)*sz, cy=(P.kt-0.5)*sz;
+    fctx.moveTo(x,-hs); fctx.lineTo(x,cy-kr);
+    fctx.arc(x,cy,kr,-Math.PI/2,Math.PI/2,P.kd<0);
+    fctx.lineTo(x,hs);
+  }
+}
+
+// Path of one half of puzzle `id`. sz = full square side length.
+function halfPath(fctx, id, sz, side){
+  const P=PUZZLES[id], hs=sz/2;
+  fctx.beginPath();
+
+  if(P.cut==='circle'||P.cut==='square'||P.cut==='cross'||P.cut==='heart'){
+    if(side==='I'){ insetShape(fctx,P,sz); }
+    else {
+      // outer square (CW) then inset shape → evenodd punches the hole
+      fctx.moveTo(-hs,-hs); fctx.lineTo(hs,-hs); fctx.lineTo(hs,hs); fctx.lineTo(-hs,hs); fctx.closePath();
+      insetShape(fctx,P,sz);
+    }
+    return;
+  }
+
+  if(P.cut==='knob'){
+    const kr=P.kr*sz;
+    if(P.o==='h'){
+      const y=(P.at-0.5)*sz, cx=(P.kt-0.5)*sz;
+      if(side==='T'){
+        fctx.moveTo(-hs,-hs); fctx.lineTo(hs,-hs); fctx.lineTo(hs,y);
+        fctx.lineTo(cx+kr,y); fctx.arc(cx,y,kr,0,Math.PI,P.kd>0); fctx.lineTo(-hs,y);
+      } else {
+        fctx.moveTo(-hs,hs); fctx.lineTo(-hs,y); fctx.lineTo(cx-kr,y);
+        fctx.arc(cx,y,kr,Math.PI,0,P.kd<0); fctx.lineTo(hs,y); fctx.lineTo(hs,hs);
+      }
+    } else {
+      const x=(P.at-0.5)*sz, cy=(P.kt-0.5)*sz;
+      if(side==='T'){
+        fctx.moveTo(-hs,-hs); fctx.lineTo(x,-hs); fctx.lineTo(x,cy-kr);
+        fctx.arc(x,cy,kr,-Math.PI/2,Math.PI/2,P.kd>0); fctx.lineTo(x,hs); fctx.lineTo(-hs,hs);
+      } else {
+        fctx.moveTo(hs,-hs); fctx.lineTo(x,-hs); fctx.lineTo(x,cy-kr);
+        fctx.arc(x,cy,kr,-Math.PI/2,Math.PI/2,P.kd<0); fctx.lineTo(x,hs); fctx.lineTo(hs,hs);
+      }
+    }
+    fctx.closePath();
+    return;
+  }
+
+  // ── poly cut ──
+  const pts=P.pts, n=pts.length;
+  const first=pts[0], last=pts[n-1];
+  if(P.o==='h'){
+    if(side==='T'){
+      let p=_u(0,0,sz); fctx.moveTo(p[0],p[1]);
+      p=_u(1,0,sz); fctx.lineTo(p[0],p[1]);
+      p=_u(last[0],last[1],sz); fctx.lineTo(p[0],p[1]);
+      for(let i=n-1;i>=0;i--){p=_u(pts[i][0],pts[i][1],sz); fctx.lineTo(p[0],p[1]);}
+    } else {
+      let p=_u(0,1,sz); fctx.moveTo(p[0],p[1]);
+      p=_u(first[0],first[1],sz); fctx.lineTo(p[0],p[1]);
+      for(let i=1;i<n;i++){p=_u(pts[i][0],pts[i][1],sz); fctx.lineTo(p[0],p[1]);}
+      p=_u(1,1,sz); fctx.lineTo(p[0],p[1]);
+    }
+  } else {
+    if(side==='T'){
+      let p=_u(0,0,sz); fctx.moveTo(p[0],p[1]);
+      p=_u(first[0],first[1],sz); fctx.lineTo(p[0],p[1]);
+      for(let i=1;i<n;i++){p=_u(pts[i][0],pts[i][1],sz); fctx.lineTo(p[0],p[1]);}
+      p=_u(0,1,sz); fctx.lineTo(p[0],p[1]);
+    } else {
+      let p=_u(1,0,sz); fctx.moveTo(p[0],p[1]);
+      p=_u(first[0],first[1],sz); fctx.lineTo(p[0],p[1]);
+      for(let i=1;i<n;i++){p=_u(pts[i][0],pts[i][1],sz); fctx.lineTo(p[0],p[1]);}
+      p=_u(1,1,sz); fctx.lineTo(p[0],p[1]);
+    }
+  }
+  fctx.closePath();
+}
+
+// Cut-line-only path (for stroking the joint on an assembled piece)
+function seamOnlyPath(fctx, id, sz){
+  const P=PUZZLES[id];
+  fctx.beginPath();
+  if(P.cut==='knob') knobTrace(fctx,P,sz);
+  else if(P.cut==='poly') polyTrace(fctx,P,sz);
+  else insetShape(fctx,P,sz); // inset outline
+}
+
+// Lone tray halves are drawn in their true position (no offset)
+function halfOffset(id, side, sz){ return {x:0,y:0}; }
+
+// Fill the CURRENT PATH flat, with a crisp darker edge for definition.
+function fillPiece3D(fctx, sz, colName, alpha){
+  if(alpha===undefined) alpha=1;
+  fctx.globalAlpha = alpha;
+  fctx.fillStyle = COLOR_HEX[colName] || '#888';
+  fctx.fill('evenodd');
+  fctx.lineWidth = Math.max(1, sz*0.028);
+  fctx.strokeStyle = 'rgba(0,0,0,.5)';
+  fctx.stroke();
+  fctx.globalAlpha = 1;
+}
+
+// ═══════════════════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════════════════
+let _ac=null,_tickInterval=null,_nextTickTime=0;
+function getAC(){
+  if(!_ac) _ac=new(window.AudioContext||window.webkitAudioContext)();
+  if(_ac.state==='suspended') _ac.resume();
+  return _ac;
+}
+const TICK_INTERVAL=0.5,TICK_LOOKAHEAD=0.12,TICK_SCHED_MS=25;
+function _scheduleTick(t){
+  try{
+    const ac=getAC();
+    const len=Math.floor(ac.sampleRate*.012);
+    const buf=ac.createBuffer(1,len,ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*(1-i/len);
+    const src=ac.createBufferSource(); src.buffer=buf;
+    const bp=ac.createBiquadFilter(); bp.type='bandpass';
+    bp.frequency.value=3200; bp.Q.value=1.8;
+    const g=ac.createGain();
+    g.gain.setValueAtTime(.9,t); g.gain.exponentialRampToValueAtTime(.001,t+.012);
+    src.connect(bp); bp.connect(g); g.connect(ac.destination);
+    src.start(t); src.stop(t+.015);
+  }catch(e){}
+}
+function _tickScheduler(){
+  try{
+    const ac=getAC();
+    while(_nextTickTime<ac.currentTime+TICK_LOOKAHEAD){
+      _scheduleTick(_nextTickTime);
+      _nextTickTime+=TICK_INTERVAL;
+    }
+  }catch(e){}
+}
+function startTick(){
+  stopTick(); _nextTickTime=getAC().currentTime+.1;
+  _tickInterval=setInterval(_tickScheduler,TICK_SCHED_MS);
+}
+function stopTick(){if(_tickInterval){clearInterval(_tickInterval);_tickInterval=null;}}
+function playPop(){
+  try{
+    const ac=getAC(),t=ac.currentTime;
+    const ws=ac.createWaveShaper();
+    const curve=new Float32Array(512);
+    for(let i=0;i<512;i++){const x=i*2/512-1;curve[i]=((Math.PI+200)*x)/(Math.PI+200*Math.abs(x));}
+    ws.curve=curve; ws.oversample='4x'; ws.connect(ac.destination);
+    const crBuf=ac.createBuffer(1,Math.floor(ac.sampleRate*.06),ac.sampleRate);
+    const crData=crBuf.getChannelData(0);
+    for(let i=0;i<crData.length;i++) crData[i]=(Math.random()*2-1)*(1-i/crData.length);
+    const cr=ac.createBufferSource(); cr.buffer=crBuf;
+    const hpf=ac.createBiquadFilter(); hpf.type='highpass'; hpf.frequency.value=1800;
+    const crG=ac.createGain();
+    crG.gain.setValueAtTime(5,t); crG.gain.exponentialRampToValueAtTime(.001,t+.06);
+    cr.connect(hpf); hpf.connect(crG); crG.connect(ws); cr.start(t); cr.stop(t+.06);
+    const nBuf=ac.createBuffer(1,Math.floor(ac.sampleRate*.55),ac.sampleRate);
+    const nData=nBuf.getChannelData(0);
+    for(let i=0;i<nData.length;i++) nData[i]=Math.random()*2-1;
+    const ns=ac.createBufferSource(); ns.buffer=nBuf;
+    const lpf=ac.createBiquadFilter(); lpf.type='lowpass';
+    lpf.frequency.setValueAtTime(2800,t); lpf.frequency.exponentialRampToValueAtTime(180,t+.5);
+    const nG=ac.createGain();
+    nG.gain.setValueAtTime(2.8,t); nG.gain.exponentialRampToValueAtTime(.001,t+.5);
+    ns.connect(lpf); lpf.connect(nG); nG.connect(ws); ns.start(t); ns.stop(t+.55);
+    const osc=ac.createOscillator(); osc.type='sine';
+    osc.frequency.setValueAtTime(110,t); osc.frequency.exponentialRampToValueAtTime(22,t+.28);
+    const oG=ac.createGain();
+    oG.gain.setValueAtTime(4,t); oG.gain.exponentialRampToValueAtTime(.001,t+.3);
+    osc.connect(oG); oG.connect(ac.destination); osc.start(t); osc.stop(t+.35);
+    setTimeout(()=>{try{ws.disconnect();crG.disconnect();nG.disconnect();}catch(e){}},700);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════
+//  LAYOUT  — Board 4×4 left/top, Tray 8×4 right/bottom
+// ═══════════════════════════════════════════════════════
+const BCOLS=4,BROWS=4,TCOLS=8,TROWS=4;
+const TIMELIMITS=[120,90,60];
+let CELL=60,diff=0,timeLimit=120;
+let BX=0,BY=0,TX=0,TY=0,portrait=false;
+
+function resize(){
+  const hudH=document.getElementById('hud').offsetHeight||40;
+  const aw=window.innerWidth,ah=window.innerHeight-hudH;
+  canvas.width=aw; canvas.height=ah;
+  portrait=aw<ah;
+  if(portrait){
+    CELL=Math.max(24,Math.min(80,Math.floor(aw/TCOLS),Math.floor(ah/(BROWS+.6+TROWS))));
+    const totalH=BROWS*CELL+Math.floor(CELL*.6)+TROWS*CELL;
+    const oy=Math.floor((ah-totalH)/2);
+    BX=Math.floor((aw-BCOLS*CELL)/2); BY=oy;
+    TX=Math.floor((aw-TCOLS*CELL)/2); TY=oy+BROWS*CELL+Math.floor(CELL*.6);
+  } else {
+    CELL=Math.max(24,Math.min(80,Math.floor(ah/BROWS),Math.floor(aw/(BCOLS+.6+TCOLS))));
+    const totalW=BCOLS*CELL+Math.floor(CELL*.6)+TCOLS*CELL;
+    const ox=Math.floor((aw-totalW)/2);
+    BX=ox; BY=Math.floor((ah-BROWS*CELL)/2);
+    TX=ox+BCOLS*CELL+Math.floor(CELL*.6); TY=BY;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  GAME STATE
+// ═══════════════════════════════════════════════════════
+// pieces[].side: 'T' = left/top jigsaw half, 'I' = right/bottom half
+let holes=[],pieces=[];
+let selIdx=-1;
+let asmId=-1,asmA=-1,asmB=-1;
+let placed=0,timer=0,phase='menu';
+let flashHole=-1,flashT=0;
+let popParts=[];
+let lastT=0;
+
+const canvas=document.getElementById('gc');
+const ctx=canvas.getContext('2d');
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+}
+
+function generateGame(){
+  const order=[...Array(NSHAPES).keys()]; shuffle(order);
+  holes=order.map((si,i)=>({si,col:i%BCOLS,row:Math.floor(i/BCOLS),filled:false}));
+  pieces=[];
+  for(let i=0;i<NSHAPES;i++){
+    pieces.push({id:i,side:'T',tp:0,state:'idle'});  // tile
+    pieces.push({id:i,side:'I',tp:0,state:'idle'});  // insert
+  }
+  shuffle(pieces);
+  pieces.forEach((p,i)=>p.tp=i);
+  selIdx=-1; asmId=-1; asmA=-1; asmB=-1;
+  placed=0; timer=timeLimit; flashHole=-1; flashT=0;
+  popParts=[]; updateAsmHud();
+}
+
+// ═══════════════════════════════════════════════════════
+//  COORDS
+// ═══════════════════════════════════════════════════════
+function hc(h){return{x:BX+(h.col+.5)*CELL,y:BY+(h.row+.5)*CELL};}
+function pc(p){return{x:TX+(p.tp%TCOLS+.5)*CELL,y:TY+(Math.floor(p.tp/TCOLS)+.5)*CELL};}
+
+function hitHole(x,y){
+  for(let i=0;i<holes.length;i++){
+    const c=hc(holes[i]);
+    if(Math.abs(x-c.x)<CELL*.5&&Math.abs(y-c.y)<CELL*.5) return i;
+  }
+  return -1;
+}
+function hitPiece(x,y){
+  for(let i=0;i<pieces.length;i++){
+    if(pieces[i].state==='placed') continue;
+    const c=pc(pieces[i]);
+    if(Math.abs(x-c.x)<CELL*.5&&Math.abs(y-c.y)<CELL*.5) return i;
+  }
+  return -1;
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW HELPERS
+// ═══════════════════════════════════════════════════════
+function rrect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.lineTo(x+w-r,y);   ctx.arcTo(x+w,y,x+w,y+r,r);
+  ctx.lineTo(x+w,y+h-r); ctx.arcTo(x+w,y+h,x+w-r,y+h,r);
+  ctx.lineTo(x+r,y+h);   ctx.arcTo(x,y+h,x,y+h-r,r);
+  ctx.lineTo(x,y+r);     ctx.arcTo(x,y,x+r,y,r);
+  ctx.closePath();
+}
+function bevel(rcl,rad){
+  ctx.lineWidth=1.5;
+  ctx.save(); ctx.translate(1,1); ctx.strokeStyle='rgba(0,0,0,.7)';
+  rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.translate(-.5,-.5); ctx.strokeStyle='rgba(255,255,255,.18)';
+  rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.stroke(); ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW — HOLE (board cell)
+// ═══════════════════════════════════════════════════════
+function drawHole(h,i){
+  const{x,y}=hc(h);
+  ctx.save(); ctx.translate(x,y);
+  const flash=(i===flashHole&&flashT>0);
+  const rcl=CELL*.44,rad=CELL*.06;
+  const [cT,cI]=PIECE_COLORS[h.si];
+
+  // Recessed well background
+  if(flash){ctx.fillStyle='#3a0808';}
+  else{
+    const bg=ctx.createLinearGradient(-rcl,-rcl,rcl,rcl);
+    bg.addColorStop(0,'#1e1e32'); bg.addColorStop(.5,'#0c0c1c'); bg.addColorStop(1,'#030306');
+    ctx.fillStyle=bg;
+  }
+  rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.fill();
+  bevel(rcl,rad);
+
+  const psz=CELL*.64; // assembled puzzle square size (knobs stay inside the well)
+
+  if(h.filled){
+    // Assembled jigsaw: both halves + seam line
+    halfPath(ctx,h.si,psz,'T'); fillPiece3D(ctx,psz,cT,.95);
+    halfPath(ctx,h.si,psz,'I'); fillPiece3D(ctx,psz,cI,.95);
+    seamOnlyPath(ctx,h.si,psz);
+    ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.lineWidth=1.2; ctx.stroke();
+
+    // Checkmark
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=CELL*.05;
+    ctx.beginPath();
+    ctx.moveTo(-CELL*.12,CELL*.04); ctx.lineTo(-CELL*.02,CELL*.14); ctx.lineTo(CELL*.15,-CELL*.1);
+    ctx.stroke();
+  } else {
+    // Ghost — faint two-color hint of the assembled puzzle
+    halfPath(ctx,h.si,psz,'T');
+    ctx.globalAlpha=flash?.15:.1; ctx.fillStyle=COLOR_HEX[cT]; ctx.fill('evenodd');
+    halfPath(ctx,h.si,psz,'I');
+    ctx.globalAlpha=flash?.18:.12; ctx.fillStyle=COLOR_HEX[cI]; ctx.fill('evenodd');
+    ctx.globalAlpha=1;
+
+    // Outline both halves (includes the seam profile)
+    ctx.strokeStyle=flash?'rgba(255,80,80,.8)':'rgba(255,255,255,.22)';
+    ctx.lineWidth=flash?2:1.2;
+    halfPath(ctx,h.si,psz,'T'); ctx.stroke();
+    halfPath(ctx,h.si,psz,'I'); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  DRAW — TRAY PIECE (one jigsaw half floating in a dark slot)
+//  'T' = left/top half · 'I' = right/bottom half
+// ═══════════════════════════════════════════════════════
+function drawHalf(p){
+  const{x,y}=pc(p);
+  const isSel=p.state==='selected';
+  const isAsm=p.state==='inHand';
+  const isPlaced=p.state==='placed';
+  const [cT,cI]=PIECE_COLORS[p.id];
+  const col=p.side==='T'?cT:cI;
+
+  ctx.save(); ctx.translate(x,y);
+  const rcl=CELL*.44,rad=CELL*.06;
+
+  if(isPlaced){
+    // Empty slot
+    ctx.fillStyle='#0b0b14';
+    rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.fill();
+    bevel(rcl,rad);
+    ctx.restore(); return;
+  }
+
+  // Dark slot background
+  const sb=ctx.createLinearGradient(-rcl,-rcl,rcl,rcl);
+  if(isSel||isAsm){
+    sb.addColorStop(0,isAsm?'#0d2018':'#28280e');
+    sb.addColorStop(1,isAsm?'#060e0a':'#14140a');
+  } else {
+    sb.addColorStop(0,'#1a1a2a'); sb.addColorStop(1,'#0c0c18');
+  }
+  ctx.fillStyle=sb;
+  rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.fill();
+  bevel(rcl,rad);
+
+  // The jigsaw half, visually centered in the slot
+  const psz=CELL*.6;
+  const off=halfOffset(p.id,p.side,psz);
+  ctx.save(); ctx.translate(off.x,off.y);
+  halfPath(ctx,p.id,psz,p.side);
+  // Drop shadow pass
+  ctx.shadowColor='rgba(0,0,0,.55)';
+  ctx.shadowBlur=isSel?14:5;
+  ctx.shadowOffsetX=1; ctx.shadowOffsetY=isSel?0:3;
+  ctx.fillStyle=COLOR_HEX[col]; ctx.fill('evenodd');
+  ctx.shadowColor='transparent';
+  ctx.shadowBlur=0; ctx.shadowOffsetX=0; ctx.shadowOffsetY=0;
+  // 3D plastic fill
+  fillPiece3D(ctx,psz,col,1.0);
+  // Crisp edge
+  ctx.strokeStyle='rgba(0,0,0,.45)'; ctx.lineWidth=1;
+  ctx.stroke();
+  ctx.restore();
+
+  // Glow for selected / in-hand
+  if(isSel||isAsm){
+    const pulse=.68+.32*Math.sin(Date.now()*.007);
+    if(isAsm){
+      ctx.strokeStyle=`rgba(50,240,110,${pulse})`;
+      ctx.lineWidth=2.5; rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.stroke();
+      ctx.strokeStyle=`rgba(50,240,110,${pulse*.3})`;
+      ctx.lineWidth=8; rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.stroke();
+    } else {
+      ctx.strokeStyle=`rgba(255,255,100,${pulse})`;
+      ctx.lineWidth=2.5; rrect(-rcl,-rcl,rcl*2,rcl*2,rad); ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  HUD assembled preview
+// ═══════════════════════════════════════════════════════
+function updateAsmHud(){
+  const el=document.getElementById('asmHud');
+  if(asmId<0){el.classList.remove('show');return;}
+  el.classList.add('show');
+  const ac=document.getElementById('asmPrev');
+  const actx=ac.getContext('2d');
+  actx.clearRect(0,0,32,32);
+  actx.save(); actx.translate(16,16);
+  const [cT,cI]=PIECE_COLORS[asmId];
+  const psz=22; // knobs extend beyond, stays within 32px
+  halfPath(actx,asmId,psz,'T'); fillPiece3D(actx,psz,cT,1);
+  halfPath(actx,asmId,psz,'I'); fillPiece3D(actx,psz,cI,1);
+  seamOnlyPath(actx,asmId,psz);
+  actx.strokeStyle='rgba(0,0,0,.4)'; actx.lineWidth=1; actx.stroke();
+  actx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+//  MAIN DRAW
+// ═══════════════════════════════════════════════════════
+function draw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(phase==='menu') return;
+
+  const bw=BCOLS*CELL,bh=BROWS*CELL;
+  const tw=TCOLS*CELL,th=TROWS*CELL;
+
+  // Board panel
+  ctx.fillStyle='#0a0a18';
+  rrect(BX-8,BY-8,bw+16,bh+16,10); ctx.fill();
+  ctx.strokeStyle='#2a2a44'; ctx.lineWidth=1.5;
+  rrect(BX-8,BY-8,bw+16,bh+16,10); ctx.stroke();
+  ctx.fillStyle='#33334a';
+  ctx.font=`${Math.max(10,CELL*.13)}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='bottom';
+  ctx.fillText('BOARD',BX+bw*.5,BY-10);
+  for(let i=0;i<holes.length;i++) drawHole(holes[i],i);
+
+  // Tray panel — label shows piece types
+  ctx.fillStyle='#0a0a18';
+  rrect(TX-8,TY-8,tw+16,th+16,10); ctx.fill();
+  ctx.strokeStyle='#2a2a44'; ctx.lineWidth=1.5;
+  rrect(TX-8,TY-8,tw+16,th+16,10); ctx.stroke();
+  ctx.fillStyle='#33334a';
+  ctx.fillText('PUZZLE PIECES',TX+tw*.5,TY-10);
+  for(const p of pieces) drawHalf(p);
+
+  // Connector line between assembled pair
+  if(asmId>=0&&asmA>=0&&asmB>=0){
+    const ca=pc(pieces[asmA]),cb=pc(pieces[asmB]);
+    ctx.save();
+    ctx.setLineDash([4,4]);
+    ctx.strokeStyle='rgba(50,240,110,.28)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(ca.x,ca.y); ctx.lineTo(cb.x,cb.y); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
+  // Pop particles (flying jigsaw halves)
+  for(const pp of popParts){
+    ctx.save(); ctx.translate(pp.x,pp.y); ctx.rotate(pp.angle);
+    halfPath(ctx,pp.si,CELL*.6,pp.hSide||'T');
+    const a=Math.min(1,Math.max(0,pp.life));
+    fillPiece3D(ctx,CELL*.6,pp.col,a);
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════════════
+function update(dt){
+  timer=Math.max(0,timer-dt);
+  if(flashT>0) flashT-=dt;
+  const m=Math.floor(timer/60),s=Math.floor(timer%60);
+  document.getElementById('hTime').textContent=m+':'+(s<10?'0':'')+s;
+  document.getElementById('hDone').textContent=placed;
+  const frac=timer/timeLimit;
+  document.getElementById('tbar').style.width=(frac*100)+'%';
+  document.getElementById('tbar').style.background=frac>.5?'#0f0':frac>.25?'#fa0':'#f44';
+  if(timer<=0) triggerPop();
+}
+
+function updatePop(dt){
+  for(const pp of popParts){
+    pp.x+=pp.vx*dt; pp.y+=pp.vy*dt;
+    pp.vy+=380*dt; pp.vx*=.995;
+    pp.angle+=pp.spin*dt; pp.life-=dt*.7;
+    if(pp.y<0){pp.y=0; pp.vy=Math.abs(pp.vy)*.7;}
+    if(pp.x<-CELL*2||pp.x>canvas.width+CELL*2||pp.y>canvas.height+CELL*2) pp.life=0;
+  }
+  popParts=popParts.filter(p=>p.life>0);
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOOP
+// ═══════════════════════════════════════════════════════
+function loop(t){
+  const dt=Math.min((t-lastT)/1000,.1); lastT=t;
+  if(phase==='playing') update(dt);
+  else if(phase==='popping') updatePop(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════
+//  POP
+// ═══════════════════════════════════════════════════════
+function triggerPop(){
+  if(phase==='popping'||phase==='lose') return;
+  phase='popping'; stopTick(); playPop();
+  function scatter(x,y,si,col,hSide){
+    const spd=340+Math.random()*460,ang=(Math.random()-.5)*Math.PI*2;
+    popParts.push({x,y,
+      vx:Math.cos(ang)*spd*(0.5+Math.random()),
+      vy:Math.sin(ang)*spd-110,
+      si,col,hSide,angle:Math.random()*Math.PI*2,
+      spin:(Math.random()-.5)*10,life:1.4});
+  }
+  const done=new Set();
+  for(const p of pieces){
+    if(p.state==='placed') continue;
+    if(!done.has(p.id)){
+      const c=pc(p);
+      const [cT,cI]=PIECE_COLORS[p.id];
+      scatter(c.x,c.y,p.id,p.side==='T'?cT:cI,p.side);
+      done.add(p.id);
+    }
+    p.state='placed';
+  }
+  for(const h of holes){
+    if(!h.filled) continue;
+    const c=hc(h);
+    const [cT]=PIECE_COLORS[h.si];
+    scatter(c.x,c.y,h.si,cT,'T');
+    h.filled=false;
+  }
+  asmId=-1; asmA=-1; asmB=-1; selIdx=-1; updateAsmHud();
+  setTimeout(()=>{
+    phase='lose';
+    document.getElementById('ovTitle').textContent='⏰ TIME\'S UP!';
+    document.getElementById('ovMsg').textContent=`You placed ${placed} of 16 pieces.`;
+    document.getElementById('startbtn').textContent='TRY AGAIN';
+    showOv();
+  },1600);
+}
+
+// ═══════════════════════════════════════════════════════
+//  WIN
+// ═══════════════════════════════════════════════════════
+function winGame(){
+  phase='win'; stopTick();
+  const m=Math.floor(timer/60),s=Math.floor(timer%60);
+  document.getElementById('ovTitle').textContent='🎉 PERFECT!';
+  document.getElementById('ovMsg').textContent=
+    `All 16 assembled and placed!\n${m}:${s<10?'0':''}${s} to spare!`;
+  document.getElementById('startbtn').textContent='PLAY AGAIN';
+  showOv();
+}
+
+// ═══════════════════════════════════════════════════════
+//  INTERACTION
+// ═══════════════════════════════════════════════════════
+function getXY(e){
+  const rect=canvas.getBoundingClientRect();
+  const src=(e.changedTouches&&e.changedTouches[0])||(e.touches&&e.touches[0])||e;
+  return{x:src.clientX-rect.left,y:src.clientY-rect.top};
+}
+
+function handleInput({x,y}){
+  if(phase!=='playing') return;
+
+  if(asmId>=0){
+    // Piece assembled — find the hole
+    const hi=hitHole(x,y);
+    if(hi>=0&&!holes[hi].filled){
+      if(holes[hi].si===asmId){
+        holes[hi].filled=true; placed++;
+        pieces[asmA].state='placed'; pieces[asmB].state='placed';
+        asmId=-1; asmA=-1; asmB=-1; updateAsmHud();
+        if(placed===NSHAPES) setTimeout(winGame,200);
+      } else {
+        flashHole=hi; flashT=0.5;
+      }
+    } else {
+      // Disassemble (tray tap or background)
+      const pi=hitPiece(x,y);
+      const oldA=asmA,oldB=asmB;
+      pieces[asmA].state='idle'; pieces[asmB].state='idle';
+      asmId=-1; asmA=-1; asmB=-1; updateAsmHud();
+      if(pi>=0&&pi!==oldA&&pi!==oldB){selIdx=pi;pieces[pi].state='selected';}
+    }
+    return;
+  }
+
+  const pi=hitPiece(x,y);
+
+  if(selIdx>=0){
+    if(pi<0){
+      pieces[selIdx].state='idle'; selIdx=-1;
+    } else if(pi===selIdx){
+      pieces[selIdx].state='idle'; selIdx=-1;
+    } else {
+      const sel=pieces[selIdx],tgt=pieces[pi];
+      if(sel.id===tgt.id&&sel.side!==tgt.side){
+        // Match! Tile + insert of same shape
+        asmId=sel.id; asmA=selIdx; asmB=pi;
+        sel.state='inHand'; tgt.state='inHand';
+        selIdx=-1; updateAsmHud();
+      } else {
+        pieces[selIdx].state='idle';
+        selIdx=pi; pieces[pi].state='selected';
+      }
+    }
+  } else {
+    if(pi>=0){selIdx=pi;pieces[pi].state='selected';}
+  }
+}
+
+canvas.addEventListener('click',e=>{handleInput(getXY(e));});
+canvas.addEventListener('touchend',e=>{e.preventDefault();handleInput(getXY(e));},{passive:false});
+window.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    if(asmId>=0){
+      pieces[asmA].state='idle'; pieces[asmB].state='idle';
+      asmId=-1; asmA=-1; asmB=-1; updateAsmHud();
+    } else if(selIdx>=0){pieces[selIdx].state='idle';selIdx=-1;}
+  }
+});
+
+// ═══════════════════════════════════════════════════════
+//  GAME MANAGEMENT
+// ═══════════════════════════════════════════════════════
+function startGame(){
+  hideOv(); getAC(); generateGame(); resize(); phase='playing'; startTick();
+}
+function setDiff(d){
+  diff=d; timeLimit=TIMELIMITS[d];
+  document.querySelectorAll('#diffrow button').forEach((b,i)=>b.classList.toggle('active',i===d));
+}
+function showOv(){document.getElementById('ov').classList.add('show');}
+function hideOv(){document.getElementById('ov').classList.remove('show');}
+
+window.addEventListener('resize',()=>{resize();});
+resize();
+requestAnimationFrame(t=>{lastT=t;loop(t);});
+</script>
+</body>
+</html>
