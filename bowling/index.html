@@ -100,13 +100,22 @@ const NEIGH_LANES=4;                               // decorative lanes on EACH s
 // asset folders (served over http:// — run serve.command)
 const IMG='images/', TEX='textures/', SFX='sfx/';
 
-// selectable ball colors (label, hex)
-const BALL_COLORS=[['Red','#d21f2b'],['Orange','#e8720c'],['Yellow','#f2c200'],['Green','#1f9e3a'],
-  ['Blue','#1f5fd2'],['Indigo','#3b2fb0'],['Violet','#8a2be2'],['Black','#141418']];
+// selectable balls (id, label, texture file, optional always-on emissive glow color)
+const BALL_TEXTURES=[
+  {id:'blue',  label:'Blue',  file:'blue.png'},
+  {id:'green', label:'Green', file:'green.png'},
+  {id:'pink',  label:'Pink',  file:'pink.png'},
+  {id:'red',   label:'Red',   file:'red.png'},
+  {id:'yellow',label:'Yellow',file:'yellow.png'},
+  {id:'nebula',label:'Nebula',file:'nebula.png'},
+  {id:'white', label:'White', file:'white.png'},
+  {id:'glow',  label:'Glow',  file:'white.png', glow:0x1dff5a},   // subtle neon-green glow
+];
+function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0]; }
 const WALL_MURALS=[['Default','default.png'],['1970s','1970s.png'],['1980s','1980s.png'],['Dive','dive.jpg'],['Cosmic','cosmic.png']];
 
 // live settings
-const settings={ ball:'#141418', mural:'default.png', bumpers:false, cosmic:false };
+const settings={ ball:'blue', mural:'default.png', bumpers:false, cosmic:false };
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
@@ -126,7 +135,7 @@ const HFOV=18;
 // overview (aim) pose: low player-ish view with room on the approach to make the throw
 const OV_Y=84, OV_Z=-185, OV_LY=-40, OV_LZ=300;
 // chase (after release) pose: trails behind & just above the ball
-const CHASE_UP=52, CHASE_BACK=120, CHASE_AHEAD=320;
+const CHASE_UP=32, CHASE_BACK=115, CHASE_AHEAD=320;
 const CHASE_STOP=PIN_BASE-40;   // camera stops advancing once the ball reaches the pins
 // how far the ball may be positioned before release (inches) — kept behind the foul line
 const AIM_X=18, AIM_Y_MIN=-110, AIM_Y_MAX=0;
@@ -149,7 +158,7 @@ function pinLayout(){ const P=[]; let id=0;
 // ═══════════════════════════════════════════════════════
 let renderer,scene,camera,ballMesh,pinMeshes=[],aimLine,raycaster,groundPlane,WOOD=null,fx,fxctx;
 let lastW=0,lastH=0;
-let ballMat=null,muralMat=null,bumperGroup=null;             // referenced by settings
+let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null; // referenced by settings
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
@@ -294,12 +303,14 @@ function addLaneStrip(xoff,deco){
 function makePinObject(){
   // lathe profile: Vector2(radius, height) bottom→top (inches)
   const pts=[
-    [1.05,0],[1.125,0.4],[1.5,1.6],[2.0,3.2],[2.383,4.6],[2.2,6.0],
-    [1.6,8.0],[1.05,9.6],[0.9,10.5],[1.0,11.4],[1.2,12.8],[1.05,13.8],[0.55,14.6],[0.12,15]
+    [1.05,0.0],[1.12,0.5],[1.30,1.2],[1.65,2.2],[2.02,3.3],[2.28,4.2],[2.383,4.9],
+    [2.34,5.6],[2.15,6.5],[1.80,7.6],[1.45,8.6],[1.15,9.5],[0.98,10.2],[0.92,10.7],
+    [0.98,11.3],[1.12,12.1],[1.22,12.9],[1.16,13.5],[0.95,14.0],[0.68,14.4],
+    [0.40,14.72],[0.16,14.92],[0.0,15.0]
   ].map(p=>new THREE.Vector2(p[0],p[1]));
-  const bodyMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.45,metalness:0.02});
+  const bodyMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.45,metalness:0.02,side:THREE.DoubleSide}); // DoubleSide: solid white inside, no see-through at the open base
   pinGlow.push(bodyMat);
-  const body=new THREE.Mesh(new THREE.LatheGeometry(pts,28),bodyMat);
+  const body=new THREE.Mesh(new THREE.LatheGeometry(pts,40),bodyMat);   // more segments + smoother profile = rounder
   const grp=new THREE.Group(); grp.add(body);
   // two red neck rings
   const ringMat=new THREE.MeshStandardMaterial({color:0xe23b30,roughness:0.45});
@@ -315,8 +326,12 @@ function buildPinMeshes(){
 
 function buildBallMesh(){
   const grp=new THREE.Group();
-  ballMat=new THREE.MeshStandardMaterial({color:settings.ball,roughness:0.28,metalness:0.15});
-  pinGlow.push(ballMat);
+  ballMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.28,metalness:0.15});
+  const be=ballEntry(settings.ball);
+  ballMat.map=loadTex(TEX+be.file, ()=>{ ballMat.needsUpdate=true; });
+  ballLight=new THREE.PointLight(0x1dff5a,0,170,1.6);   // travels with the ball; lit only for the Glow ball
+  grp.add(ballLight);
+  if(be.glow){ ballMat.emissive.set(be.glow); ballMat.emissiveIntensity=1.3; ballLight.color.set(be.glow); ballLight.intensity=1.8; }
   const sphere=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,48,36),ballMat);
   grp.add(sphere);
   ballMesh=grp; scene.add(grp);
@@ -432,23 +447,30 @@ function step(dt){
     const tipy=p.y+p.fdz*reach;
     if(tipy>LANE_LEN-1){ p.y=(LANE_LEN-1)-p.fdz*reach; p.vy*=-0.2; }
     const sp=Math.hypot(p.vx,p.vy), disp=Math.hypot(p.x-p.ox,p.y-p.oy);
-    if(!p.down && (sp>25||disp>2.2)){ p.down=true; const m=Math.hypot(p.vx,p.vy)||1; p.fdx=(p.vx/m)||(Math.random()-.5); p.fdz=(p.vy/m)||0.2; }
+    if(!p.down && (sp>32||disp>3.0)){ p.down=true; const m=Math.hypot(p.vx,p.vy)||1; p.fdx=(p.vx/m)||(Math.random()-.5); p.fdz=(p.vy/m)||0.2; }
     if(p.down) p.fall=Math.min(1,p.fall+dt*3.2);
     if(sp>2) moving=true;
     if(p.down && p.fall<1) moving=true;          // keep settling until fallers finish tipping (chains)
   }
   for(let i=0;i<pins.length;i++){ if(!pins[i].racked) continue;
     for(let j=i+1;j<pins.length;j++){ if(pins[j].racked) collide(pins[i],PIN_R,pins[j],PIN_R,1.0,dt,false); } }
-  // a toppling pin sweeps its length — knock down any standing pin it falls across (chain reaction)
+  // a toppling pin sweeps its length and transfers momentum to pins it lands across — it only
+  // topples them if it carries enough energy (so weak contacts leave splits, not automatic strikes)
   for(let i=0;i<pins.length;i++){ const a=pins[i]; if(!a.racked||!a.down) continue;
+    const aSpeed=Math.hypot(a.vx,a.vy);
+    if(a.fall>=1 && aSpeed<6) continue;                       // settled & still → no more sweeping
+    const energy=(a.fall<1?26:0)+aSpeed;                      // tipping motion + slide speed
     const reach=a.fall*PIN_H, segx=a.fdx*reach, segy=a.fdz*reach, segLen2=segx*segx+segy*segy||1;
     for(let j=0;j<pins.length;j++){ if(j===i) continue; const b=pins[j]; if(!b.racked||b.down) continue;
       let t=((b.x-a.x)*segx+(b.y-a.y)*segy)/segLen2; t=t<0?0:t>1?1:t;
       const cx=a.x+segx*t, cy=a.y+segy*t, dx=b.x-cx, dy=b.y-cy, d=Math.hypot(dx,dy);
-      if(d<PIN_R*2 && d>1e-4){
-        const nx=dx/d, ny=dy/d, kick=35+Math.hypot(a.vx,a.vy);
-        b.vx+=nx*kick*0.6+a.vx*0.4; b.vy+=ny*kick*0.6+a.vy*0.4;
-        b.down=true; const m=Math.hypot(b.vx,b.vy)||1; b.fdx=b.vx/m; b.fdz=b.vy/m; moving=true;
+      if(d<PIN_R*1.7 && d>1e-4){
+        const nx=dx/d, ny=dy/d, push=energy*0.55;
+        b.vx+=nx*push+a.vx*0.25; b.vy+=ny*push+a.vy*0.25;
+        const sc=(Math.random()*2-1)*push*0.4; b.vx+=-ny*sc; b.vy+=nx*sc;   // scatter
+        const bs=Math.hypot(b.vx,b.vy);
+        if(bs>32){ b.down=true; b.fdx=b.vx/bs; b.fdz=b.vy/bs; }             // only topple if it now has enough energy
+        moving=true;
       }
     }
   }
@@ -467,7 +489,11 @@ function collide(a,ra,b,rb,heavyRatio,dt,aIsBall){
   const rvx=(b.vx-(a.vx||0)),rvy=(b.vy-(a.vy||0)); const vn=rvx*nx+rvy*ny; if(vn>0) return;
   const imp=-(1+REST)*vn, ja=imp*wa, jb=imp*wb;
   b.vx+=nx*jb; b.vy+=ny*jb;
-  if(aIsBall){ a.vx-=nx*ja*0.15; a.vy-=ny*ja*0.045; } else { a.vx-=nx*ja; a.vy-=ny*ja; }
+  // tangential scatter — pins glance off at angles rather than all flying straight back (leaves splits)
+  const tanMag=Math.abs(jb)*(aIsBall?0.12:0.28)*(Math.random()*2-1);
+  b.vx+=-ny*tanMag; b.vy+=nx*tanMag;
+  if(aIsBall){ a.vx-=nx*ja*0.15; a.vy-=ny*ja*0.045; b.vx+=(a.spin||0)*3.0; } // heavy ball barely deflects; hook nudges the pin sideways
+  else { a.vx-=nx*ja; a.vy-=ny*ja; }
 }
 function countDowned(){ let n=0; pins.forEach((p,i)=>{ if(standing[i]&&p.down) n++; }); return n; }
 function applyDowned(){ pins.forEach((p,i)=>{ if(standing[i]&&p.down) standing[i]=false; }); }
@@ -707,35 +733,56 @@ function applyCosmic(){
   const on=settings.cosmic;
   scene.background.set(on?0x000208:0x090c13);
   if(scene.fog){ scene.fog.color.set(on?0x000208:0x090c13); scene.fog.near=on?350:700; scene.fog.far=on?1700:2000; }
-  // near-black room lit only by neon
-  hemiLight.intensity=on?0.03:HEMI0; keyLight.intensity=on?0.02:KEY0;
-  fillLight.intensity=on?0.02:FILL0; pinLight.intensity=on?0.04:PIN0;
+  // (1) ambient off in cosmic — the room is lit only by the neon
+  hemiLight.intensity=on?0:HEMI0; keyLight.intensity=on?0:KEY0;
+  fillLight.intensity=on?0:FILL0; pinLight.intensity=on?0:PIN0;
   if(on && !cosmicLights){
     cosmicLights=new THREE.Group();
-    const blue=new THREE.PointLight(0x1830ff,1.6,3000); blue.position.set(0,320,430);   // broad blue wash
-    const mag =new THREE.PointLight(0xd020ff,1.9,1700); mag.position.set(-190,150,240);  // magenta accent
-    const cyan=new THREE.PointLight(0x18d0ff,1.9,1700); cyan.position.set(190,150,560);  // cyan accent
-    const rim =new THREE.PointLight(0xff30c0,1.6,1300); rim.position.set(0,150,PIN_BASE-30); // neon rim on the pins
-    cosmicLights.add(blue,mag,cyan,rim); scene.add(cosmicLights);
+    // low, side-grazing accents (kept low so they don't flood the lane like an overhead light)
+    const mag =new THREE.PointLight(0xd020ff,0.8,900); mag.position.set(-160,45,260);   // magenta accent
+    const cyan=new THREE.PointLight(0x18d0ff,0.8,900); cyan.position.set(160,45,540);    // cyan accent
+    // (4) blacklight aimed at the mural (up at the wall, not over the lane)
+    const uv  =new THREE.PointLight(0x8a4bff,1.4,1500); uv.position.set(0,120,LANE_LEN+8);
+    cosmicLights.add(mag,cyan,uv);
+    // (5) small greenish lights on top of the border rails, down every lane
+    const dotMat=new THREE.MeshBasicMaterial({color:0x2bff77});
+    for(let k=-NEIGH_LANES;k<=NEIGH_LANES;k++){ const xc=k*LANE_PITCH;
+      for(let z=80; z<=PIN_BASE; z+=100){ for(const s of [-1,1]){
+        const dot=new THREE.Mesh(new THREE.SphereGeometry(2.4,10,8),dotMat);
+        dot.position.set(xc+s*(GUT+1.5),6,z); cosmicLights.add(dot);   // sits on the rail top
+      }}
+    }
+    const gL=new THREE.PointLight(0x2bff66,0.35,450); gL.position.set(-GUT,16,300);
+    const gR=new THREE.PointLight(0x2bff66,0.35,450); gR.position.set(GUT,16,480);
+    cosmicLights.add(gL,gR);
+    scene.add(cosmicLights);
   }
   if(cosmicLights) cosmicLights.visible=on;
-  // fluoresce: lanes glow a deep blue, pins & ball pop with bright neon
+  // glows: lanes deep blue, (3) pins inner green, (2) ball inner blue
   for(const m of laneGlow){ if(m&&m.emissive){ m.emissive.set(on?0x0a1e5a:0x000000); m.emissiveIntensity=on?0.7:1; m.needsUpdate=true; } }
-  for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(on?0x1b4fff:0x000000); m.emissiveIntensity=on?1.4:1; m.needsUpdate=true; } }
+  for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(on?0x1a9e46:0x000000); m.emissiveIntensity=on?0.9:1; m.needsUpdate=true; } }
+  // (4) blacklight tint on the mural (MeshBasic ignores lights, so tint its color)
+  if(muralMat) muralMat.color.set(on?0x8f9cff:0xffffff);
 }
-function applyBall(hex){ settings.ball=hex; if(ballMat){ ballMat.map=null; ballMat.color.set(hex); ballMat.needsUpdate=true; } }
-function applyMural(file){ settings.mural=file; if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(0xffffff);muralMat.needsUpdate=true;}); } }
+function applyBall(id){ settings.ball=id; if(!ballMat) return; const e=ballEntry(id);
+  ballMat.color.set(0xffffff); ballMat.map=loadTex(TEX+e.file,()=>{ballMat.needsUpdate=true;});
+  ballMat.emissive.set(e.glow||0x000000); ballMat.emissiveIntensity=e.glow?1.3:1; ballMat.needsUpdate=true;
+  if(ballLight){ ballLight.color.set(e.glow||0xffffff); ballLight.intensity=e.glow?1.8:0; } }
+function applyMural(file){ settings.mural=file; if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
 function setBumpers(on){ settings.bumpers=on; if(bumperGroup) bumperGroup.visible=on; }
 function setCosmic(on){
   settings.cosmic=on; applyCosmic();
   // swap the wall mural to the cosmic art while cosmic mode is on, restore afterward
-  if(on){ settings._muralBefore=settings.mural; applyMural('cosmic.png'); }
-  else { applyMural(settings._muralBefore||'default.png'); }
+  if(on){ settings._muralBefore=settings.mural; applyMural('cosmic.png');
+          settings._ballBefore=settings.ball;  applyBall('glow'); }
+  else  { applyMural(settings._muralBefore||'default.png');
+          applyBall(settings._ballBefore||'blue'); }
   const sm=document.getElementById('setMural'); if(sm) sm.value=settings.mural;
+  const sb=document.getElementById('setBall');  if(sb) sb.value=settings.ball;
 }
 function setupSettings(){
   const sb=document.getElementById('setBall'), sm=document.getElementById('setMural');
-  for(const [label,val] of BALL_COLORS){ const o=document.createElement('option'); o.value=val; o.textContent=label; sb.appendChild(o); }
+  for(const b of BALL_TEXTURES){ const o=document.createElement('option'); o.value=b.id; o.textContent=b.label; sb.appendChild(o); }
   for(const [label,file] of WALL_MURALS){ const o=document.createElement('option'); o.value=file; o.textContent=label; sm.appendChild(o); }
   sb.value=settings.ball; sm.value=settings.mural;
   document.getElementById('setBumpers').checked=settings.bumpers;
