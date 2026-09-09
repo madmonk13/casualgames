@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Bowling 3D</title>
+<title>Flick Bowling</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',Arial,sans-serif;color:#fff;
@@ -18,7 +18,7 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
 .fr.f10{min-width:52px;}
 .fr .tot{text-align:center;font-size:.82rem;font-weight:700;line-height:18px;color:#fff;}
 .fr.cur{border-color:#ffd54a;box-shadow:0 0 8px rgba(255,213,74,.4);}
-#msg{position:absolute;top:60px;left:0;right:0;text-align:center;font-size:1.15rem;font-weight:800;color:#ffd54a;
+#msg{position:absolute;top:42%;left:0;right:0;text-align:center;font-size:clamp(1.6rem,6vw,2.6rem);font-weight:800;color:#ffd54a;
   text-shadow:0 2px 14px #000;pointer-events:none;letter-spacing:1px;z-index:5;}
 #celebrate{position:fixed;left:0;right:0;top:30%;text-align:center;z-index:15;pointer-events:none;opacity:0;
   font-weight:900;letter-spacing:5px;font-size:clamp(2.6rem,13vw,6.5rem);}
@@ -76,10 +76,8 @@ a.back:hover{color:#9fb0d8;}
 <div id="stage"></div>
 
 <div id="ov" class="show">
-  <h2>🎳 BOWLING</h2>
-  <p><b>Drag to throw.</b> Slide left/right to aim, then flick forward to roll — a sideways flick
-     puts spin on the ball for a hook. Regulation lane, ball and pins in full 3D. Ten frames,
-     real strike and spare scoring.</p>
+  <h2>🎳 FLICK BOWLING</h2>
+  <p></p>
   <button id="startbtn">START</button>
   <a class="back" href="../index.html">← Game Center</a>
 </div>
@@ -492,7 +490,7 @@ function collide(a,ra,b,rb,heavyRatio,dt,aIsBall){
   // tangential scatter — pins glance off at angles rather than all flying straight back (leaves splits)
   const tanMag=Math.abs(jb)*(aIsBall?0.12:0.28)*(Math.random()*2-1);
   b.vx+=-ny*tanMag; b.vy+=nx*tanMag;
-  if(aIsBall){ a.vx-=nx*ja*0.15; a.vy-=ny*ja*0.045; b.vx+=(a.spin||0)*3.0; } // heavy ball barely deflects; hook nudges the pin sideways
+  if(aIsBall){ a.vx-=nx*ja*0.55; a.vy-=ny*ja*0.18; b.vx+=(a.spin||0)*3.0; } // ball deflects off pins; hook nudges the pin sideways
   else { a.vx-=nx*ja; a.vy-=ny*ja; }
 }
 function countDowned(){ let n=0; pins.forEach((p,i)=>{ if(standing[i]&&p.down) n++; }); return n; }
@@ -717,7 +715,7 @@ function bindInput(){
 // ═══════════════════════════════════════════════════════
 function buildBumpers(){
   bumperGroup=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color:0xff4488,roughness:0.4,emissive:0x330011,emissiveIntensity:0.4});
+  const mat=new THREE.MeshStandardMaterial({color:0xff4488,roughness:0.95,metalness:0.0,emissive:0x330011,emissiveIntensity:0.25});
   const r=(GUT-PLAY)/2;                               // fills the gutter width exactly, no wider
   const len=PIN_BASE;                                 // run the full length to the pin deck
   for(const s of [-1,1]){
@@ -744,13 +742,15 @@ function applyCosmic(){
     // (4) blacklight aimed at the mural (up at the wall, not over the lane)
     const uv  =new THREE.PointLight(0x8a4bff,1.4,1500); uv.position.set(0,120,LANE_LEN+8);
     cosmicLights.add(mag,cyan,uv);
-    // (5) small greenish lights on top of the border rails, down every lane
-    const dotMat=new THREE.MeshBasicMaterial({color:0x2bff77});
+    // (5) long thin green light strips running along the border rails of every lane
+    const stripMat=new THREE.MeshBasicMaterial({color:0x2bff77});
+    const stripLen=PIN_BASE-40, stripGeo=new THREE.BoxGeometry(1.6,1.2,stripLen);
     for(let k=-NEIGH_LANES;k<=NEIGH_LANES;k++){ const xc=k*LANE_PITCH;
-      for(let z=80; z<=PIN_BASE; z+=100){ for(const s of [-1,1]){
-        const dot=new THREE.Mesh(new THREE.SphereGeometry(2.4,10,8),dotMat);
-        dot.position.set(xc+s*(GUT+1.5),6,z); cosmicLights.add(dot);   // sits on the rail top
-      }}
+      for(const s of [-1,1]){
+        const strip=new THREE.Mesh(stripGeo,stripMat);
+        strip.position.set(xc+s*(GUT+1.5),6,stripLen/2+20);   // on the rail top, along the lane
+        cosmicLights.add(strip);
+      }
     }
     const gL=new THREE.PointLight(0x2bff66,0.35,450); gL.position.set(-GUT,16,300);
     const gR=new THREE.PointLight(0x2bff66,0.35,450); gR.position.set(GUT,16,480);
