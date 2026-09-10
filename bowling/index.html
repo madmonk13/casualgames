@@ -36,7 +36,7 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
 #stage.throwing{cursor:grabbing;}
 #stage canvas{display:block;width:100%;height:100%;}
 #ov{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:rgba(6,9,16,.9);gap:12px;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s;padding:20px;}
+  background:radial-gradient(ellipse at center, rgba(4,7,14,.25) 0%, rgba(4,7,14,.6) 100%);gap:12px;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s;padding:20px;}
 #ov.show{opacity:1;pointer-events:auto;}
 #ov h2{font-size:clamp(1.5rem,6vw,2.4rem);letter-spacing:2px;color:#ffd54a;text-shadow:0 0 20px rgba(255,170,0,.5);}
 #ov p{color:#cfd8ea;font-size:clamp(.82rem,2.4vw,1rem);line-height:1.6;max-width:390px;}
@@ -96,6 +96,7 @@ a.back:hover{color:#9fb0d8;}
     <div class="sec"><div class="sec-label">Ball</div><div id="ballGrid" class="grid"></div></div>
     <div class="sec"><div class="sec-label">Theme</div><div id="muralGrid" class="grid mural"></div></div>
     <button class="toggle" id="setBumpers"></button>
+    <button class="toggle" id="newGameBtn">New Game</button>
   </div>
 </div>
 <div id="stage"></div>
@@ -104,7 +105,6 @@ a.back:hover{color:#9fb0d8;}
   <h2>🎳 JUST BOWL</h2>
   <p></p>
   <button id="startbtn">START</button>
-  <a class="back" href="../index.html">← Game Center</a>
 </div>
 
 <script src="lib/three.min.js"></script>
@@ -134,6 +134,8 @@ const BALL_TEXTURES=[
   {id:'earth', label:'Earth', file:'earth.png'},
   {id:'lightning',label:'Lightning',file:'lightning.png'},
   {id:'fire',  label:'Fire',  file:'fire.png'},
+  {id:'skull', label:'Skull', file:'skull.png'},
+  {id:'checkered',label:'Checkered',file:'checkered.png'},
   {id:'silver',label:'Silver',file:'silver.png'},
   {id:'black', label:'Black', file:'black.png'},
   {id:'white', label:'White', file:'white.png'},
@@ -478,7 +480,17 @@ function clatter(n){ if(!hitAudio) return; try{ hitAudio.currentTime=0; hitAudio
 // ═══════════════════════════════════════════════════════
 //  GAME SETUP + FLOW  (2D top-down sim in inches)
 // ═══════════════════════════════════════════════════════
-function newGame(){ frame=0; ballInFrame=0; rolls=[]; rackFull(); resetBall(); phase='aim'; buildBoard(); flash('Frame 1'); }
+function newGame(){ frame=0; ballInFrame=0; rolls=[]; rackFull(); resetBall(); phase='aim'; buildBoard(); flash('Frame 1'); saveGame(); }
+// persist in-progress game for this browser session
+function saveGame(){ try{ sessionStorage.setItem('justbowl_game',JSON.stringify({rolls,frame,ballInFrame,standing})); }catch(e){} }
+function loadGame(){ try{ return JSON.parse(sessionStorage.getItem('justbowl_game')||'null'); }catch(e){ return null; } }
+function clearGame(){ try{ sessionStorage.removeItem('justbowl_game'); }catch(e){} }
+function resumeGame(s){
+  rolls=Array.isArray(s.rolls)?s.rolls:[]; frame=s.frame|0; ballInFrame=s.ballInFrame|0;
+  standing=(Array.isArray(s.standing)&&s.standing.length===10)?s.standing.slice():Array(10).fill(true);
+  pins=pinLayout().map((p,i)=>({id:p.id,ox:p.ox,oy:p.oy,x:p.ox,y:p.oy,vx:0,vy:0,down:false,fall:0,fdx:1,fdz:0,racked:!!standing[i]}));
+  resetBall(); phase='aim'; buildBoard(); flash('Frame '+(frame+1));
+}
 function rackFull(){ pins=pinLayout().map(p=>({id:p.id,ox:p.ox,oy:p.oy,x:p.ox,y:p.oy,vx:0,vy:0,down:false,fall:0,fdx:1,fdz:0,racked:true})); standing=pins.map(()=>true); }
 function rackStanding(){ pins.forEach((p,i)=>{ if(standing[i]){ p.x=p.ox; p.y=p.oy; p.vx=p.vy=0; p.down=false; p.fall=0; p.racked=true; } else p.racked=false; }); }
 function resetBall(){ ball={x:0,y:-6,vy:0,vx:0,spin:0,gutter:false,rolling:false}; clattered=false; }
@@ -611,6 +623,7 @@ function endBall(){
     if(rerack) rackStanding();
     if(downed===0) flash('Gutter');       // strike/spare now shown by the celebrate banner above
   }
+  saveGame();
   resetBall(); phase='aim';
 }
 
@@ -656,6 +669,7 @@ function buildBoard(){
 function flash(t){ document.getElementById('msg').textContent=t; msgT=1.4; }
 function gameOver(){
   const totals=calcTotals(); const final=totals[9].score ?? totals.reduce((m,f)=>f.score!=null?f.score:m,0);
+  clearGame();   // finished — don't resume this one
   stopRumble();
   const ov=document.getElementById('ov');
   ov.querySelector('h2').textContent='🎳 FINAL: '+final;
@@ -719,7 +733,7 @@ function loop(t){
   const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
   if(phase==='rolling'){ const n=6; for(let k=0;k<n;k++) step(dt/n); }
   if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
-  if(phase!=='menu'){ sync(dt); updateCamera(dt); renderer.render(scene,camera); }
+  if(renderer && ball){ sync(dt); updateCamera(dt); renderer.render(scene,camera); }   // render even in the menu (lanes behind the title)
   requestAnimationFrame(loop);
 }
 
@@ -912,15 +926,27 @@ function setupSettings(){
   function refreshToggles(){ bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off'); }
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
+  document.getElementById('newGameBtn').addEventListener('click',()=>{
+    clearGame(); getAC(); initSfx(); newGame(); phase='aim';
+    document.getElementById('ov').classList.remove('show');   // dismiss the title overlay
+    modal.classList.remove('open');
+  });
 }
 
 document.getElementById('startbtn').addEventListener('click',()=>{
   document.getElementById('ov').classList.remove('show');
-  if(!renderer){ initScene(); bindInput(); requestAnimationFrame(t=>{lastT=t;loop(t);}); }
-  getAC(); initSfx(); resize(); newGame();
+  getAC(); initSfx(); resize();
+  if(phase==='over') newGame();     // PLAY AGAIN → fresh game
+  phase='aim';                       // begin play (state was set up on load)
 });
 buildBoard();
 setupSettings();
+// build the scene, set up the game state (resume this session's game if any), then start rendering
+initScene(); bindInput();
+const sg=loadGame();
+if(sg && Array.isArray(sg.rolls) && (sg.frame|0)<10) resumeGame(sg); else newGame();
+phase='menu';                        // gate input until START (overlay shown over the lanes)
+requestAnimationFrame(t=>{lastT=t;loop(t);});
 </script>
 </body>
 </html>
