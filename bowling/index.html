@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Flick Bowling</title>
+<title>Just Bowl</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',Arial,sans-serif;color:#fff;
@@ -101,7 +101,7 @@ a.back:hover{color:#9fb0d8;}
 <div id="stage"></div>
 
 <div id="ov" class="show">
-  <h2>🎳 FLICK BOWLING</h2>
+  <h2>🎳 JUST BOWL</h2>
   <p></p>
   <button id="startbtn">START</button>
   <a class="back" href="../index.html">← Game Center</a>
@@ -133,6 +133,9 @@ const BALL_TEXTURES=[
   {id:'nebula',label:'Nebula',file:'nebula.png'},
   {id:'earth', label:'Earth', file:'earth.png'},
   {id:'lightning',label:'Lightning',file:'lightning.png'},
+  {id:'fire',  label:'Fire',  file:'fire.png'},
+  {id:'silver',label:'Silver',file:'silver.png'},
+  {id:'black', label:'Black', file:'black.png'},
   {id:'white', label:'White', file:'white.png'},
   {id:'glow',  label:'Glow',  file:'white.png', glow:0x1dff5a},   // subtle neon-green glow
 ];
@@ -160,6 +163,7 @@ const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:fals
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
+const CURVE_ENABLED=false;            // false = no hook; ball travels straight along the release vector
 const CURVE_GAIN=7.0;                 // spin → lateral accel (in/s²)
 const CURVE_VREF=350;                 // curve gain is nominal at this speed; slower = more hook, faster = less
 const VY_FRICTION=0.085;             // more lane friction → ball slows toward pins so the hook builds at the back end
@@ -485,8 +489,8 @@ function launch(vyPix,vxPix){
   // no dead zone — every bit of sideways flick offset curves the ball
   const DZ=0;
   const vpx=Math.abs(vxPix)<DZ ? 0 : (vxPix-Math.sign(vxPix)*DZ);
-  ball.vx=Math.max(-10,Math.min(10,vpx*0.006));
-  ball.spin=Math.max(-1.6,Math.min(1.6,vpx*0.0016));
+  ball.vx=Math.max(-10,Math.min(10,-vpx*0.006));       // negate: screen-right is world -X (camera faces +Z)
+  ball.spin=Math.max(-1.6,Math.min(1.6,-vpx*0.0016));
   beginRoll();
 }
 // golf-style: power from pull-back distance, direction opposite the pull (slingshot)
@@ -503,7 +507,7 @@ function mapRange(v,a,b,c,d){ const t=(v-a)/(b-a); return c+(d-c)*Math.max(0,Mat
 function step(dt){
   if(phase!=='rolling') return;
   if(ball.rolling){
-    if(!ball.gutter){ ball.vx+=ball.spin*CURVE_GAIN*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }
+    if(!ball.gutter){ if(CURVE_ENABLED) ball.vx+=ball.spin*CURVE_GAIN*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }
     ball.y+=ball.vy*dt; ball.vy*=(1-VY_FRICTION*dt);
     if(rollAudio){ const sp=Math.min(1,ball.vy/POWER_MAX); rollAudio.volume=(ball.gutter?0.25:0.35+0.45*sp); }
     const edge=PLAY-BALL_R*0.4;
