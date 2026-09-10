@@ -49,11 +49,35 @@ a.back:hover{color:#9fb0d8;}
   display:flex;align-items:center;justify-content:center;font-size:4em;line-height:1;padding:0;
   opacity:0.5;cursor:pointer;transition:transform .15s,opacity .15s;}
 #cog:hover{opacity:0.85;transform:rotate(45deg);}
-#settings{position:fixed;left:12px;bottom:62px;z-index:25;width:230px;display:none;flex-direction:column;gap:11px;
-  background:rgba(12,16,24,.94);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:14px 16px;
-  box-shadow:0 10px 30px rgba(0,0,0,.5);}
+#settings{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
+  background:rgba(2,4,8,.62);}
 #settings.open{display:flex;}
-#settings h3{color:#ffd54a;font-size:.95rem;letter-spacing:1px;margin-bottom:2px;}
+.modal-card{width:min(94vw,480px);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:16px;
+  background:rgba(14,18,28,.98);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.modal-head{display:flex;align-items:center;justify-content:space-between;}
+.modal-head h3{color:#ffd54a;font-size:1.2rem;letter-spacing:1px;}
+#settingsClose{background:none;border:none;color:#9fb0d8;font-size:1.3rem;line-height:1;padding:4px 6px;cursor:pointer;}
+#settingsClose:hover{color:#fff;}
+.sec-label{color:#9fb0d8;font-size:.8rem;letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase;}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;}
+.grid.mural{grid-template-columns:repeat(2,1fr);}
+.tile{cursor:pointer;border:2px solid transparent;border-radius:10px;padding:6px 4px;text-align:center;
+  background:rgba(255,255,255,.05);transition:background .12s,border-color .12s;}
+.tile:hover{background:rgba(255,255,255,.11);}
+.tile.selected{border-color:#ffd54a;background:rgba(255,213,74,.14);}
+.tile .thumb{width:100%;aspect-ratio:1;border-radius:50%;object-fit:cover;display:block;background:#0c0f16;}
+.tile .thumb.sphere{position:relative;background-size:cover;background-position:center;overflow:hidden;}
+.tile .thumb.sphere::after{content:'';position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle at 33% 27%, rgba(255,255,255,.6), rgba(255,255,255,0) 42%);
+  box-shadow:inset -7px -9px 16px rgba(0,0,0,.6), inset 5px 5px 10px rgba(255,255,255,.12);}
+.tile.glowtile .thumb{box-shadow:0 0 10px #1dff5a;}
+.tile.mtile .thumb{aspect-ratio:16/6;border-radius:6px;}
+.tile .label{font-size:.68rem;color:#cfd8ea;margin-top:5px;}
+.toggle{width:100%;padding:11px;border:1px solid #33405a;border-radius:9px;background:#1a2130;color:#cfd8ea;
+  font-size:.9rem;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .12s;}
+.toggle:hover{border-color:#5a6a90;}
+.toggle.on{background:#ffd54a;color:#181000;border-color:#ffd54a;}
 #settings label{color:#cfd8ea;font-size:.82rem;display:flex;flex-direction:column;gap:4px;}
 #settings label.chk{flex-direction:row;align-items:center;gap:8px;cursor:pointer;}
 #settings select{background:#1a2130;color:#fff;border:1px solid #33405a;border-radius:6px;padding:5px 6px;font-size:.82rem;}
@@ -67,11 +91,13 @@ a.back:hover{color:#9fb0d8;}
 
 <button id="cog" title="Settings">⚙</button>
 <div id="settings">
-  <h3>Settings</h3>
-  <label>Ball texture<select id="setBall"></select></label>
-  <label>Wall mural<select id="setMural"></select></label>
-  <label class="chk"><input type="checkbox" id="setBumpers"> Enable bumpers</label>
-  <label class="chk"><input type="checkbox" id="setCosmic"> Cosmic mode</label>
+  <div class="modal-card">
+    <div class="modal-head"><h3>Settings</h3><button id="settingsClose" aria-label="Close">✕</button></div>
+    <div class="sec"><div class="sec-label">Ball</div><div id="ballGrid" class="grid"></div></div>
+    <div class="sec"><div class="sec-label">Wall mural</div><div id="muralGrid" class="grid mural"></div></div>
+    <button class="toggle" id="setBumpers"></button>
+    <button class="toggle" id="setCosmic"></button>
+  </div>
 </div>
 <div id="stage"></div>
 
@@ -106,11 +132,13 @@ const BALL_TEXTURES=[
   {id:'red',   label:'Red',   file:'red.png'},
   {id:'yellow',label:'Yellow',file:'yellow.png'},
   {id:'nebula',label:'Nebula',file:'nebula.png'},
+  {id:'earth', label:'Earth', file:'earth.png'},
+  {id:'lightning',label:'Lightning',file:'lightning.png'},
   {id:'white', label:'White', file:'white.png'},
   {id:'glow',  label:'Glow',  file:'white.png', glow:0x1dff5a},   // subtle neon-green glow
 ];
 function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0]; }
-const WALL_MURALS=[['Default','default.png'],['1970s','1970s.png'],['1980s','1980s.png'],['Dive','dive.jpg'],['Cosmic','cosmic.png']];
+const WALL_MURALS=[['Default','default.png'],['1970s','1970s.png'],['1980s','1980s.png'],['Cosmic','cosmic.png']];
 
 // live settings
 const settings={ ball:'blue', mural:'default.png', bumpers:false, cosmic:false };
@@ -133,7 +161,8 @@ const HFOV=18;
 // overview (aim) pose: low player-ish view with room on the approach to make the throw
 const OV_Y=84, OV_Z=-185, OV_LY=-40, OV_LZ=300;
 // chase (after release) pose: trails behind & just above the ball
-const CHASE_UP=32, CHASE_BACK=115, CHASE_AHEAD=320;
+const CHASE_UP=20, CHASE_BACK=115, CHASE_AHEAD=320;
+const CHASE_PULL=110, CHASE_RISE=55;   // near the pins, the cam pulls back & rises to frame the deck
 const CHASE_STOP=PIN_BASE-40;   // camera stops advancing once the ball reaches the pins
 // how far the ball may be positioned before release (inches) — kept behind the foul line
 const AIM_X=18, AIM_Y_MIN=-110, AIM_Y_MAX=0;
@@ -621,8 +650,11 @@ let camBlend=0;
 function updateCamera(dt){
   const target=(phase==='rolling')?1:0;
   camBlend += (target-camBlend)*(1-Math.exp(-dt*5));   // smooth ease
-  const cy=Math.min(ball.y, CHASE_STOP);               // freeze advance at the pins
-  _cPos.set(ball.x*0.45, CHASE_UP, cy-CHASE_BACK);
+  const cy=Math.min(ball.y, CHASE_STOP);               // freeze forward advance at the pins
+  const near=Math.max(0,Math.min(1,(ball.y-(PIN_BASE-120))/120)); // hold behind the ball, then pull back only in the last stretch
+  const back=CHASE_BACK + near*CHASE_PULL;             // ease back a little near the end
+  const up  =CHASE_UP + near*CHASE_RISE;               // and rise to see the pin deck
+  _cPos.set(ball.x*0.45, up, cy-back);
   _cLook.set(ball.x*0.30, 12, cy+CHASE_AHEAD);
   _pPos.lerpVectors(_ovPos,_cPos,camBlend);
   _pLook.lerpVectors(_ovLook,_cLook,camBlend);
@@ -764,12 +796,15 @@ function applyCosmic(){
   // (4) blacklight tint on the mural (MeshBasic ignores lights, so tint its color)
   if(muralMat) muralMat.color.set(on?0x8f9cff:0xffffff);
 }
-function applyBall(id){ settings.ball=id; if(!ballMat) return; const e=ballEntry(id);
+function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return; const e=ballEntry(id);
   ballMat.color.set(0xffffff); ballMat.map=loadTex(TEX+e.file,()=>{ballMat.needsUpdate=true;});
   ballMat.emissive.set(e.glow||0x000000); ballMat.emissiveIntensity=e.glow?1.3:1; ballMat.needsUpdate=true;
   if(ballLight){ ballLight.color.set(e.glow||0xffffff); ballLight.intensity=e.glow?1.8:0; } }
-function applyMural(file){ settings.mural=file; if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
-function setBumpers(on){ settings.bumpers=on; if(bumperGroup) bumperGroup.visible=on; }
+function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
+function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
+// persist selections
+function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,mural:settings.mural,bumpers:settings.bumpers,cosmic:settings.cosmic,_ballBefore:settings._ballBefore,_muralBefore:settings._muralBefore})); }catch(e){} }
+function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
 function setCosmic(on){
   settings.cosmic=on; applyCosmic();
   // swap the wall mural to the cosmic art while cosmic mode is on, restore afterward
@@ -777,21 +812,36 @@ function setCosmic(on){
           settings._ballBefore=settings.ball;  applyBall('glow'); }
   else  { applyMural(settings._muralBefore||'default.png');
           applyBall(settings._ballBefore||'blue'); }
-  const sm=document.getElementById('setMural'); if(sm) sm.value=settings.mural;
-  const sb=document.getElementById('setBall');  if(sb) sb.value=settings.ball;
+  highlightBall(); highlightMural(); saveSettings();
 }
+function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
+function highlightMural(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.mural)); }
 function setupSettings(){
-  const sb=document.getElementById('setBall'), sm=document.getElementById('setMural');
-  for(const b of BALL_TEXTURES){ const o=document.createElement('option'); o.value=b.id; o.textContent=b.label; sb.appendChild(o); }
-  for(const [label,file] of WALL_MURALS){ const o=document.createElement('option'); o.value=file; o.textContent=label; sm.appendChild(o); }
-  sb.value=settings.ball; sm.value=settings.mural;
-  document.getElementById('setBumpers').checked=settings.bumpers;
-  document.getElementById('setCosmic').checked=settings.cosmic;
-  document.getElementById('cog').addEventListener('click',()=>document.getElementById('settings').classList.toggle('open'));
-  sb.addEventListener('change',e=>applyBall(e.target.value));
-  sm.addEventListener('change',e=>applyMural(e.target.value));
-  document.getElementById('setBumpers').addEventListener('change',e=>setBumpers(e.target.checked));
-  document.getElementById('setCosmic').addEventListener('change',e=>setCosmic(e.target.checked));
+  loadSettings();
+  const bg=document.getElementById('ballGrid'), mg=document.getElementById('muralGrid');
+  for(const b of BALL_TEXTURES){
+    const t=document.createElement('div'); t.className='tile'+(b.glow?' glowtile':''); t.dataset.key=b.id;
+    t.innerHTML=`<div class="thumb sphere" style="background-image:url('${TEX+b.file}')"></div><div class="label">${b.label}</div>`;
+    t.addEventListener('click',()=>{ applyBall(b.id); highlightBall(); }); bg.appendChild(t);
+  }
+  for(const [label,file] of WALL_MURALS){
+    const t=document.createElement('div'); t.className='tile mtile'; t.dataset.key=file;
+    t.innerHTML=`<img class="thumb" src="${IMG+file}" alt=""><div class="label">${label}</div>`;
+    t.addEventListener('click',()=>{ applyMural(file); highlightMural(); }); mg.appendChild(t);
+  }
+  highlightBall(); highlightMural();
+  const modal=document.getElementById('settings');
+  document.getElementById('cog').addEventListener('click',()=>modal.classList.add('open'));
+  document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
+  modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });   // click backdrop to close
+  const bumpBtn=document.getElementById('setBumpers'), cosBtn=document.getElementById('setCosmic');
+  function refreshToggles(){
+    bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off');
+    cosBtn.classList.toggle('on',settings.cosmic);   cosBtn.textContent='Cosmic Mode: '+(settings.cosmic?'On':'Off');
+  }
+  refreshToggles();
+  bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
+  cosBtn.addEventListener('click',()=>{ setCosmic(!settings.cosmic); refreshToggles(); });
 }
 
 document.getElementById('startbtn').addEventListener('click',()=>{
