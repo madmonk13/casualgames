@@ -146,7 +146,8 @@ const settings={ ball:'blue', mural:'default.png', bumpers:false, cosmic:false }
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
 const CURVE_GAIN=7.0;                 // spin → lateral accel (in/s²)
-const VY_FRICTION=0.055;
+const CURVE_VREF=350;                 // curve gain is nominal at this speed; slower = more hook, faster = less
+const VY_FRICTION=0.085;             // more lane friction → ball slows toward pins so the hook builds at the back end
 const PIN_DAMP=7.0, REST=0.42;
 
 // throw input mode: 'pull' (golf-style click & pull) or 'flick' (original drag-to-throw)
@@ -432,8 +433,8 @@ function resetBall(){ ball={x:0,y:-6,vy:0,vx:0,spin:0,gutter:false,rolling:false
 function launch(vyPix,vxPix){
   const power=Math.max(POWER_MIN,Math.min(POWER_MAX,mapRange(-vyPix,300,2800,POWER_MIN,POWER_MAX)));
   ball.vy=power;
-  // dead zone: ignore small sideways drift so a straight flick rolls straight
-  const DZ=150;
+  // no dead zone — every bit of sideways flick offset curves the ball
+  const DZ=0;
   const vpx=Math.abs(vxPix)<DZ ? 0 : (vxPix-Math.sign(vxPix)*DZ);
   ball.vx=Math.max(-10,Math.min(10,vpx*0.006));
   ball.spin=Math.max(-1.6,Math.min(1.6,vpx*0.0016));
@@ -453,7 +454,7 @@ function mapRange(v,a,b,c,d){ const t=(v-a)/(b-a); return c+(d-c)*Math.max(0,Mat
 function step(dt){
   if(phase!=='rolling') return;
   if(ball.rolling){
-    if(!ball.gutter){ ball.vx+=ball.spin*CURVE_GAIN*dt; ball.x+=ball.vx*dt; }
+    if(!ball.gutter){ ball.vx+=ball.spin*CURVE_GAIN*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }
     ball.y+=ball.vy*dt; ball.vy*=(1-VY_FRICTION*dt);
     if(rollAudio){ const sp=Math.min(1,ball.vy/POWER_MAX); rollAudio.volume=(ball.gutter?0.25:0.35+0.45*sp); }
     const edge=PLAY-BALL_R*0.4;
