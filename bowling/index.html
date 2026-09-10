@@ -94,9 +94,8 @@ a.back:hover{color:#9fb0d8;}
   <div class="modal-card">
     <div class="modal-head"><h3>Settings</h3><button id="settingsClose" aria-label="Close">✕</button></div>
     <div class="sec"><div class="sec-label">Ball</div><div id="ballGrid" class="grid"></div></div>
-    <div class="sec"><div class="sec-label">Wall mural</div><div id="muralGrid" class="grid mural"></div></div>
+    <div class="sec"><div class="sec-label">Theme</div><div id="muralGrid" class="grid mural"></div></div>
     <button class="toggle" id="setBumpers"></button>
-    <button class="toggle" id="setCosmic"></button>
   </div>
 </div>
 <div id="stage"></div>
@@ -138,10 +137,26 @@ const BALL_TEXTURES=[
   {id:'glow',  label:'Glow',  file:'white.png', glow:0x1dff5a},   // subtle neon-green glow
 ];
 function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0]; }
-const WALL_MURALS=[['Default','default.png'],['1970s','1970s.png'],['1980s','1980s.png'],['Cosmic','cosmic.png']];
+// decade themes: wood palette (3 gradient stops), room background, and light moods.
+// hemi:[sky,ground,intensity]  key:[color,intensity]  fill:[color,intensity]  pin:intensity
+const THEMES=[
+  {id:'classic',  label:'Classic', mural:'default.png', wood:['#b57a34','#cf9147','#a06a2a'],
+    bg:0x090c13, hemi:[0xbfd4ff,0x39302a,0.90], key:[0xfff2d8,0.50], fill:[0x88aaff,0.35], pin:0.30,
+    ret:{body:0xc7ccd2, accent:0x1fb6c6, rough:0.40, metal:0.55}, sep:{base:0x24272f,speckle:[0x3a3f4a,0x565d6b]}},
+  {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#8a561f','#a86a24','#6e4318'],
+    bg:0x140f09, hemi:[0xffeccb,0x2e2113,0.90], key:[0xffe6c2,0.74], fill:[0xffcf9a,0.32], pin:0.35,
+    ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}},
+  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'],
+    bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
+    ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}},
+  {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], cosmic:true,
+    bg:0x000208, hemi:[0x3a4a80,0x101830,0.0], key:[0x223060,0.0], fill:[0x223060,0.0], pin:0.0,
+    ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}},
+];
+function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
 // live settings
-const settings={ ball:'blue', mural:'default.png', bumpers:false, cosmic:false };
+const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false };
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
@@ -189,6 +204,7 @@ let lastW=0,lastH=0;
 let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null; // referenced by settings
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
+let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null;    // wood-mapped materials + between-lane carpet (live re-theming)
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
 const stage=document.getElementById('stage');
 
@@ -220,7 +236,8 @@ function initScene(){
   buildBallMesh();
   buildPinMeshes();
   buildBumpers();
-  applyCosmic();          // reflect initial cosmic setting (default off)
+  applyThemeLights(themeById(settings.theme));   // base wood/lights per theme
+  applyCosmic();                                 // then apply cosmic override if enabled
 
   // aim guide line
   const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,BALL_R,30),new THREE.Vector3(0,BALL_R,520)]);
@@ -245,10 +262,11 @@ function loadTex(url,onload){
   return t;
 }
 
-function woodTexture(){
+function woodTexture(pal){
+  pal=pal||['#a86a2a','#c2843a','#9c5f24'];
   const c=document.createElement('canvas'); c.width=256; c.height=1024; const g=c.getContext('2d');
   const grad=g.createLinearGradient(0,0,c.width,0);
-  grad.addColorStop(0,'#a86a2a'); grad.addColorStop(.5,'#c2843a'); grad.addColorStop(1,'#9c5f24');
+  grad.addColorStop(0,pal[0]); grad.addColorStop(.5,pal[1]); grad.addColorStop(1,pal[2]);
   g.fillStyle=grad; g.fillRect(0,0,c.width,c.height);
   // 39 board seams across width
   g.strokeStyle='rgba(70,42,15,.5)'; g.lineWidth=1;
@@ -259,17 +277,47 @@ function woodTexture(){
   const t=new THREE.CanvasTexture(c); t.wrapT=THREE.RepeatWrapping; t.repeat.set(1,LANE_LEN/120); return t;
 }
 
+// subtle fine-grain noise texture for the space between lanes
+function carpetTexture(cfg){
+  const S=128, c=document.createElement('canvas'); c.width=S; c.height=S; const g=c.getContext('2d');
+  const img=g.createImageData(S,S), d=img.data;
+  const br=(cfg.base>>16)&255, bg=(cfg.base>>8)&255, bb=cfg.base&255, spk=cfg.speckle||[];
+  for(let i=0;i<S*S;i++){
+    const n=(Math.random()*2-1)*12;                 // gentle luminance grain
+    let r=br+n, gg=bg+n, b=bb+n;
+    if(spk.length && Math.random()<0.02){            // very sparse, faint fleck
+      const s=spk[(Math.random()*spk.length)|0], a=0.2+Math.random()*0.2;
+      r=r*(1-a)+((s>>16)&255)*a; gg=gg*(1-a)+((s>>8)&255)*a; b=b*(1-a)+(s&255)*a;
+    }
+    const j=i*4; d[j]=Math.max(0,Math.min(255,r)); d[j+1]=Math.max(0,Math.min(255,gg)); d[j+2]=Math.max(0,Math.min(255,b)); d[j+3]=255;
+  }
+  g.putImageData(img,0,0);
+  // repeat far more along the length than across so the grain stays square, not stretched
+  const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(2,130); return t;
+}
+function regenSep(cfg){ if(sepMat){ sepMat.map=carpetTexture(cfg); sepMat.needsUpdate=true; } }
+
 function buildLane(){
-  WOOD=woodTexture();
+  WOOD=woodTexture(themeById(settings.theme).wood);
   addLaneStrip(0,false);                                   // main lane
   for(let k=-NEIGH_LANES;k<=NEIGH_LANES;k++){ if(k!==0) addLaneStrip(k*LANE_PITCH,true); }  // neighbor lanes
+
+  // themed carpet filling the space between adjacent lanes
+  sepMat=new THREE.MeshStandardMaterial({map:carpetTexture(themeById(settings.theme).sep),roughness:0.92});
+  const gapW=LANE_PITCH-2*(GUT+1.5)-1;   // only the strip between the two raised rails
+  const carpLen=LANE_LEN+20;             // foul line → past the pins (matches the rails)
+  for(let k=-NEIGH_LANES;k<NEIGH_LANES;k++){
+    const d=new THREE.Mesh(new THREE.BoxGeometry(gapW,4,carpLen),sepMat);
+    d.position.set((k+0.5)*LANE_PITCH,-2,carpLen/2); scene.add(d);
+  }
 
   const spanHalf=NEIGH_LANES*LANE_PITCH+GUT;                // to outer edge of farthest lane
   // approach floor behind the foul line, spanning all lanes — wood, board scale matched to the lanes
   const appW=2*spanHalf+60, appD=360;
+  appRepeat=[appW/(2*PLAY), appD*(LANE_LEN/120)/(LANE_LEN+80)];
   const appTex=WOOD.clone(); appTex.wrapS=appTex.wrapT=THREE.RepeatWrapping;
-  appTex.repeat.set(appW/(2*PLAY), appD*(LANE_LEN/120)/(LANE_LEN+80)); appTex.needsUpdate=true;
-  const appMat=new THREE.MeshStandardMaterial({map:appTex,roughness:0.72}); laneGlow.push(appMat);
+  appTex.repeat.set(appRepeat[0],appRepeat[1]); appTex.needsUpdate=true;
+  appMat=new THREE.MeshStandardMaterial({map:appTex,roughness:0.72}); laneGlow.push(appMat);
   const approach=new THREE.Mesh(new THREE.BoxGeometry(appW,4,appD),appMat);
   approach.position.set(0,-2.05,-180); scene.add(approach);
   const wallW=2*spanHalf+160;
@@ -296,20 +344,21 @@ function buildLane(){
 // neighbor lanes — a static full rack of decorative pins.
 function addLaneStrip(xoff,deco){
   const laneMat=new THREE.MeshStandardMaterial({map:WOOD,roughness:0.72,metalness:0.0}); // rougher → no harsh glare
-  laneGlow.push(laneMat);
+  laneGlow.push(laneMat); laneMats.push(laneMat);
   const lane=new THREE.Mesh(new THREE.BoxGeometry(2*PLAY,4,LANE_LEN+80),laneMat);
   lane.position.set(xoff,-2,LANE_LEN/2-20); scene.add(lane);
 
+  const sepLen=LANE_LEN+20, sepZ=sepLen/2;   // gutters/rails run from the foul line (z=0) to past the pins
   const gutMat=new THREE.MeshStandardMaterial({color:0x11161f,roughness:0.6});
   const gw=GUT-PLAY;
   for(const s of [-1,1]){
-    const gutter=new THREE.Mesh(new THREE.BoxGeometry(gw,6,LANE_LEN+80),gutMat);
-    gutter.position.set(xoff+s*(PLAY+gw/2),-5,LANE_LEN/2-20); scene.add(gutter);
+    const gutter=new THREE.Mesh(new THREE.BoxGeometry(gw,6,sepLen),gutMat);
+    gutter.position.set(xoff+s*(PLAY+gw/2),-5,sepZ); scene.add(gutter);
   }
   const railMat=new THREE.MeshStandardMaterial({color:0x1b2231,roughness:0.5});
   for(const s of [-1,1]){
-    const rail=new THREE.Mesh(new THREE.BoxGeometry(3,10,LANE_LEN+80),railMat);
-    rail.position.set(xoff+s*(GUT+1.5),-1,LANE_LEN/2-20); scene.add(rail);
+    const rail=new THREE.Mesh(new THREE.BoxGeometry(3,10,sepLen),railMat);
+    rail.position.set(xoff+s*(GUT+1.5),-1,sepZ); scene.add(rail);
   }
   // aiming arrows + approach dots + foul line (on every lane)
   const markMat=new THREE.MeshStandardMaterial({color:0x3a230c,roughness:0.75});
@@ -759,14 +808,41 @@ function buildBumpers(){
   }
   bumperGroup.visible=settings.bumpers; scene.add(bumperGroup);
 }
+// apply a theme's light mood + room color (the non-cosmic look)
+function applyThemeLights(t){
+  if(!hemiLight) return;
+  hemiLight.color.setHex(t.hemi[0]); hemiLight.groundColor.setHex(t.hemi[1]); hemiLight.intensity=t.hemi[2];
+  keyLight.color.setHex(t.key[0]); keyLight.intensity=t.key[1];
+  fillLight.color.setHex(t.fill[0]); fillLight.intensity=t.fill[1];
+  pinLight.intensity=t.pin;
+  if(scene){ scene.background.setHex(t.bg); if(scene.fog) scene.fog.color.setHex(t.bg); }
+}
+// re-tint the wood (lanes + approach) live for a theme palette
+function regenWood(pal){
+  WOOD=woodTexture(pal);
+  for(const m of laneMats){ m.map=WOOD; m.needsUpdate=true; }
+  if(appMat){ const at=WOOD.clone(); at.wrapS=at.wrapT=THREE.RepeatWrapping; at.repeat.set(appRepeat[0],appRepeat[1]); at.needsUpdate=true; appMat.map=at; appMat.needsUpdate=true; }
+}
+function applyTheme(id){
+  const wasCosmic=settings.cosmic;
+  settings.theme=id; const t=themeById(id); settings.cosmic=!!t.cosmic;
+  if(laneMats.length){ regenWood(t.wood); regenSep(t.sep); }   // live re-tint if the scene is built
+  if(settings.cosmic && !wasCosmic){ settings._ballBefore=settings.ball; applyBall('glow'); }   // cosmic → glow ball
+  else if(!settings.cosmic && wasCosmic){ applyBall(settings._ballBefore||'blue'); }            // leaving cosmic → restore
+  applyMural(settings.cosmic?'cosmic.png':t.mural);
+  applyCosmic();                                         // lights/glows/mural-tint based on settings.cosmic
+  highlightBall(); highlightTheme();
+  saveSettings();
+}
 function applyCosmic(){
   if(!scene) return;
   const on=settings.cosmic;
-  scene.background.set(on?0x000208:0x090c13);
-  if(scene.fog){ scene.fog.color.set(on?0x000208:0x090c13); scene.fog.near=on?350:700; scene.fog.far=on?1700:2000; }
-  // (1) ambient off in cosmic — the room is lit only by the neon
-  hemiLight.intensity=on?0:HEMI0; keyLight.intensity=on?0:KEY0;
-  fillLight.intensity=on?0:FILL0; pinLight.intensity=on?0:PIN0;
+  if(!on){ applyThemeLights(themeById(settings.theme)); if(scene.fog){ scene.fog.near=700; scene.fog.far=2000; } }
+  else {
+    scene.background.set(0x000208);
+    if(scene.fog){ scene.fog.color.set(0x000208); scene.fog.near=350; scene.fog.far=1700; }
+    hemiLight.intensity=0; keyLight.intensity=0; fillLight.intensity=0; pinLight.intensity=0;
+  }
   if(on && !cosmicLights){
     cosmicLights=new THREE.Group();
     // low, side-grazing accents (kept low so they don't flood the lane like an overhead light)
@@ -804,45 +880,34 @@ function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return; c
 function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
 function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
 // persist selections
-function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,mural:settings.mural,bumpers:settings.bumpers,cosmic:settings.cosmic,_ballBefore:settings._ballBefore,_muralBefore:settings._muralBefore})); }catch(e){} }
+function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,_ballBefore:settings._ballBefore})); }catch(e){} }
 function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
-function setCosmic(on){
-  settings.cosmic=on; applyCosmic();
-  // swap the wall mural to the cosmic art while cosmic mode is on, restore afterward
-  if(on){ settings._muralBefore=settings.mural; applyMural('cosmic.png');
-          settings._ballBefore=settings.ball;  applyBall('glow'); }
-  else  { applyMural(settings._muralBefore||'default.png');
-          applyBall(settings._ballBefore||'blue'); }
-  highlightBall(); highlightMural(); saveSettings();
-}
 function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
-function highlightMural(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.mural)); }
+function highlightTheme(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme)); }
 function setupSettings(){
   loadSettings();
+  settings.cosmic = !!themeById(settings.theme).cosmic;                                 // cosmic is now a theme
+  settings.mural  = settings.cosmic ? 'cosmic.png' : themeById(settings.theme).mural;   // keep mural in sync with theme
   const bg=document.getElementById('ballGrid'), mg=document.getElementById('muralGrid');
   for(const b of BALL_TEXTURES){
     const t=document.createElement('div'); t.className='tile'+(b.glow?' glowtile':''); t.dataset.key=b.id;
     t.innerHTML=`<div class="thumb sphere" style="background-image:url('${TEX+b.file}')"></div><div class="label">${b.label}</div>`;
     t.addEventListener('click',()=>{ applyBall(b.id); highlightBall(); }); bg.appendChild(t);
   }
-  for(const [label,file] of WALL_MURALS){
-    const t=document.createElement('div'); t.className='tile mtile'; t.dataset.key=file;
-    t.innerHTML=`<img class="thumb" src="${IMG+file}" alt=""><div class="label">${label}</div>`;
-    t.addEventListener('click',()=>{ applyMural(file); highlightMural(); }); mg.appendChild(t);
+  for(const th of THEMES){
+    const t=document.createElement('div'); t.className='tile mtile'; t.dataset.key=th.id;
+    t.innerHTML=`<img class="thumb" src="${IMG+th.mural}" alt=""><div class="label">${th.label}</div>`;
+    t.addEventListener('click',()=>{ applyTheme(th.id); highlightTheme(); }); mg.appendChild(t);
   }
-  highlightBall(); highlightMural();
+  highlightBall(); highlightTheme();
   const modal=document.getElementById('settings');
   document.getElementById('cog').addEventListener('click',()=>modal.classList.add('open'));
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });   // click backdrop to close
-  const bumpBtn=document.getElementById('setBumpers'), cosBtn=document.getElementById('setCosmic');
-  function refreshToggles(){
-    bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off');
-    cosBtn.classList.toggle('on',settings.cosmic);   cosBtn.textContent='Cosmic Mode: '+(settings.cosmic?'On':'Off');
-  }
+  const bumpBtn=document.getElementById('setBumpers');
+  function refreshToggles(){ bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off'); }
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
-  cosBtn.addEventListener('click',()=>{ setCosmic(!settings.cosmic); refreshToggles(); });
 }
 
 document.getElementById('startbtn').addEventListener('click',()=>{
