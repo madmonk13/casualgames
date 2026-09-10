@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Just Putt</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100dvw;height:100dvh;background:#0a1410;font-family:'Segoe UI',Arial,sans-serif;color:#fff;
+  user-select:none;-webkit-user-select:none;touch-action:none;overflow:hidden;display:flex;flex-direction:column;align-items:center;}
+#hud{width:100%;flex-shrink:0;background:rgba(0,0,0,.55);padding:7px 12px;display:flex;gap:16px;justify-content:center;
+  font-size:clamp(.72rem,2.4vw,.95rem);font-weight:700;letter-spacing:.5px;z-index:6;}
+#hud b{color:#7ee39b;margin-left:4px;}
+#msg{position:absolute;top:44%;left:0;right:0;text-align:center;font-size:clamp(1.6rem,7vw,3rem);font-weight:900;
+  color:#ffe86b;text-shadow:0 3px 16px #000;pointer-events:none;letter-spacing:1px;z-index:5;}
+#stage{flex:1;width:100%;position:relative;cursor:grab;min-height:0;overflow:hidden;}
+#stage.aiming{cursor:grabbing;}
+#stage canvas{display:block;width:100%;height:100%;}
+#ov{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at center, rgba(6,16,12,.25) 0%, rgba(6,16,12,.6) 100%);gap:14px;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .25s;padding:20px;}
+#ov.show{opacity:1;pointer-events:auto;}
+#ov h2{font-size:clamp(1.7rem,6vw,2.6rem);letter-spacing:2px;color:#7ee39b;text-shadow:0 0 22px rgba(60,220,120,.5);}
+#ov p{color:#cfe6d8;font-size:clamp(.85rem,2.4vw,1.05rem);line-height:1.6;max-width:400px;}
+#startbtn{margin-top:6px;padding:11px 34px;background:#7ee39b;color:#06170f;border:none;border-radius:9px;
+  font-size:clamp(.95rem,2.6vw,1.15rem);font-weight:800;cursor:pointer;letter-spacing:1px;}
+#startbtn:hover{background:#9ff0b4;}
+</style>
+</head>
+<body>
+<div id="hud">
+  <span>Hole<b id="hHole">1/6</b></span>
+  <span>Par<b id="hPar">2</b></span>
+  <span>Strokes<b id="hStrokes">0</b></span>
+  <span>Total<b id="hTotal">E</b></span>
+</div>
+<div id="msg"></div>
+<div id="stage"></div>
+
+<div id="ov" class="show">
+  <h2>⛳ JUST PUTT</h2>
+  <p><b>Pull back &amp; release.</b> Drag back from the ball to aim and set power — the further you pull, the harder the putt — then let go. Sink it in as few strokes as you can.</p>
+  <button id="startbtn">START</button>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  COURSE  (units = inches; hole runs +Z away from the tee)
+// ═══════════════════════════════════════════════════════
+const BALL_R=1.7, CUP_R=2.6, WALL_H=5, WALL_T=2.4;
+function rectWalls(cx,cz,w,d){ const x0=cx-w/2,x1=cx+w/2,z0=cz-d/2,z1=cz+d/2;
+  return [[x0,z0,x1,z0],[x1,z0,x1,z1],[x1,z1,x0,z1],[x0,z1,x0,z0]]; }
+function loopWalls(pts){ const w=[]; for(let i=0;i<pts.length;i++){ const a=pts[i],b=pts[(i+1)%pts.length]; w.push([a[0],a[1],b[0],b[1]]); } return w; }
+
+const HOLES=[
+  {par:2,tee:[0,18],cup:[0,132],rects:[[0,75,44,150]],obst:[],walls:rectWalls(0,75,44,150)},
+  {par:2,tee:[0,18],cup:[0,145],rects:[[0,80,32,160]],obst:[],walls:rectWalls(0,80,32,160)},
+  {par:3,tee:[0,18],cup:[0,145],rects:[[0,80,44,160]],obst:[[0,80,16,12]],walls:rectWalls(0,80,44,160)},
+  {par:3,tee:[0,18],cup:[0,165],rects:[[0,90,44,180]],obst:[[-11,70,16,12],[11,115,16,12]],walls:rectWalls(0,90,44,180)},
+  {par:3,tee:[0,18],cup:[0,150],rects:[[0,85,48,170]],obst:[[-16,95,20,10],[16,95,20,10]],walls:rectWalls(0,85,48,170)},
+  {par:3,tee:[0,15],cup:[70,90],rects:[[0,50,40,100],[40,90,80,40]],obst:[],
+    walls:loopWalls([[-20,0],[20,0],[20,70],[80,70],[80,110],[0,110],[0,100],[-20,100]])},
+];
+
+// ═══════════════════════════════════════════════════════
+//  PHYSICS TUNING
+// ═══════════════════════════════════════════════════════
+const FRICTION=115;      // rolling deceleration (in/s²)
+const REST=0.68;         // wall restitution
+const MAXV=250;          // max putt speed (in/s)
+const PULL_K=5.0;        // pull length (in) → speed
+const SINK_SPEED=70;     // ball must be slower than this over the cup to drop
+const STOP_SPEED=3.0;
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let holeIdx=0, strokes=0, scores=[], phase='menu';
+let ball={x:0,z:0,vx:0,vz:0}, curWalls=[], cup={x:0,z:0}, holePar=2;
+let msgT=0, pulling=false, pullDir={x:0,z:1}, pullPow=0;
+
+// ═══════════════════════════════════════════════════════
+//  THREE.JS
+// ═══════════════════════════════════════════════════════
+let renderer,scene,camera,ballMesh,holeGroup,aimLine,raycaster,groundPlane,cupMesh;
+const stage=document.getElementById('stage');
+let lastW=0,lastH=0,lastT=0;
+
+function initScene(){
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));
+  stage.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0a1712);
+  scene.fog=new THREE.Fog(0x0a1712,300,1400);
+  camera=new THREE.PerspectiveCamera(50,1,1,4000);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff,0x24402a,0.9));
+  const sun=new THREE.DirectionalLight(0xfff6e0,0.75); sun.position.set(80,260,-40); scene.add(sun);
+  const fill=new THREE.DirectionalLight(0x9fd0ff,0.3); fill.position.set(-60,120,180); scene.add(fill);
+  holeGroup=new THREE.Group(); scene.add(holeGroup);
+  // ball
+  ballMesh=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,24,18),
+    new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.35,metalness:0.05}));
+  scene.add(ballMesh);
+  // aim line
+  const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,BALL_R,0),new THREE.Vector3(0,BALL_R,10)]);
+  aimLine=new THREE.Line(lg,new THREE.LineBasicMaterial({color:0xffe86b}));
+  scene.add(aimLine);
+  raycaster=new THREE.Raycaster();
+  groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  resize();
+  if(window.ResizeObserver) new ResizeObserver(()=>resize()).observe(stage);
+  requestAnimationFrame(resize); setTimeout(resize,120);
+}
+function resize(){
+  if(!renderer) return;
+  const w=stage.clientWidth||window.innerWidth, h=stage.clientHeight||(window.innerHeight-40);
+  if(w<2||h<2||(w===lastW&&h===lastH)) return; lastW=w; lastH=h;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+
+function grassTexture(){
+  const c=document.createElement('canvas'); c.width=64; c.height=64; const g=c.getContext('2d');
+  const im=g.createImageData(64,64), d=im.data;
+  for(let i=0;i<64*64;i++){ const n=(Math.random()*2-1)*16; const j=i*4;
+    d[j]=46+n; d[j+1]=120+n; d[j+2]=58+n; d[j+3]=255; }
+  g.putImageData(im,0,0); const t=new THREE.CanvasTexture(c);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(6,6); return t;
+}
+let GRASS=null;
+
+// build the current hole's meshes and set up ball/camera
+function setupHole(){
+  const H=HOLES[holeIdx]; holePar=H.par; strokes=0;
+  cup={x:H.cup[0],z:H.cup[1]};
+  // collision walls = perimeter + obstacle boxes
+  curWalls=H.walls.slice();
+  for(const o of H.obst) curWalls=curWalls.concat(rectWalls(o[0],o[1],o[2],o[3]));
+  // (re)build geometry
+  while(holeGroup.children.length) holeGroup.remove(holeGroup.children[0]);
+  if(!GRASS) GRASS=grassTexture();
+  const grassMat=new THREE.MeshStandardMaterial({map:GRASS,color:0x3aa152,roughness:0.95});
+  for(const r of H.rects){
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(r[2],r[3]),grassMat);
+    fl.rotation.x=-Math.PI/2; fl.position.set(r[0],0,r[1]); holeGroup.add(fl);
+  }
+  // perimeter curbs
+  const curbMat=new THREE.MeshStandardMaterial({color:0x9a6a3a,roughness:0.7});
+  for(const w of H.walls) addCurb(w,curbMat);
+  // obstacle blocks
+  const obMat=new THREE.MeshStandardMaterial({color:0x2f6f8f,roughness:0.6});
+  for(const o of H.obst){
+    const b=new THREE.Mesh(new THREE.BoxGeometry(o[2],WALL_H+3,o[3]),obMat);
+    b.position.set(o[0],(WALL_H+3)/2,o[1]); holeGroup.add(b);
+  }
+  // cup (dark recess) + flag
+  cupMesh=new THREE.Mesh(new THREE.CylinderGeometry(CUP_R,CUP_R,4,20),new THREE.MeshStandardMaterial({color:0x08120c,roughness:1}));
+  cupMesh.position.set(cup.x,-1.9,cup.z); holeGroup.add(cupMesh);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(CUP_R,0.5,8,20),new THREE.MeshStandardMaterial({color:0xe8e8e8,roughness:0.5}));
+  ring.rotation.x=Math.PI/2; ring.position.set(cup.x,0.15,cup.z); holeGroup.add(ring);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.35,0.35,34,8),new THREE.MeshStandardMaterial({color:0xf2f2f2}));
+  pole.position.set(cup.x,17,cup.z); holeGroup.add(pole);
+  const flag=new THREE.Mesh(new THREE.PlaneGeometry(14,8),new THREE.MeshStandardMaterial({color:0xe23b30,side:THREE.DoubleSide}));
+  flag.position.set(cup.x+7,30,cup.z); holeGroup.add(flag);
+
+  ball.x=H.tee[0]; ball.z=H.tee[1]; ball.vx=0; ball.vz=0;
+  ballMesh.visible=true; ballMesh.position.set(ball.x,BALL_R,ball.z);
+  frameCamera(H);
+  phase='aim'; updateHud(); flash('Hole '+(holeIdx+1));
+}
+function addCurb(w,mat){
+  const [x1,z1,x2,z2]=w; const dx=x2-x1,dz=z2-z1; const len=Math.hypot(dx,dz)+WALL_T;
+  const c=new THREE.Mesh(new THREE.BoxGeometry(WALL_T,WALL_H,len),mat);
+  c.position.set((x1+x2)/2,WALL_H/2,(z1+z2)/2);
+  c.rotation.y=-Math.atan2(dz,dx)+Math.PI/2; holeGroup.add(c);
+}
+function frameCamera(H){
+  let minx=1e9,maxx=-1e9,minz=1e9,maxz=-1e9;
+  for(const r of H.rects){ minx=Math.min(minx,r[0]-r[2]/2); maxx=Math.max(maxx,r[0]+r[2]/2); minz=Math.min(minz,r[1]-r[3]/2); maxz=Math.max(maxz,r[1]+r[3]/2); }
+  const cx=(minx+maxx)/2, cz=(minz+maxz)/2, span=Math.max(maxx-minx,maxz-minz);
+  camera.position.set(cx, span*0.95+70, minz - span*0.42);
+  camera.lookAt(cx, 0, cz+span*0.08);
+}
+
+// ═══════════════════════════════════════════════════════
+//  PHYSICS
+// ═══════════════════════════════════════════════════════
+function stepPhysics(dt){
+  if(phase!=='roll') return;
+  // integrate
+  ball.x+=ball.vx*dt; ball.z+=ball.vz*dt;
+  // friction (constant deceleration)
+  let sp=Math.hypot(ball.vx,ball.vz);
+  if(sp>0){ const ns=Math.max(0,sp-FRICTION*dt); ball.vx*=ns/sp; ball.vz*=ns/sp; sp=ns; }
+  // wall collisions
+  for(const w of curWalls) collideWall(w);
+  // cup capture
+  const dc=Math.hypot(ball.x-cup.x,ball.z-cup.z);
+  if(dc<CUP_R && sp<SINK_SPEED){ sink(); return; }
+  // stop
+  if(sp<STOP_SPEED){ ball.vx=ball.vz=0; phase='aim'; }
+}
+function collideWall(w){
+  const [x1,z1,x2,z2]=w; const dx=x2-x1,dz=z2-z1; const L2=dx*dx+dz*dz||1;
+  let t=((ball.x-x1)*dx+(ball.z-z1)*dz)/L2; t=t<0?0:t>1?1:t;
+  const px=x1+dx*t, pz=z1+dz*t; let nx=ball.x-px, nz=ball.z-pz; const d=Math.hypot(nx,nz);
+  if(d>=BALL_R+WALL_T/2 || d<1e-6) return;
+  nx/=d; nz/=d;
+  ball.x=px+nx*(BALL_R+WALL_T/2); ball.z=pz+nz*(BALL_R+WALL_T/2);
+  const vn=ball.vx*nx+ball.vz*nz;
+  if(vn<0){ ball.vx-=(1+REST)*vn*nx; ball.vz-=(1+REST)*vn*nz; }
+}
+function sink(){
+  phase='sunk'; ball.vx=ball.vz=0; ballMesh.visible=false;
+  scores[holeIdx]=strokes;
+  const rel=strokes-holePar;
+  const term=strokes===1?'HOLE IN ONE!':rel<=-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':'+'+rel;
+  flash(term); updateHud();
+  setTimeout(()=>{
+    holeIdx++;
+    if(holeIdx>=HOLES.length){ finish(); } else { setupHole(); }
+  },1400);
+}
+function finish(){
+  phase='done';
+  const total=scores.reduce((a,b)=>a+b,0), par=HOLES.reduce((a,h)=>a+h.par,0), rel=total-par;
+  const ov=document.getElementById('ov');
+  ov.querySelector('h2').textContent='⛳ FINAL: '+total;
+  ov.querySelector('p').innerHTML=`You went round in <b>${total}</b> (par ${par}, ${rel===0?'even':rel>0?'+'+rel:rel}).`;
+  document.getElementById('startbtn').textContent='PLAY AGAIN';
+  ov.classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════════════
+function updateHud(){
+  document.getElementById('hHole').textContent=(holeIdx+1)+'/'+HOLES.length;
+  document.getElementById('hPar').textContent=holePar;
+  document.getElementById('hStrokes').textContent=strokes;
+  const played=scores.reduce((a,b)=>a+b,0);
+  const parSoFar=HOLES.slice(0,scores.length).reduce((a,h)=>a+h.par,0);
+  const rel=played-parSoFar;
+  document.getElementById('hTotal').textContent=played? (rel===0?'E':rel>0?'+'+rel:rel) : 'E';
+}
+function flash(t){ document.getElementById('msg').textContent=t; msgT=1.4; }
+
+// ═══════════════════════════════════════════════════════
+//  RENDER + SYNC
+// ═══════════════════════════════════════════════════════
+function sync(){
+  ballMesh.position.set(ball.x,BALL_R,ball.z);
+  aimLine.visible=(phase==='aim'&&pulling);
+  if(aimLine.visible){
+    const p=aimLine.geometry.attributes.position;
+    const len=pullPow/MAXV*70;
+    p.setXYZ(0,ball.x,BALL_R,ball.z);
+    p.setXYZ(1,ball.x+pullDir.x*len,BALL_R,ball.z+pullDir.z*len);
+    p.needsUpdate=true;
+  }
+}
+function loop(t){
+  const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
+  if(phase==='roll'){ const n=4; for(let k=0;k<n;k++) stepPhysics(dt/n); }
+  if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
+  if(renderer){ sync(); renderer.render(scene,camera); }
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INPUT — pull back & release
+// ═══════════════════════════════════════════════════════
+const _hit=new THREE.Vector3();
+function groundPt(e){
+  const r=renderer.domElement.getBoundingClientRect();
+  const s=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
+  const nx=((s.clientX-r.left)/r.width)*2-1, ny=-((s.clientY-r.top)/r.height)*2+1;
+  raycaster.setFromCamera({x:nx,y:ny},camera);
+  return raycaster.ray.intersectPlane(groundPlane,_hit)?{x:_hit.x,z:_hit.z}:null;
+}
+function computePull(gp){
+  const dx=ball.x-gp.x, dz=ball.z-gp.z, L=Math.hypot(dx,dz);   // pull vector: ball ← pointer
+  pullPow=Math.min(MAXV,L*PULL_K);
+  if(L>1e-3){ pullDir={x:dx/L,z:dz/L}; }   // launch away from the pull (toward target)
+}
+function pDown(e){ if(phase!=='aim') return; e.preventDefault(); const gp=groundPt(e); if(!gp) return;
+  pulling=true; pullPow=0; stage.classList.add('aiming'); computePull(gp); }
+function pMove(e){ if(!pulling) return; e.preventDefault(); const gp=groundPt(e); if(gp) computePull(gp); }
+function pUp(e){ if(!pulling) return; e.preventDefault(); pulling=false; stage.classList.remove('aiming');
+  if(pullPow<12){ return; }   // too small — cancel
+  ball.vx=pullDir.x*pullPow; ball.vz=pullDir.z*pullPow;
+  strokes++; phase='roll'; updateHud();
+}
+function bindInput(){
+  const el=renderer.domElement;
+  el.addEventListener('mousedown',pDown); el.addEventListener('mousemove',pMove); window.addEventListener('mouseup',pUp);
+  el.addEventListener('touchstart',pDown,{passive:false}); el.addEventListener('touchmove',pMove,{passive:false}); el.addEventListener('touchend',pUp,{passive:false});
+}
+
+// ═══════════════════════════════════════════════════════
+//  START
+// ═══════════════════════════════════════════════════════
+document.getElementById('startbtn').addEventListener('click',()=>{
+  document.getElementById('ov').classList.remove('show');
+  resize();
+  holeIdx=0; scores=[]; setupHole();
+});
+initScene(); bindInput(); requestAnimationFrame(t=>{lastT=t;loop(t);});
+// show the first hole behind the title on load
+holeIdx=0; scores=[]; setupHole(); phase='menu';
+</script>
+</body>
+</html>

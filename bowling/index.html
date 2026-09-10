@@ -45,10 +45,15 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
 #startbtn:hover{background:#ffe27a;}
 a.back{color:#67769c;font-size:.8rem;text-decoration:none;margin-top:8px;}
 a.back:hover{color:#9fb0d8;}
-#cog{position:fixed;left:12px;bottom:12px;z-index:25;border:none;background:none;color:#cfd8ea;
+#cog{position:fixed;left:12px;top:44px;z-index:25;border:none;background:none;color:#cfd8ea;
   display:flex;align-items:center;justify-content:center;font-size:4em;line-height:1;padding:0;
   opacity:0.5;cursor:pointer;transition:transform .15s,opacity .15s;}
 #cog:hover{opacity:0.85;transform:rotate(45deg);}
+#mute{position:fixed;right:12px;top:44px;z-index:25;border:none;background:none;color:#cfd8ea;
+  display:flex;align-items:center;justify-content:center;font-size:4em;line-height:1;padding:0;
+  opacity:0.5;cursor:pointer;transition:opacity .15s;}
+#mute:hover{opacity:0.85;}
+#mute svg{width:0.8em;height:0.8em;display:block;}
 #settings{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
   background:rgba(2,4,8,.62);}
 #settings.open{display:flex;}
@@ -90,6 +95,7 @@ a.back:hover{color:#9fb0d8;}
 <div id="celebrate"></div>
 
 <button id="cog" title="Settings">⚙</button>
+<button id="mute" title="Mute"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 6a9 9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
 <div id="settings">
   <div class="modal-card">
     <div class="modal-head"><h3>Settings</h3><button id="settingsClose" aria-label="Close">✕</button></div>
@@ -145,23 +151,23 @@ function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0
 // decade themes: wood palette (3 gradient stops), room background, and light moods.
 // hemi:[sky,ground,intensity]  key:[color,intensity]  fill:[color,intensity]  pin:intensity
 const THEMES=[
-  {id:'classic',  label:'Classic', mural:'default.png', wood:['#b57a34','#cf9147','#a06a2a'],
+  {id:'classic',  label:'Classic', mural:'default.png', wood:['#b57a34','#cf9147','#a06a2a'], wall:0x6b6f76,
     bg:0x090c13, hemi:[0xbfd4ff,0x39302a,0.90], key:[0xfff2d8,0.50], fill:[0x88aaff,0.35], pin:0.30,
     ret:{body:0xc7ccd2, accent:0x1fb6c6, rough:0.40, metal:0.55}, sep:{base:0x24272f,speckle:[0x3a3f4a,0x565d6b]}, stripes:[0xefb241,0x054f9b,0xcc4c33]},
-  {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#8a561f','#a86a24','#6e4318'],
-    bg:0x140f09, hemi:[0xffeccb,0x2e2113,0.90], key:[0xffe6c2,0.74], fill:[0xffcf9a,0.32], pin:0.35,
+  {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#7f562a','#9b6931','#654321'], wall:0x7d8a3c,
+    bg:0x130f0a, hemi:[0xfaebd0,0x2b2116,0.90], key:[0xf9e5c8,0.74], fill:[0xf5cfa4,0.32], pin:0.35,
     ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}, stripes:[0xd79a20,0x8a3a1e,0x5c1e24]},
-  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'],
+  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0xf2ebcb, wallUnlit:true,
     bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
     ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
-  {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], cosmic:true,
+  {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], wall:0x181d2a, wallTex:'cosmic-walls.jpg', wallRepeat:[2,0.67], wallEmissive:0.35, cosmic:true,
     bg:0x000208, hemi:[0x3a4a80,0x101830,0.0], key:[0x223060,0.0], fill:[0x223060,0.0], pin:0.0,
     ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}, stripes:[0x2bff77,0x18d0ff,0xd020ff]},
 ];
 function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
 // live settings
-const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false };
+const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false, muted:false };
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
@@ -210,7 +216,7 @@ let lastW=0,lastH=0;
 let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null; // referenced by settings
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
-let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[];   // wood/carpet + wall stripes (live re-theming)
+let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[],stripeMeshes=[],wallMat=null;   // wood/carpet + walls + wall stripes (live re-theming)
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
 const stage=document.getElementById('stage');
 
@@ -302,6 +308,30 @@ function carpetTexture(cfg){
   const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.repeat.set(2,130); return t;
 }
 function regenSep(cfg){ if(sepMat){ sepMat.map=carpetTexture(cfg); sepMat.needsUpdate=true; } }
+// walls are normally lit; a theme can set `wallUnlit:true` to show its exact `wall`
+// color via the emissive channel (self-lit), so scene lighting can't tint or darken it.
+function applyWallMat(t){
+  if(!wallMat) return;
+  const c=(t.wall!=null?t.wall:0x6b6f76);
+  if(t.wallTex){
+    // tiled image on the walls: lit via `map` (so the cosmic accent lights play across it),
+    // with a low `emissiveMap` floor so it never sinks to full black under the dark lighting.
+    if(wallMat._texKey!==t.wallTex){
+      wallMat._texKey=t.wallTex;
+      const tx=new THREE.TextureLoader().load(IMG+t.wallTex, ()=>{ wallMat.needsUpdate=true; });
+      tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(t.wallRepeat?t.wallRepeat[0]:6, t.wallRepeat?t.wallRepeat[1]:2);
+      tx.minFilter=THREE.LinearMipmapLinearFilter; tx.magFilter=THREE.LinearFilter; tx.generateMipmaps=true;
+      wallMat.map=tx; wallMat.emissiveMap=tx;
+    }
+    wallMat.color.setHex(0xffffff); wallMat.emissive.setHex(0xffffff);
+    wallMat.emissiveIntensity=(t.wallEmissive!=null?t.wallEmissive:0.35);
+  } else {
+    wallMat._texKey=null; wallMat.map=null; wallMat.emissiveMap=null;
+    if(t.wallUnlit){ wallMat.color.setHex(0x000000); wallMat.emissive.setHex(c); wallMat.emissiveIntensity=1; }
+    else { wallMat.color.setHex(c); wallMat.emissive.setHex(0x000000); wallMat.emissiveIntensity=0; }
+  }
+  wallMat.needsUpdate=true;
+}
 
 function buildLane(){
   WOOD=woodTexture(themeById(settings.theme).wood);
@@ -347,7 +377,8 @@ function buildLane(){
 
   // enclosing room so the lanes don't float in the void
   const roomMat=new THREE.MeshStandardMaterial({color:0x10151d,roughness:0.95});   // floor/ceiling (dark)
-  const wallMat=new THREE.MeshStandardMaterial({color:0x6b6f76,roughness:0.9});    // gray walls
+  wallMat=new THREE.MeshStandardMaterial({roughness:0.9});   // themed walls (color/emissive set by applyWallMat)
+  applyWallMat(themeById(settings.theme));
   const spanX=spanHalf+40, zA=-220, zB=LANE_LEN+50, roomLen=zB-zA, roomCz=(zA+zB)/2;
   const floor=new THREE.Mesh(new THREE.BoxGeometry(2*spanX+40,4,roomLen),roomMat);
   floor.position.set(0,-8,roomCz); scene.add(floor);                       // floor under everything
@@ -362,14 +393,16 @@ function buildLane(){
   // themed horizontal stripes on the side walls, at the mural's level, full wall length
   const stripeCols=themeById(settings.theme).stripes||[0xefb241,0x054f9b,0xcc4c33];
   stripeMats=stripeCols.map(c=>new THREE.MeshStandardMaterial({color:c,roughness:0.7}));
+  stripeMeshes=[];
   const sh=muralH/stripeMats.length;
   for(const s of [-1,1]){
     for(let i=0;i<stripeMats.length;i++){
       const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
       st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
-      st.position.set(s*(spanX-4.2), 20+sh*(i+0.5), roomCz); scene.add(st);
+      st.position.set(s*(spanX-4.2), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
     }
   }
+  stripeMeshes.forEach(m=>m.visible=!settings.cosmic);       // cosmic uses the wall image instead of stripes
 }
 
 // One lane strip: wood bed (extends under the pins), gutters, rails, and — for
@@ -467,31 +500,60 @@ window.addEventListener('resize',()=>{ if(renderer) resize(); });
 // ═══════════════════════════════════════════════════════
 //  AUDIO
 // ═══════════════════════════════════════════════════════
-let _ac=null, rollAudio=null, hitAudio=null, strikeAudio=null, spareAudio=null;
-function getAC(){ if(!_ac)_ac=new(window.AudioContext||window.webkitAudioContext)(); if(_ac.state==='suspended')_ac.resume(); return _ac; }
-function initSfx(){
-  if(rollAudio) return;
-  const mk=(f,loop,vol)=>{ const a=new Audio(SFX+f); a.loop=!!loop; a.preload='auto'; a.volume=vol; a.load(); return a; };
-  rollAudio =mk('roll.mp3',true,0.6);
-  hitAudio  =mk('hit.mp3',false,0.9);
-  strikeAudio=mk('strike.mp3',false,0.9);   // optional — drop strike.mp3 / spare.mp3 in sfx/ later
-  spareAudio =mk('spare.mp3',false,0.9);
-  warmUp();   // decode/prime during the START gesture so the first throw has no delay
+// All SFX go through the Web Audio API (not <audio> elements). On iOS an
+// HTMLMediaElement seizes the exclusive "playback" audio session and stops the
+// user's background music; Web Audio uses a mixable session, and we explicitly
+// request the "ambient" session so background audio (Spotify, podcasts…) keeps playing.
+let _ac=null, master=null, rollSrc=null, rollGain=null, _muted=false;
+const BUFFERS={};
+const SFX_FILES={ roll:'roll.mp3', hit:'hit.mp3', strike:'strike.mp3', spare:'spare.mp3' };
+function getAC(){
+  if(!_ac){
+    _ac=new (window.AudioContext||window.webkitAudioContext)();
+    master=_ac.createGain(); master.gain.value=_muted?0:1; master.connect(_ac.destination);
+  }
+  // don't interrupt other apps' audio (iOS 16.4+ honors this; harmless elsewhere)
+  try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}
+  if(_ac.state==='suspended') _ac.resume();
+  return _ac;
 }
-// silently play→pause each clip once to force decoding and unlock playback
-function warmUp(){
-  for(const a of [rollAudio,hitAudio,strikeAudio,spareAudio]){
-    if(!a) continue;
-    const vol=a.volume, lp=a.loop; a.muted=true; a.loop=false;
-    const restore=()=>{ try{ a.pause(); a.currentTime=0; }catch(e){} a.muted=false; a.loop=lp; a.volume=vol; };
-    try{ const p=a.play(); if(p&&p.then) p.then(restore).catch(restore); else restore(); }
-    catch(e){ restore(); }
+let _sfxInit=false;
+function initSfx(){
+  if(_sfxInit) return; _sfxInit=true;
+  const ac=getAC();
+  for(const name in SFX_FILES){
+    fetch(SFX+SFX_FILES[name])
+      .then(r=>r.ok?r.arrayBuffer():Promise.reject())
+      .then(b=>ac.decodeAudioData(b))
+      .then(buf=>{ BUFFERS[name]=buf; })
+      .catch(()=>{});   // strike/spare are optional — absent files just stay silent
   }
 }
-function playSting(type){
-  const a=(type==='STRIKE')?strikeAudio:spareAudio; if(!a) return;
-  try{ a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); }catch(e){}
+function warmUp(){ /* no-op: Web Audio needs no HTMLMediaElement unlock — getAC() resume on the START gesture is enough */ }
+// monochromatic speaker icon (inherits currentColor + opacity, matching the cog)
+function muteIcon(muted){
+  const waves = muted
+    ? '<path d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+    : '<path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'
+     +'<path d="M18 6a9 9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>';
+  return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/>'+waves+'</svg>';
 }
+function applyMute(on){
+  _muted=!!on; settings.muted=_muted;
+  if(master) master.gain.value=_muted?0:1;
+  const b=document.getElementById('mute'); if(b){ b.innerHTML=muteIcon(_muted); b.title=_muted?'Unmute':'Mute'; }
+  saveSettings();
+}
+function playBuf(name,vol,loop){
+  if(_muted) return null;
+  const ac=getAC(); const buf=BUFFERS[name]; if(!buf) return null;
+  const src=ac.createBufferSource(); src.buffer=buf; src.loop=!!loop;
+  const g=ac.createGain(); g.gain.value=(vol==null?1:vol);
+  src.connect(g); g.connect(master);
+  try{ src.start(0); }catch(e){}
+  return {src,g};
+}
+function playSting(type){ playBuf(type==='STRIKE'?'strike':'spare',0.9,false); }
 function celebrate(type){
   const el=document.getElementById('celebrate');
   el.className=''; void el.offsetWidth;                     // restart the animation
@@ -500,10 +562,11 @@ function celebrate(type){
   playSting(type);
 }
 // roll loop (kept named startRumble/stopRumble so existing call sites work)
-function startRumble(){ if(!rollAudio) return; try{ rollAudio.currentTime=0; rollAudio.play(); }catch(e){} }
-function stopRumble(){ if(!rollAudio) return; try{ rollAudio.pause(); rollAudio.currentTime=0; }catch(e){} }
+function startRumble(){ if(rollSrc) return; const n=playBuf('roll',0.5,true); if(n){ rollSrc=n.src; rollGain=n.g; } }
+function stopRumble(){ if(rollSrc){ try{ rollSrc.stop(); }catch(e){} try{ rollSrc.disconnect(); }catch(e){} rollSrc=null; rollGain=null; } }
+function setRollVolume(v){ if(rollGain) rollGain.gain.value=v; }
 // pin hit (kept named clatter)
-function clatter(n){ if(!hitAudio) return; try{ hitAudio.currentTime=0; hitAudio.play(); }catch(e){} }
+function clatter(n){ playBuf('hit',0.9,false); }
 
 // ═══════════════════════════════════════════════════════
 //  GAME SETUP + FLOW  (2D top-down sim in inches)
@@ -549,7 +612,7 @@ function step(dt){
   if(ball.rolling){
     if(!ball.gutter){ if(CURVE_ENABLED) ball.vx+=ball.spin*CURVE_GAIN*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }
     ball.y+=ball.vy*dt; ball.vy*=(1-VY_FRICTION*dt);
-    if(rollAudio){ const sp=Math.min(1,ball.vy/POWER_MAX); rollAudio.volume=(ball.gutter?0.25:0.35+0.45*sp); }
+    { const sp=Math.min(1,ball.vy/POWER_MAX); setRollVolume(ball.gutter?0.25:0.35+0.45*sp); }
     const edge=PLAY-BALL_R*0.4;
     if(!ball.gutter && Math.abs(ball.x)>=edge){
       if(settings.bumpers){ ball.x=Math.sign(ball.x)*edge; ball.vx=-ball.vx; ball.spin=-ball.spin; } // bounce: reverse horizontal vector
@@ -873,7 +936,9 @@ function applyTheme(id){
   const wasCosmic=settings.cosmic;
   settings.theme=id; const t=themeById(id); settings.cosmic=!!t.cosmic;
   if(laneMats.length){ regenWood(t.wood); regenSep(t.sep);      // live re-tint if the scene is built
-    (t.stripes||[]).forEach((c,i)=>{ if(stripeMats[i]){ stripeMats[i].color.setHex(c); stripeMats[i].needsUpdate=true; } }); }
+    (t.stripes||[]).forEach((c,i)=>{ if(stripeMats[i]){ stripeMats[i].color.setHex(c); stripeMats[i].needsUpdate=true; } });
+    applyWallMat(t);
+    stripeMeshes.forEach(m=>m.visible=!settings.cosmic); }
   if(settings.cosmic && !wasCosmic){ settings._ballBefore=settings.ball; applyBall('glow'); }   // cosmic → glow ball
   else if(!settings.cosmic && wasCosmic){ applyBall(settings._ballBefore||'blue'); }            // leaving cosmic → restore
   applyMural(settings.cosmic?'cosmic.png':t.mural);
@@ -924,7 +989,7 @@ function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return; c
 function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
 function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
 // persist selections
-function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,_ballBefore:settings._ballBefore})); }catch(e){} }
+function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,_ballBefore:settings._ballBefore})); }catch(e){} }
 function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
 function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
 function highlightTheme(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme)); }
@@ -944,6 +1009,15 @@ function setupSettings(){
     t.addEventListener('click',()=>{ applyTheme(th.id); highlightTheme(); }); mg.appendChild(t);
   }
   highlightBall(); highlightTheme();
+  // mute switch (mirrors the cog on the right); restore saved state
+  _muted=!!settings.muted;
+  const muteBtn=document.getElementById('mute');
+  muteBtn.innerHTML=muteIcon(_muted); muteBtn.title=_muted?'Unmute':'Mute';
+  muteBtn.addEventListener('click',()=>applyMute(!_muted));
+  // sit the cog + mute just below the score bar, aligned at the same height
+  const hud=document.getElementById('hud');
+  const placeCtrls=()=>{ const y=(hud?hud.offsetHeight:36)+8; document.getElementById('cog').style.top=y+'px'; muteBtn.style.top=y+'px'; };
+  placeCtrls(); window.addEventListener('resize',placeCtrls);
   const modal=document.getElementById('settings');
   document.getElementById('cog').addEventListener('click',()=>modal.classList.add('open'));
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));

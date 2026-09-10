@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Just Golf</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100dvw;height:100dvh;background:#0a140a;font-family:'Segoe UI',Arial,sans-serif;color:#fff;
+  user-select:none;-webkit-user-select:none;touch-action:none;overflow:hidden;display:flex;flex-direction:column;align-items:center;}
+#hud{position:fixed;left:0;top:0;z-index:6;background:rgba(0,0,0,.45);padding:9px 13px 11px;
+  display:flex;flex-direction:column;align-items:stretch;gap:3px;border-bottom-right-radius:12px;
+  font-size:clamp(.66rem,2.1vw,.86rem);font-weight:700;letter-spacing:.3px;}
+#hud span{display:flex;justify-content:space-between;gap:14px;min-width:118px;}
+#hud b{color:#8fe39b;}
+#msg{position:absolute;top:40%;left:0;right:0;text-align:center;font-size:clamp(1.5rem,6vw,2.6rem);font-weight:900;
+  color:#ffe86b;text-shadow:0 3px 16px #000;pointer-events:none;letter-spacing:1px;z-index:5;}
+#stage{flex:1;width:100%;position:relative;min-height:0;overflow:hidden;}
+#stage canvas{display:block;width:100%;height:100%;}
+/* bottom controls */
+#ctrl{position:absolute;left:0;right:0;bottom:0;z-index:8;display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px;pointer-events:none;}
+#meter{position:fixed;right:16px;top:50%;transform:translateY(-50%);width:26px;height:min(58vh,360px);
+  background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.25);border-radius:8px;overflow:hidden;z-index:8;}
+#mfill{position:absolute;left:0;right:0;bottom:0;height:0%;background:linear-gradient(0deg,#3ad46a,#ffd54a,#ff5a4a);}
+#mimpact{position:absolute;left:-3px;right:-3px;height:3px;background:#fff;bottom:6%;box-shadow:0 0 6px #fff;}
+#row{display:flex;gap:10px;align-items:center;pointer-events:auto;}
+.btn{padding:9px 14px;border:1px solid rgba(255,255,255,.25);border-radius:8px;background:rgba(15,25,18,.9);color:#dfeee2;
+  font-size:.9rem;font-weight:700;cursor:pointer;}
+.btn:hover{border-color:#8fe39b;}
+#swing{background:#8fe39b;color:#06170f;min-width:130px;font-size:1.05rem;}
+#clubSel{min-width:120px;text-align:center;text-align-last:center;-webkit-appearance:none;appearance:none;cursor:pointer;}
+#clubSel option{background:#0f1912;color:#dfeee2;}
+#hint{font-size:.72rem;color:#cfe6d8;pointer-events:none;min-height:1em;}
+#ov{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at center, rgba(6,16,10,.25) 0%, rgba(6,16,10,.62) 100%);gap:14px;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .25s;padding:20px;}
+#ov.show{opacity:1;pointer-events:auto;}
+#ov h2{font-size:clamp(1.7rem,6vw,2.6rem);letter-spacing:2px;color:#8fe39b;text-shadow:0 0 22px rgba(60,220,120,.5);}
+#ov p{color:#cfe6d8;font-size:clamp(.82rem,2.3vw,1rem);line-height:1.6;max-width:420px;}
+#startbtn{margin-top:6px;padding:11px 34px;background:#8fe39b;color:#06170f;border:none;border-radius:9px;font-size:1.1rem;font-weight:800;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="hud">
+  <span>Hole<b id="hHole">1</b></span>
+  <span>Par<b id="hPar">4</b></span>
+  <span>Stroke<b id="hStroke">1</b></span>
+  <span>To&nbsp;pin<b id="hDist">—</b></span>
+  <span>Lie<b id="hLie">tee</b></span>
+  <span>Wind<b id="hWind">—</b></span>
+</div>
+<div id="msg"></div>
+<div id="stage"></div>
+<div id="meter"><div id="mfill"></div><div id="mimpact"></div></div>
+<div id="ctrl">
+  <div id="hint"></div>
+  <div id="row">
+    <select id="clubSel" class="btn" title="Club"></select>
+    <button class="btn" id="swing">SWING</button>
+  </div>
+</div>
+
+<div id="ov" class="show">
+  <h2>⛳ JUST GOLF</h2>
+  <p><b>Three-click swing.</b> Tap SWING (or press Space) to start the backswing, tap again to set power, then tap a third time at the white line for accuracy. <b>Drag the screen left/right to aim</b> and pick your club. Get it in the hole.</p>
+  <button id="startbtn">START</button>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  UNITS = YARDS.  Hole runs +Z from the tee toward the pin.
+// ═══════════════════════════════════════════════════════
+const CLUBS=[
+  {n:'Driver', carry:260, roll:20, loft:12},
+  {n:'3 Wood', carry:230, roll:16, loft:15},
+  {n:'5 Iron', carry:185, roll:9,  loft:24},
+  {n:'7 Iron', carry:160, roll:6,  loft:30},
+  {n:'9 Iron', carry:135, roll:4,  loft:38},
+  {n:'PW',     carry:110, roll:3,  loft:46},
+  {n:'SW',     carry:75,  roll:2,  loft:56},
+  {n:'Putter', carry:0,   roll:0,  loft:0},
+];
+const PUTTER=CLUBS.length-1;
+
+// one par-4 hole (yards). regions tested in lieAt()
+const HOLE={
+  par:4, tee:{x:0,z:0}, pin:{x:2,z:378},
+  fairway:{x:0,z:190,w:44,d:320},         // long strip
+  green:{x:2,z:378,r:16},
+  bunkers:[{x:14,z:340,r:9},{x:-16,z:300,r:8}],
+  water:[{x:-20,z:240,r:14}],
+  bounds:{x:70,z0:-10,z1:420},
+};
+function lieAt(x,z){
+  const g=HOLE.green; if(Math.hypot(x-g.x,z-g.z)<g.r) return 'green';
+  for(const b of HOLE.bunkers) if(Math.hypot(x-b.x,z-b.z)<b.r) return 'sand';
+  for(const w of HOLE.water)   if(Math.hypot(x-w.x,z-w.z)<w.r) return 'water';
+  if(z<HOLE.bounds.z0||z>HOLE.bounds.z1||Math.abs(x)>HOLE.bounds.x) return 'ob';
+  const f=HOLE.fairway; if(Math.abs(x-f.x)<f.w/2 && Math.abs(z-f.z)<f.d/2) return 'fairway';
+  return 'rough';
+}
+const ROLLF={fairway:1.0, rough:0.4, sand:0.15, green:0.35, tee:1.0, ob:0.4};
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+let ball={x:0,z:0}, lie='tee', clubIdx=0, aim=0, strokes=0, phase='menu';
+let wind={dir:0,mph:0};
+let prevPos=null;              // for water/OB re-drop
+let msgT=0;
+// swing meter
+let sw=0, m=0, mdir=1, power=0;
+const BACK_T=1.05, DOWN_T=0.5, IDEAL=0.06;
+// flight + ground animation
+let flight=null, roll=null;
+const GROUND_G=60;                                              // yd/s² for bounce hops (visual)
+// exponential roll-out: speed decays with e^(-dt/τ). Larger τ = faster/longer roll,
+// and the velocity trickles asymptotically to zero so the stop is never abrupt.
+const RTAU={fairway:0.60, rough:0.42, sand:0.28, green:0.85, tee:0.60, ob:0.42};   // time const (s)
+const BOUNCE={fairway:0.42, rough:0.20, sand:0.05, green:0.32, tee:0.42, ob:0.22}; // restitution
+
+// ═══════════════════════════════════════════════════════
+//  THREE.JS
+// ═══════════════════════════════════════════════════════
+let renderer,scene,camera,ballMesh,flag,raycaster,waterMeshes=[];
+const BALL_R=0.22;             // visibility-exaggerated (real ball is tiny at course scale)
+const stage=document.getElementById('stage');
+let lastW=0,lastH=0,lastT=0;
+const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+
+function initScene(){
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));
+  stage.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x9fd0ea);
+  scene.fog=new THREE.Fog(0xcfe6f0, 340, 1150);
+  camera=new THREE.PerspectiveCamera(55,1,0.5,4000);
+  scene.add(new THREE.HemisphereLight(0xdff0ff,0x3a6a3e,1.05));
+  const sun=new THREE.DirectionalLight(0xfff4d8,0.85); sun.position.set(-140,320,80); scene.add(sun);
+  // sky dome
+  const sky=new THREE.Mesh(new THREE.SphereGeometry(1800,32,16),
+    new THREE.MeshBasicMaterial({map:finishTex(skyTex(),0,0),side:THREE.BackSide,fog:false,depthWrite:false}));
+  scene.add(sky);
+  buildCourse();
+  ballMesh=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,20,14),
+    new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.35}));
+  scene.add(ballMesh);
+  raycaster=new THREE.Raycaster();
+  resize();
+  if(window.ResizeObserver) new ResizeObserver(()=>resize()).observe(stage);
+  requestAnimationFrame(resize); setTimeout(resize,120);
+}
+function resize(){
+  if(!renderer) return;
+  const w=stage.clientWidth||window.innerWidth, h=stage.clientHeight||(window.innerHeight-40);
+  if(w<2||h<2||(w===lastW&&h===lastH)) return; lastW=w; lastH=h;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+
+// ── procedural textures (POT canvases so WebGL1 mipmaps are happy) ──
+function cnv(s){const c=document.createElement('canvas');c.width=c.height=s;return {c,x:c.getContext('2d')};}
+function finishTex(c,rx,rz){const t=new THREE.CanvasTexture(c);
+  if(rx){t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(rx,rz);}
+  t.anisotropy=4; return t;}
+function grassTex(base,stripe){const {c,x}=cnv(256); x.fillStyle=base; x.fillRect(0,0,256,256);
+  x.fillStyle=stripe; for(let i=0;i<256;i+=32) x.fillRect(0,i,256,16);
+  for(let i=0;i<1600;i++){ x.fillStyle='rgba(0,0,0,'+(Math.random()*0.05)+')'; x.fillRect(Math.random()*256,Math.random()*256,2,2); }
+  return c;}
+function sandTex(){const {c,x}=cnv(256); x.fillStyle='#e6d3a0'; x.fillRect(0,0,256,256);
+  for(let i=0;i<3200;i++){ const light=Math.random()<0.5; x.fillStyle='rgba('+(light?'255,250,232':'120,100,60')+','+(Math.random()*0.16)+')'; x.fillRect(Math.random()*256,Math.random()*256,2,2); }
+  x.strokeStyle='rgba(150,120,70,0.16)'; for(let i=0;i<7;i++){ x.beginPath(); x.arc(128+Math.random()*60-30,128+Math.random()*60-30,26+i*13,0,7); x.stroke(); }
+  return c;}
+function waterTex(){const {c,x}=cnv(256); const g=x.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,'#3a8ad6'); g.addColorStop(1,'#1b5fa8'); x.fillStyle=g; x.fillRect(0,0,256,256);
+  x.strokeStyle='rgba(255,255,255,0.12)'; x.lineWidth=1.5;
+  for(let i=0;i<28;i++){ const y=Math.random()*256; x.beginPath(); x.moveTo(0,y); x.bezierCurveTo(64,y+7,128,y-7,256,y); x.stroke(); }
+  return c;}
+function skyTex(){const {c,x}=cnv(512); const g=x.createLinearGradient(0,0,0,512);
+  g.addColorStop(0,'#3d7fc4'); g.addColorStop(0.5,'#8fc0e6'); g.addColorStop(0.74,'#cfe6f2'); g.addColorStop(1,'#e9f3ea');
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  x.fillStyle='rgba(255,255,255,0.9)';
+  for(let i=0;i<7;i++){ const cx=Math.random()*512, cy=50+Math.random()*150; for(let j=0;j<6;j++){ x.beginPath(); x.arc(cx+j*18-45,cy+Math.sin(j)*7,17+Math.random()*11,0,7); x.fill(); } }
+  return c;}
+
+function disc(x,z,r,mat,y){ const m=new THREE.Mesh(new THREE.CircleGeometry(r,48),mat);
+  m.rotation.x=-Math.PI/2; m.position.set(x,y||0.05,z); scene.add(m); return m; }
+
+function makeTree(x,z){
+  const g=new THREE.Group();
+  const h=6+Math.random()*5;
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.65,h*0.5,6),new THREE.MeshStandardMaterial({color:0x5a3d22,roughness:1}));
+  trunk.position.y=h*0.25; g.add(trunk);
+  const fol=new THREE.MeshStandardMaterial({color:new THREE.Color().setHSL(0.27,0.5,0.26+Math.random()*0.09),roughness:1});
+  for(let i=0;i<3;i++){ const r=3.4-i*0.7; const cone=new THREE.Mesh(new THREE.ConeGeometry(r,4,7),fol); cone.position.y=h*0.5+i*2.1; g.add(cone); }
+  g.position.set(x,0,z); g.rotation.y=Math.random()*6.28; const s=0.9+Math.random()*0.55; g.scale.set(s,s,s);
+  scene.add(g);
+}
+function scatterTrees(){
+  let placed=0,tries=0;
+  while(placed<34 && tries<700){ tries++;
+    const side=Math.random()<0.5?-1:1;
+    const x=side*(28+Math.random()*36), z=8+Math.random()*400;
+    const l=lieAt(x,z);
+    if(l==='fairway'||l==='green'||l==='sand'||l==='water') continue;
+    if(Math.hypot(x-HOLE.green.x,z-HOLE.green.z)<HOLE.green.r+8) continue;
+    makeTree(x,z); placed++;
+  }
+  for(let i=0;i<15;i++) makeTree(-98+i*14+(Math.random()*6-3), 428+Math.random()*22); // back tree line
+}
+
+function buildCourse(){
+  // rough ground
+  const rough=new THREE.Mesh(new THREE.PlaneGeometry(640,960),
+    new THREE.MeshStandardMaterial({map:finishTex(grassTex('#3f7a3f','#3a7038'),42,72),roughness:1}));
+  rough.rotation.x=-Math.PI/2; rough.position.set(0,-0.05,200); scene.add(rough);
+  // fairway
+  const f=HOLE.fairway;
+  const fw=new THREE.Mesh(new THREE.PlaneGeometry(f.w,f.d),
+    new THREE.MeshStandardMaterial({map:finishTex(grassTex('#5cbe54','#54b04c'),3,22),roughness:0.9}));
+  fw.rotation.x=-Math.PI/2; fw.position.set(f.x,0,f.z); scene.add(fw);
+  // green
+  disc(HOLE.green.x,HOLE.green.z,HOLE.green.r,
+    new THREE.MeshStandardMaterial({map:finishTex(grassTex('#79dd6f','#70d466'),4,4),roughness:0.72}),0.06);
+  // bunkers: sand + darker outer lip
+  const sMat=new THREE.MeshStandardMaterial({map:finishTex(sandTex(),1,1),roughness:1});
+  for(const b of HOLE.bunkers){
+    disc(b.x,b.z,b.r+0.9,new THREE.MeshStandardMaterial({color:0xc9b684,roughness:1}),0.045);
+    disc(b.x,b.z,b.r,sMat,0.05);
+  }
+  // water: grassy bank + animated surface
+  waterMeshes=[];
+  for(const w of HOLE.water){
+    disc(w.x,w.z,w.r+1.4,new THREE.MeshStandardMaterial({color:0x2c5236,roughness:1}),0.03);
+    const wt=finishTex(waterTex(),1,1);
+    const wm=disc(w.x,w.z,w.r,new THREE.MeshStandardMaterial({map:wt,roughness:0.25,metalness:0.15}),0.06);
+    wm._tex=wt; waterMeshes.push(wm);
+  }
+  // hole cut flush into the green (dark disc + thin liner rim), then flagstick + flag
+  const HR=0.22;                       // hole radius (yd)
+  const cup=new THREE.Mesh(new THREE.CircleGeometry(HR,28),new THREE.MeshBasicMaterial({color:0x060606}));
+  cup.rotation.x=-Math.PI/2; cup.position.set(HOLE.pin.x,0.075,HOLE.pin.z); scene.add(cup);
+  const rim=new THREE.Mesh(new THREE.RingGeometry(HR,HR+0.06,28),new THREE.MeshBasicMaterial({color:0xf2f2f2}));
+  rim.rotation.x=-Math.PI/2; rim.position.set(HOLE.pin.x,0.07,HOLE.pin.z); scene.add(rim);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,3.4,8),new THREE.MeshStandardMaterial({color:0xf4f4f4}));
+  pole.position.set(HOLE.pin.x,1.7,HOLE.pin.z); scene.add(pole);
+  flag=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.85),new THREE.MeshStandardMaterial({color:0xe23b30,side:THREE.DoubleSide}));
+  flag.position.set(HOLE.pin.x+0.78,3.0,HOLE.pin.z); scene.add(flag);
+  // trees
+  scatterTrees();
+}
+
+// ═══════════════════════════════════════════════════════
+//  SHOT SETUP / CAMERA
+// ═══════════════════════════════════════════════════════
+function aimDir(){ return {x:Math.sin(aim), z:Math.cos(aim)}; }
+function distToPin(){ return Math.hypot(HOLE.pin.x-ball.x, HOLE.pin.z-ball.z); }
+function suggestClub(){
+  const d=distToPin();
+  if(lie==='green') { clubIdx=PUTTER; return; }
+  let best=0,bd=1e9;
+  for(let i=0;i<PUTTER;i++){ const diff=Math.abs(CLUBS[i].carry-d); if(diff<bd){bd=diff;best=i;} }
+  clubIdx=best;
+}
+function beginShot(){
+  // aim at the pin by default
+  aim=Math.atan2(HOLE.pin.x-ball.x, HOLE.pin.z-ball.z);
+  suggestClub();
+  placeCameraBehind();
+  phase='aim'; sw=0; m=0; power=0; updateHud(); setMeter(0);
+  hint('Tap SWING (or Space) ×3: start · power · accuracy');
+}
+function placeCameraBehind(){
+  const d=aimDir(); const back=lie==='green'?14:26, up=lie==='green'?10:11;
+  camera.position.set(ball.x-d.x*back, up, ball.z-d.z*back);
+  camera.lookAt(ball.x+d.x*40, 2, ball.z+d.z*40);
+}
+
+// ═══════════════════════════════════════════════════════
+//  SWING (3-click)
+// ═══════════════════════════════════════════════════════
+function swingClick(){
+  if(phase!=='aim'&&phase!=='swing') return;
+  if(sw===0){ phase='swing'; sw=1; m=0; mdir=1; hint('…set POWER'); }
+  else if(sw===1){ power=Math.max(0.05,Math.min(1,m)); sw=2; mdir=-1; hint('…hit ACCURACY at the line'); }
+  else if(sw===2){ execImpact(m); }
+}
+function updateSwing(dt){
+  if(phase!=='swing') return;
+  if(sw===1){ m+=dt/BACK_T; if(m>=1){ m=1; } }       // waits at top for the power click
+  else if(sw===2){ m-=dt/DOWN_T; if(m<=0){ m=0; execImpact(0); } }  // missed → worst contact
+  setMeter(m);
+}
+function setMeter(v){ document.getElementById('mfill').style.height=(v*100)+'%';
+  document.getElementById('mimpact').style.bottom=(IDEAL*100)+'%'; }
+
+function execImpact(impact){
+  const err=impact-IDEAL;                 // >0 clicked early (pull/hook), <0 late (push/slice)
+  sw=0; phase='exec';
+  const club=CLUBS[clubIdx];
+  if(lie==='green'){ execPutt(power,err); return; }
+  // carry with accuracy penalty + lie penalty
+  const liePow = lie==='sand'?0.6 : lie==='rough'?0.82 : 1.0;
+  let carry=club.carry*power*liePow*(1-Math.min(0.28,Math.abs(err)*1.6));
+  const dir=aimDir();
+  // accuracy curve: rotate the shot direction
+  const side=err*0.9;                     // radians of push/pull
+  const cx=dir.x*Math.cos(side)-dir.z*Math.sin(side), cz=dir.x*Math.sin(side)+dir.z*Math.cos(side);
+  // wind
+  const wv={x:Math.sin(wind.dir)*wind.mph, z:Math.cos(wind.dir)*wind.mph};
+  const along=(cx*wv.x+cz*wv.z);          // +tail, -head (mph)
+  carry=Math.max(6,carry+along*0.45);
+  const perpx=-cz, perpz=cx; const cross=(perpx*wv.x+perpz*wv.z);   // crosswind mph
+  const drift=cross*0.6;
+  const land={x:ball.x+cx*carry+perpx*drift, z:ball.z+cz*carry+perpz*drift};
+  const apex=Math.max(4, carry*(0.05+club.loft*0.005));   // higher loft flies higher
+  startFlight(ball, land, apex, {x:cx,z:cz}, club);
+}
+function startFlight(from,to,apex,dir,club){
+  const dist=Math.hypot(to.x-from.x,to.z-from.z);
+  // airtime grows with hang time (apex) and distance — slower, statelier arc
+  flight={from:{...from},to:{...to},apex,dir,club,dur:Math.max(0.9, 0.42*Math.sqrt(apex)+dist/240),t:0};
+  phase='flight'; hint('');
+}
+function hazardPenalty(kind){
+  strokes++;                                      // stroke-and-distance style penalty
+  const bx=prevPos?prevPos.x:HOLE.tee.x, bz=prevPos?prevPos.z:HOLE.tee.z;
+  ball.x=bx; ball.z=bz; lie=(lieAt(bx,bz)==='water')?'rough':lieAt(bx,bz);
+  flash(kind==='water'?'Water — penalty':'Out of bounds — penalty');
+  flight=null; roll=null; phase='exec'; setTimeout(beginShot,900);
+}
+// seed the ground sim from where the ball lands: it bounces (restitution by lie)
+// and rolls out under rolling friction, so total roll ≈ club.roll × lie factor.
+function beginRoll(){
+  const to=flight.to, dir=flight.dir, club=flight.club;
+  const l=lieAt(to.x,to.z);
+  if(l==='water'){ hazardPenalty('water'); return; }
+  if(l==='ob'){ hazardPenalty('ob'); return; }
+  const R=Math.max(0, club.roll*(ROLLF[l]!==undefined?ROLLF[l]:0.4));   // intended roll (yd)
+  const tau=RTAU[l]||0.5;
+  const v=R/tau;                                                       // entry speed; e^(-t/τ) rolls ≈R
+  const h0=Math.min(3, Math.max(0.4, R*0.05+0.4));                     // first hop height
+  roll={x:to.x,z:to.z,vx:dir.x*v,vz:dir.z*v,vy:Math.sqrt(2*GROUND_G*h0),y:BALL_R,
+        dir:{x:dir.x,z:dir.z},bounce:BOUNCE[l]!==undefined?BOUNCE[l]:0.3,putt:false};
+  flight=null; phase='roll';
+}
+function stepRoll(dt){
+  const r=roll; if(!r) return;
+  // vertical: gravity + bounce off the turf
+  r.vy-=GROUND_G*dt; r.y+=r.vy*dt;
+  if(r.y<=BALL_R){ r.y=BALL_R; if(r.vy<-1.5){ r.vy=-r.vy*r.bounce; } else r.vy=0; }
+  // horizontal: advance then check surface
+  r.x+=r.vx*dt; r.z+=r.vz*dt;
+  const l=lieAt(r.x,r.z);
+  if(l==='water'){ hazardPenalty('water'); return; }
+  if(l==='ob'){ hazardPenalty('ob'); return; }
+  // exponential rolling friction (surface under the ball right now) → smooth ease-out
+  const tau=RTAU[l]||0.5;
+  const decay=Math.exp(-dt/tau);
+  const sp=Math.hypot(r.vx,r.vz);
+  r.vx*=decay; r.vz*=decay;
+  if(sp>2){ r.dir.x=r.vx/sp; r.dir.z=r.vz/sp; }
+  // drop in the cup
+  if(l==='green'){ const d=Math.hypot(HOLE.pin.x-r.x,HOLE.pin.z-r.z);
+    if(d<0.55 && Math.hypot(r.vx,r.vz)<9){ ball.x=HOLE.pin.x; ball.z=HOLE.pin.z; roll=null; holed(); return; } }
+  // at rest? (low threshold → glides to a soft stop)
+  if(Math.hypot(r.vx,r.vz)<0.25 && r.y<=BALL_R+0.01) settleRoll();
+}
+function settleRoll(){
+  ball.x=roll.x; ball.z=roll.z; lie=lieAt(ball.x,ball.z); roll=null;
+  const d=distToPin();
+  if(lie==='green' && d<1.6){ holed(); return; }
+  prevPos={x:ball.x,z:ball.z}; flash(lieLabel(lie)); phase='exec'; setTimeout(beginShot,600);
+}
+function execPutt(power,err){
+  const d=distToPin();
+  const dir={x:(HOLE.pin.x-ball.x)/(d||1), z:(HOLE.pin.z-ball.z)/(d||1)};
+  const side=err*0.25; const cx=dir.x*Math.cos(side)-dir.z*Math.sin(side), cz=dir.x*Math.sin(side)+dir.z*Math.cos(side);
+  const target=power*Math.max(10,d*1.25);          // power → putt distance (yd)
+  const v=target/RTAU.green;                        // entry speed; green τ rolls it out smoothly
+  roll={x:ball.x,z:ball.z,vx:cx*v,vz:cz*v,vy:0,y:BALL_R,dir:{x:cx,z:cz},bounce:0,putt:true};
+  flight=null; phase='roll'; hint('');
+}
+function holed(){
+  phase='holed'; ballMesh.visible=false;
+  const rel=strokes-HOLE.par;
+  const term=strokes===1?'HOLE IN ONE!':rel<=-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':'+'+rel;
+  flash(term);
+  const ov=document.getElementById('ov');
+  setTimeout(()=>{ ov.querySelector('h2').textContent='⛳ '+term;
+    ov.querySelector('p').innerHTML=`You holed out in <b>${strokes}</b> (par ${HOLE.par}).`;
+    document.getElementById('startbtn').textContent='PLAY AGAIN'; ov.classList.add('show'); },1200);
+}
+
+// ═══════════════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════════════
+function lieLabel(l){ return l.charAt(0).toUpperCase()+l.slice(1); }
+function windArrow(){ const a=wind.dir; const dirs=['↑','↗','→','↘','↓','↙','←','↖']; const i=Math.round(((a%(2*Math.PI))/(2*Math.PI))*8)%8; return dirs[(i+8)%8]; }
+function populateClubs(){
+  const sel=document.getElementById('clubSel'); if(!sel||sel._filled) return;
+  CLUBS.forEach((c,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=c.n; sel.appendChild(o); });
+  sel._filled=true;
+}
+function updateHud(){
+  populateClubs();
+  document.getElementById('hStroke').textContent=strokes+1;
+  document.getElementById('clubSel').value=clubIdx;
+  document.getElementById('hDist').textContent=Math.round(distToPin())+'y';
+  document.getElementById('hLie').textContent=lieLabel(lie);
+  document.getElementById('hWind').textContent=wind.mph?(wind.mph+' '+windArrow()):'calm';
+}
+function flash(t){ document.getElementById('msg').textContent=t; msgT=1.5; }
+function hint(t){ document.getElementById('hint').textContent=t; }
+
+// ═══════════════════════════════════════════════════════
+//  LOOP
+// ═══════════════════════════════════════════════════════
+function loop(t){
+  const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
+  if(phase==='swing') updateSwing(dt);
+  if(phase==='flight' && flight){
+    flight.t+=dt; let u=flight.t/flight.dur; if(u>1)u=1;
+    const x=flight.from.x+(flight.to.x-flight.from.x)*u;
+    const z=flight.from.z+(flight.to.z-flight.from.z)*u;
+    const y=flight.apex*4*u*(1-u)+BALL_R;
+    ballMesh.position.set(x,y,z);
+    const d=flight.dir; camera.position.set(x-d.x*16,9+y*0.4,z-d.z*16); camera.lookAt(x+d.x*20,1,z+d.z*20);
+    if(u>=1) beginRoll();
+  } else if(phase==='roll' && roll){
+    stepRoll(dt);
+    if(roll){
+      ballMesh.position.set(roll.x,roll.y,roll.z);
+      const d=roll.dir, camH=roll.putt?7:8;
+      camera.position.set(roll.x-d.x*14,camH+roll.y*0.4,roll.z-d.z*14); camera.lookAt(roll.x+d.x*18,1,roll.z+d.z*18);
+    }
+  } else {
+    ballMesh.position.set(ball.x,BALL_R,ball.z);
+  }
+  for(const w of waterMeshes){ w._tex.offset.y=(w._tex.offset.y+0.0016)%1; }
+  if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
+  if(renderer) renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════════════
+document.getElementById('swing').addEventListener('click',swingClick);
+window.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); swingClick(); } });
+// click-and-drag the screen to aim
+let dragging=false,dragX=0,dragMoved=0;
+function px(e){ return e.touches&&e.touches[0]?e.touches[0].clientX:e.clientX; }
+function ptrDown(e){ if(phase!=='aim') return; dragging=true; dragX=px(e); dragMoved=0; }
+function ptrMove(e){ if(!dragging||phase!=='aim') return; const cx=px(e); const dx=cx-dragX; dragX=cx; dragMoved+=Math.abs(dx);
+  aim+=dx*0.004; placeCameraBehind(); }
+function ptrUp(){ dragging=false; }
+stage.addEventListener('mousedown',ptrDown);
+window.addEventListener('mousemove',ptrMove);
+window.addEventListener('mouseup',ptrUp);
+stage.addEventListener('touchstart',ptrDown,{passive:true});
+window.addEventListener('touchmove',ptrMove,{passive:true});
+window.addEventListener('touchend',ptrUp);
+document.getElementById('clubSel').addEventListener('change',e=>{
+  if(phase==='aim'){ clubIdx=parseInt(e.target.value,10); } else { e.target.value=clubIdx; }
+});
+
+document.getElementById('startbtn').addEventListener('click',()=>{
+  document.getElementById('ov').classList.remove('show'); resize();
+  strokes=0; ball={x:HOLE.tee.x,z:HOLE.tee.z}; lie='tee'; prevPos={...ball};
+  wind={dir:Math.random()*Math.PI*2, mph:Math.round(4+Math.random()*10)};
+  ballMesh.visible=true; beginShot();
+});
+
+initScene(); requestAnimationFrame(t=>{lastT=t;loop(t);});
+// show the course behind the title on load
+ball={x:HOLE.tee.x,z:HOLE.tee.z}; lie='tee'; wind={dir:1,mph:6}; beginShot(); phase='menu';
+</script>
+</body>
+</html>
