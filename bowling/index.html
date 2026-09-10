@@ -118,7 +118,7 @@ const BALL_R=4.25, PIN_R=2.383;  // ball Ø8.5" ; pin waist Ø4.766"
 const PIN_H=15.0;
 const COLGAP=12.0, ROWGAP=10.392, PIN_BASE=720;   // 12" centers; rows 12·sin60° deep; head pin 60 ft
 const LANE_PITCH=2*GUT+16;                         // center-to-center spacing to neighbor lanes
-const NEIGH_LANES=4;                               // decorative lanes on EACH side of the main lane
+const NEIGH_LANES=2;                               // decorative lanes on EACH side (fewer = better perf)
 
 // asset folders (served over http:// — run serve.command)
 const IMG='images/', TEX='textures/', SFX='sfx/';
@@ -147,16 +147,16 @@ function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0
 const THEMES=[
   {id:'classic',  label:'Classic', mural:'default.png', wood:['#b57a34','#cf9147','#a06a2a'],
     bg:0x090c13, hemi:[0xbfd4ff,0x39302a,0.90], key:[0xfff2d8,0.50], fill:[0x88aaff,0.35], pin:0.30,
-    ret:{body:0xc7ccd2, accent:0x1fb6c6, rough:0.40, metal:0.55}, sep:{base:0x24272f,speckle:[0x3a3f4a,0x565d6b]}},
+    ret:{body:0xc7ccd2, accent:0x1fb6c6, rough:0.40, metal:0.55}, sep:{base:0x24272f,speckle:[0x3a3f4a,0x565d6b]}, stripes:[0xefb241,0x054f9b,0xcc4c33]},
   {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#8a561f','#a86a24','#6e4318'],
     bg:0x140f09, hemi:[0xffeccb,0x2e2113,0.90], key:[0xffe6c2,0.74], fill:[0xffcf9a,0.32], pin:0.35,
-    ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}},
+    ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}, stripes:[0xd79a20,0x8a3a1e,0x5c1e24]},
   {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'],
     bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
-    ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}},
+    ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
   {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], cosmic:true,
     bg:0x000208, hemi:[0x3a4a80,0x101830,0.0], key:[0x223060,0.0], fill:[0x223060,0.0], pin:0.0,
-    ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}},
+    ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}, stripes:[0x2bff77,0x18d0ff,0xd020ff]},
 ];
 function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
@@ -210,13 +210,13 @@ let lastW=0,lastH=0;
 let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null; // referenced by settings
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
-let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null;    // wood-mapped materials + between-lane carpet (live re-theming)
+let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[];   // wood/carpet + wall stripes (live re-theming)
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
 const stage=document.getElementById('stage');
 
 function initScene(){
   renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));   // cap retina fill-rate (big mobile win)
   stage.appendChild(renderer.domElement);
   // 2D overlay for the drag-vector preview
   fx=document.createElement('canvas'); fx.style.cssText='position:absolute;inset:0;pointer-events:none;'; stage.appendChild(fx); fxctx=fx.getContext('2d');
@@ -344,6 +344,32 @@ function buildLane(){
     const m=new THREE.Mesh(new THREE.PlaneGeometry(tileW,muralH),muralMat);
     m.position.set(k*tileW,20+muralH/2,LANE_LEN+29.8); scene.add(m);
   }
+
+  // enclosing room so the lanes don't float in the void
+  const roomMat=new THREE.MeshStandardMaterial({color:0x10151d,roughness:0.95});   // floor/ceiling (dark)
+  const wallMat=new THREE.MeshStandardMaterial({color:0x6b6f76,roughness:0.9});    // gray walls
+  const spanX=spanHalf+40, zA=-220, zB=LANE_LEN+50, roomLen=zB-zA, roomCz=(zA+zB)/2;
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(2*spanX+40,4,roomLen),roomMat);
+  floor.position.set(0,-8,roomCz); scene.add(floor);                       // floor under everything
+  for(const s of [-1,1]){
+    const wall=new THREE.Mesh(new THREE.BoxGeometry(8,240,roomLen),wallMat);
+    wall.position.set(s*spanX,110,roomCz); scene.add(wall);                // side walls just beyond the outer lanes
+  }
+  const back=new THREE.Mesh(new THREE.BoxGeometry(2*spanX,240,8),wallMat);
+  back.position.set(0,110,LANE_LEN+40); scene.add(back);                   // solid wall behind the mural
+  const ceil=new THREE.Mesh(new THREE.BoxGeometry(2*spanX,6,roomLen),roomMat);
+  ceil.position.set(0,215,roomCz); scene.add(ceil);                        // ceiling
+  // themed horizontal stripes on the side walls, at the mural's level, full wall length
+  const stripeCols=themeById(settings.theme).stripes||[0xefb241,0x054f9b,0xcc4c33];
+  stripeMats=stripeCols.map(c=>new THREE.MeshStandardMaterial({color:c,roughness:0.7}));
+  const sh=muralH/stripeMats.length;
+  for(const s of [-1,1]){
+    for(let i=0;i<stripeMats.length;i++){
+      const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
+      st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
+      st.position.set(s*(spanX-4.2), 20+sh*(i+0.5), roomCz); scene.add(st);
+    }
+  }
 }
 
 // One lane strip: wood bed (extends under the pins), gutters, rails, and — for
@@ -379,11 +405,11 @@ function addLaneStrip(xoff,deco){
   const fl=new THREE.Mesh(new THREE.BoxGeometry(2*PLAY,0.3,1.5),flMat);
   fl.position.set(xoff,0.15,2); scene.add(fl);
 
-  if(deco){ for(const p of pinLayout()){ const m=makePinObject(); m.position.set(p.ox+xoff,0,p.oy); scene.add(m); } }
+  if(deco){ for(const p of pinLayout()){ const m=makePinObject(true); m.position.set(p.ox+xoff,0,p.oy); scene.add(m); } }
 }
 
 
-function makePinObject(){
+function makePinObject(deco){
   // lathe profile: Vector2(radius, height) bottom→top (inches)
   const pts=[
     [1.05,0.0],[1.12,0.5],[1.30,1.2],[1.65,2.2],[2.02,3.3],[2.28,4.2],[2.383,4.9],
@@ -391,15 +417,17 @@ function makePinObject(){
     [0.98,11.3],[1.12,12.1],[1.22,12.9],[1.16,13.5],[0.95,14.0],[0.68,14.4],
     [0.40,14.72],[0.16,14.92],[0.0,15.0]
   ].map(p=>new THREE.Vector2(p[0],p[1]));
-  const bodyMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.45,metalness:0.02,side:THREE.DoubleSide}); // DoubleSide: solid white inside, no see-through at the open base
+  const bodyMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.45,metalness:0.02,side:THREE.DoubleSide});
   pinGlow.push(bodyMat);
-  const body=new THREE.Mesh(new THREE.LatheGeometry(pts,40),bodyMat);   // more segments + smoother profile = rounder
+  const body=new THREE.Mesh(new THREE.LatheGeometry(pts, deco?12:24),bodyMat);   // fewer segments for distant decorative pins
   const grp=new THREE.Group(); grp.add(body);
-  // two red neck rings
-  const ringMat=new THREE.MeshStandardMaterial({color:0xe23b30,roughness:0.45});
-  for(const y of [10.3,11.1]){
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.98,0.16,10,28),ringMat);
-    ring.rotation.x=Math.PI/2; ring.position.y=y; grp.add(ring);
+  // red neck rings — only on the playable pins (decorative ones skip them to cut draw calls)
+  if(!deco){
+    const ringMat=new THREE.MeshStandardMaterial({color:0xe23b30,roughness:0.45});
+    for(const y of [10.3,11.1]){
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(0.98,0.16,8,18),ringMat);
+      ring.rotation.x=Math.PI/2; ring.position.y=y; grp.add(ring);
+    }
   }
   return grp;
 }
@@ -723,7 +751,7 @@ function updateCamera(dt){
   const back=CHASE_BACK + near*CHASE_PULL;             // ease back a little near the end
   const up  =CHASE_UP + near*CHASE_RISE;               // and rise to see the pin deck
   _cPos.set(ball.x*0.45, up, cy-back);
-  _cLook.set(ball.x*0.30, 12, cy+CHASE_AHEAD);
+  _cLook.set(ball.x*0.30, -10, cy+CHASE_AHEAD);   // aim lower so less blank wall shows
   _pPos.lerpVectors(_ovPos,_cPos,camBlend);
   _pLook.lerpVectors(_ovLook,_cLook,camBlend);
   camera.position.copy(_pPos); camera.lookAt(_pLook);
@@ -844,7 +872,8 @@ function regenWood(pal){
 function applyTheme(id){
   const wasCosmic=settings.cosmic;
   settings.theme=id; const t=themeById(id); settings.cosmic=!!t.cosmic;
-  if(laneMats.length){ regenWood(t.wood); regenSep(t.sep); }   // live re-tint if the scene is built
+  if(laneMats.length){ regenWood(t.wood); regenSep(t.sep);      // live re-tint if the scene is built
+    (t.stripes||[]).forEach((c,i)=>{ if(stripeMats[i]){ stripeMats[i].color.setHex(c); stripeMats[i].needsUpdate=true; } }); }
   if(settings.cosmic && !wasCosmic){ settings._ballBefore=settings.ball; applyBall('glow'); }   // cosmic → glow ball
   else if(!settings.cosmic && wasCosmic){ applyBall(settings._ballBefore||'blue'); }            // leaving cosmic → restore
   applyMural(settings.cosmic?'cosmic.png':t.mural);
@@ -879,9 +908,6 @@ function applyCosmic(){
         cosmicLights.add(strip);
       }
     }
-    const gL=new THREE.PointLight(0x2bff66,0.35,450); gL.position.set(-GUT,16,300);
-    const gR=new THREE.PointLight(0x2bff66,0.35,450); gR.position.set(GUT,16,480);
-    cosmicLights.add(gL,gR);
     scene.add(cosmicLights);
   }
   if(cosmicLights) cosmicLights.visible=on;
