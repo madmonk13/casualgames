@@ -102,6 +102,7 @@ a.back:hover{color:#9fb0d8;}
     <div class="sec"><div class="sec-label">Ball</div><div id="ballGrid" class="grid"></div></div>
     <div class="sec"><div class="sec-label">Theme</div><div id="muralGrid" class="grid mural"></div></div>
     <button class="toggle" id="setBumpers"></button>
+    <button class="toggle" id="setOpt"></button>
     <button class="toggle" id="newGameBtn">New Game</button>
   </div>
 </div>
@@ -157,7 +158,7 @@ const THEMES=[
   {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#7f562a','#9b6931','#654321'], wall:0x7d8a3c,
     bg:0x130f0a, hemi:[0xfaebd0,0x2b2116,0.90], key:[0xf9e5c8,0.74], fill:[0xf5cfa4,0.32], pin:0.35,
     ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}, stripes:[0xd79a20,0x8a3a1e,0x5c1e24]},
-  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0xf2ebcb, wallUnlit:true,
+  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0x8a4a3a, wallTex:'brick.png', wallRepeat:[16,6], wallEmissive:0.2,
     bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
     ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
   {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], wall:0x181d2a, wallTex:'cosmic-walls.jpg', wallRepeat:[2,0.67], wallEmissive:0.35, cosmic:true,
@@ -167,7 +168,7 @@ const THEMES=[
 function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
 // live settings
-const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false, muted:false };
+const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false, muted:false, optimized:false };
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
@@ -193,7 +194,8 @@ const CHASE_UP=20, CHASE_BACK=115, CHASE_AHEAD=320;
 const CHASE_PULL=110, CHASE_RISE=55;   // near the pins, the cam pulls back & rises to frame the deck
 const CHASE_STOP=PIN_BASE-40;   // camera stops advancing once the ball reaches the pins
 // how far the ball may be positioned before release (inches) — kept behind the foul line
-const AIM_X=18, AIM_Y_MIN=-110, AIM_Y_MAX=0;
+const AIM_X=18, AIM_Y_MIN=-110, AIM_Y_MAX=0;   // throwable area (lateral / back-of-approach / foul line)
+const POS_X=46;                                  // how far the ball may be dragged laterally (includes the return at x≈-38)
 
 // ═══════════════════════════════════════════════════════
 //  STATE
@@ -212,6 +214,10 @@ function pinLayout(){ const P=[]; let id=0;
 //  THREE.JS SCENE
 // ═══════════════════════════════════════════════════════
 let renderer,scene,camera,ballMesh,pinMeshes=[],aimLine,raycaster,groundPlane,WOOD=null,fx,fxctx;
+let returnBall=null,ret=null,rackBodyMat=null,fromRack=false;  // surface ball-return: animated ball + anim state + themeable rack body + "ball waiting in cradle" flag
+const RET_CH=-38;                               // player's return runs on the player's RIGHT (screen-right = world -X)
+const RACK_NZ=-40, RACK_Y=20.25;                // elevated cradle: near/hood z, ball-center rest height (raised for clearance)
+const RACK_RZ=RACK_NZ+8;                         // ball's resting z in the cradle
 let lastW=0,lastH=0;
 let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null; // referenced by settings
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
@@ -222,7 +228,7 @@ const stage=document.getElementById('stage');
 
 function initScene(){
   renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(Math.min(1.5,window.devicePixelRatio||1));   // cap retina fill-rate (big mobile win)
+  applyQuality();                                                     // pixel ratio per quality setting
   stage.appendChild(renderer.domElement);
   // 2D overlay for the drag-vector preview
   fx=document.createElement('canvas'); fx.style.cssText='position:absolute;inset:0;pointer-events:none;'; stage.appendChild(fx); fxctx=fx.getContext('2d');
@@ -247,6 +253,7 @@ function initScene(){
   buildLane();
   buildBallMesh();
   buildPinMeshes();
+  buildReturns();                                // surface ball-returns in the right channel of each lane
   buildBumpers();
   applyThemeLights(themeById(settings.theme));   // base wood/lights per theme
   applyCosmic();                                 // then apply cosmic override if enabled
@@ -272,6 +279,22 @@ function loadTex(url,onload){
   t.minFilter=THREE.LinearFilter; t.magFilter=THREE.LinearFilter;
   t.generateMipmaps=false; t.wrapS=t.wrapT=THREE.ClampToEdgeWrapping;
   return t;
+}
+// load a tileable texture: draw onto a power-of-two canvas so WebGL1 can RepeatWrap + mipmap
+// it even when the source image is NPOT (e.g. brick.png at 513×408).
+function loadTiledTex(url,repeat,cb){
+  const np2=v=>{ let p=1; while(p<v) p*=2; const lo=p/2; return Math.min(1024,(v-lo<p-v)?lo:p); };
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas'); c.width=np2(img.width); c.height=np2(img.height);
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const tx=new THREE.CanvasTexture(c);
+    tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(repeat[0],repeat[1]);
+    tx.minFilter=THREE.LinearMipmapLinearFilter; tx.magFilter=THREE.LinearFilter; tx.generateMipmaps=true;
+    cb(tx);
+  };
+  img.onerror=()=>{};
+  img.src=url;
 }
 
 function woodTexture(pal){
@@ -318,10 +341,7 @@ function applyWallMat(t){
     // with a low `emissiveMap` floor so it never sinks to full black under the dark lighting.
     if(wallMat._texKey!==t.wallTex){
       wallMat._texKey=t.wallTex;
-      const tx=new THREE.TextureLoader().load(IMG+t.wallTex, ()=>{ wallMat.needsUpdate=true; });
-      tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(t.wallRepeat?t.wallRepeat[0]:6, t.wallRepeat?t.wallRepeat[1]:2);
-      tx.minFilter=THREE.LinearMipmapLinearFilter; tx.magFilter=THREE.LinearFilter; tx.generateMipmaps=true;
-      wallMat.map=tx; wallMat.emissiveMap=tx;
+      loadTiledTex(IMG+t.wallTex, t.wallRepeat||[6,2], tx=>{ wallMat.map=tx; wallMat.emissiveMap=tx; wallMat.needsUpdate=true; });
     }
     wallMat.color.setHex(0xffffff); wallMat.emissive.setHex(0xffffff);
     wallMat.emissiveIntensity=(t.wallEmissive!=null?t.wallEmissive:0.35);
@@ -399,7 +419,7 @@ function buildLane(){
     for(let i=0;i<stripeMats.length;i++){
       const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
       st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
-      st.position.set(s*(spanX-4.2), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
+      st.position.set(s*(spanX-4.02), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
     }
   }
   stripeMeshes.forEach(m=>m.visible=!settings.cosmic);       // cosmic uses the wall image instead of stripes
@@ -481,8 +501,74 @@ function buildBallMesh(){
   ballMesh=grp; scene.add(grp);
 }
 
+// ── surface ball return: low channel rails + pin-end ramp + an elevated cradle on angled legs ──
+function buildReturnUnit(cx){
+  const railMat=new THREE.MeshStandardMaterial({color:0x2a2e36,roughness:0.7,metalness:0.3});
+  const hoodMat=new THREE.MeshStandardMaterial({color:0x15181f,roughness:0.5,metalness:0.4,side:THREE.DoubleSide});
+  const y0=16, armLen=46, armCz=RACK_NZ+22;      // elevated trough floor top (raised so the ball clears underneath) / arm length / center
+  const armFar=armCz+armLen/2;                    // pin-side (far) end of the arm
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(12,1.6,armLen),rackBodyMat); floor.position.set(cx,y0-0.8,armCz); scene.add(floor);
+  for(const s of [-1,1]){ const rl=new THREE.Mesh(new THREE.BoxGeometry(1.4,6,armLen),railMat); rl.position.set(cx+s*6.2,y0+1.5,armCz); scene.add(rl); }
+  // rounded hood canopy at the PIN (far) end — open underside so the ball rises up under it
+  const hood=new THREE.Mesh(new THREE.CylinderGeometry(8,8,15,20,1,true,0,Math.PI),hoodMat); hood.rotation.z=Math.PI/2; hood.rotation.y=Math.PI/2; hood.position.set(cx,y0+1,armFar-1); scene.add(hood);
+  // back ridge at the bowler end so the ball can't roll out of the cradle
+  const ridge=new THREE.Mesh(new THREE.BoxGeometry(12,5,1.6),railMat); ridge.position.set(cx,y0+2,armCz-armLen/2+1); scene.add(ridge);
+  // angled support legs + feet — the white "body" holding the cradle up off the lane
+  // (kept below the trough floor so they don't poke up through the cradle surface)
+  for(const lz of [RACK_NZ+12, RACK_NZ+34]){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(2.6,30,15),rackBodyMat); leg.position.set(cx,1,lz); leg.rotation.x=0.32; scene.add(leg);
+    const foot=new THREE.Mesh(new THREE.BoxGeometry(3.2,2,22),rackBodyMat);  foot.position.set(cx,-7,lz+3); scene.add(foot);
+  }
+}
+function buildReturns(){
+  const chans=[-190,-114,-38,38,114];            // right-side channel of each of the 5 lanes
+  const railMat=new THREE.MeshStandardMaterial({color:0x2a2e36,roughness:0.7,metalness:0.3});
+  const trayMat=new THREE.MeshStandardMaterial({color:0x3a3f49,roughness:0.6,metalness:0.35});
+  rackBodyMat=new THREE.MeshStandardMaterial({color:themeById(settings.theme).sep.base,roughness:0.6});   // match the between-lane color
+  const railLen=LANE_LEN+20;
+  for(const cx of chans){
+    for(const s of [-1,1]){                       // two rails ~just wider than the ball → narrows the channel
+      const r=new THREE.Mesh(new THREE.BoxGeometry(1.4,5,railLen),railMat);
+      r.position.set(cx+s*5.0,0.5,railLen/2-20); scene.add(r);
+    }
+    const ramp=new THREE.Mesh(new THREE.BoxGeometry(11,1.2,64),trayMat);   // lifts the ball out of the pit
+    ramp.position.set(cx,-2,752); ramp.rotation.x=-0.18; scene.add(ramp);
+    buildReturnUnit(cx);
+  }
+  returnBall=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,32,24),ballMat); returnBall.visible=false; scene.add(returnBall);   // only the player's ball rides back
+}
+// after a throw settles: ball rides back up the channel and comes to rest in the elevated cradle.
+// it rests there live; the player's first aim-drag grabs it out of the cradle and onto the lane.
+function startReturn(){
+  if(!returnBall){ resetBall(); phase='aim'; return; }
+  ballMesh.visible=false; returnBall.visible=true;
+  const X=RET_CH, Y=BALL_R;
+  ret={ i:0, t:0, onEnd:finishFeed,
+    segs:[
+      {from:[X,-6,785],         to:[X,Y,728],           d:0.5},   // emerge up the ramp
+      {from:[X,Y,728],          to:[X,Y,6],             d:1.2},   // roll back down the channel to the unit's pin end
+      {from:[X,Y,6],            to:[X,RACK_Y,2],        d:0.5},   // rise under the hood into the trough
+      {from:[X,RACK_Y,2],       to:[X,RACK_Y,RACK_RZ],  d:0.6},   // roll along the cradle to the rest spot
+      {from:[X,RACK_Y,RACK_RZ], to:[X,RACK_Y,RACK_RZ],  d:0.5},   // hold half a second in the return
+      {from:[X,RACK_Y,RACK_RZ], to:[0,Y,-6],            d:0.7},   // then glide to the middle-of-lane start
+    ]};
+  phase='returning';
+}
+// hand off to the playable ball at the middle-of-lane ready position
+function finishFeed(){ resetBall(); if(ballMesh)ballMesh.visible=true; if(returnBall)returnBall.visible=false; phase='aim'; }
+function stepReturn(dt){
+  if(!ret){ return; }
+  ret.t+=dt; let s=ret.segs[ret.i];
+  while(s && ret.t>=s.d){ ret.t-=s.d; ret.i++; s=ret.segs[ret.i]; }
+  if(!s){ const cb=ret.onEnd; ret=null; if(cb) cb(); return; }
+  let u=s.d>0?ret.t/s.d:1; u=u<0?0:u>1?1:u; const e=u*u*(3-2*u);   // smoothstep
+  const x=s.from[0]+(s.to[0]-s.from[0])*e, y=s.from[1]+(s.to[1]-s.from[1])*e, z=s.from[2]+(s.to[2]-s.from[2])*e;
+  returnBall.position.set(x,y,z);
+  returnBall.rotation.x += ((s.to[2]-s.from[2])/Math.max(0.001,s.d))*dt/BALL_R;   // roll while it travels
+}
+
 function resize(){
-  if(!renderer) return;
+  if(!renderer || !camera) return;   // camera may not exist during early init
   const w=stage.clientWidth||window.innerWidth, h=stage.clientHeight||(window.innerHeight-60);
   if(w<2||h<2) return;                 // layout not ready yet — wait for ResizeObserver
   if(w===lastW && h===lastH) return;   // no real change — avoids a ResizeObserver feedback loop
@@ -511,12 +597,17 @@ function getAC(){
   if(!_ac){
     _ac=new (window.AudioContext||window.webkitAudioContext)();
     master=_ac.createGain(); master.gain.value=_muted?0:1; master.connect(_ac.destination);
+    // request a mixable session ONCE (iOS 16.4+): keeps the user's background audio playing,
+    // and avoids re-setting it repeatedly, which can interrupt our own context.
+    try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}
   }
-  // don't interrupt other apps' audio (iOS 16.4+ honors this; harmless elsewhere)
-  try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}
-  if(_ac.state==='suspended') _ac.resume();
+  if(_ac.state!=='running' && _ac.resume) _ac.resume().catch(()=>{});
   return _ac;
 }
+// iOS suspends/interrupts the context whenever another app grabs audio focus; the only prior
+// resume was on START, so it stayed silent once interrupted. Recover on any interaction.
+function resumeAudio(){ if(_ac && _ac.state!=='running' && _ac.resume){ try{ _ac.resume(); }catch(e){} } }
+['pointerdown','touchend','visibilitychange'].forEach(ev=>window.addEventListener(ev,resumeAudio,{passive:true}));
 let _sfxInit=false;
 function initSfx(){
   if(_sfxInit) return; _sfxInit=true;
@@ -571,7 +662,8 @@ function clatter(n){ playBuf('hit',0.9,false); }
 // ═══════════════════════════════════════════════════════
 //  GAME SETUP + FLOW  (2D top-down sim in inches)
 // ═══════════════════════════════════════════════════════
-function newGame(){ frame=0; ballInFrame=0; rolls=[]; rackFull(); resetBall(); phase='aim'; buildBoard(); flash('Frame 1'); saveGame(); }
+function clearReturn(){ ret=null; fromRack=false; if(returnBall)returnBall.visible=false; if(ballMesh)ballMesh.visible=true; }
+function newGame(){ frame=0; ballInFrame=0; rolls=[]; rackFull(); resetBall(); clearReturn(); phase='aim'; buildBoard(); flash('Frame 1'); saveGame(); }
 // persist in-progress game for this browser session
 function saveGame(){ try{ sessionStorage.setItem('justbowl_game',JSON.stringify({rolls,frame,ballInFrame,standing})); }catch(e){} }
 function loadGame(){ try{ return JSON.parse(sessionStorage.getItem('justbowl_game')||'null'); }catch(e){ return null; } }
@@ -580,7 +672,7 @@ function resumeGame(s){
   rolls=Array.isArray(s.rolls)?s.rolls:[]; frame=s.frame|0; ballInFrame=s.ballInFrame|0;
   standing=(Array.isArray(s.standing)&&s.standing.length===10)?s.standing.slice():Array(10).fill(true);
   pins=pinLayout().map((p,i)=>({id:p.id,ox:p.ox,oy:p.oy,x:p.ox,y:p.oy,vx:0,vy:0,down:false,fall:0,fdx:1,fdz:0,racked:!!standing[i]}));
-  resetBall(); phase='aim'; buildBoard(); flash('Frame '+(frame+1));
+  resetBall(); clearReturn(); phase='aim'; buildBoard(); flash('Frame '+(frame+1));
 }
 function rackFull(){ pins=pinLayout().map(p=>({id:p.id,ox:p.ox,oy:p.oy,x:p.ox,y:p.oy,vx:0,vy:0,down:false,fall:0,fdx:1,fdz:0,racked:true})); standing=pins.map(()=>true); }
 function rackStanding(){ pins.forEach((p,i)=>{ if(standing[i]){ p.x=p.ox; p.y=p.oy; p.vx=p.vy=0; p.down=false; p.fall=0; p.racked=true; } else p.racked=false; }); }
@@ -715,7 +807,7 @@ function endBall(){
     if(downed===0) flash('Gutter');       // strike/spare now shown by the celebrate banner above
   }
   saveGame();
-  resetBall(); phase='aim';
+  startReturn();          // ball rides back through the channel and feeds to the line, then phase→'aim'
 }
 
 function calcTotals(){
@@ -783,8 +875,8 @@ function sync(dt){
     const dist=Math.hypot(ds, ball.vx*dt);
     ballMesh.rotateOnWorldAxis(_rollAxis, dist/BALL_R);
   }
-  aimLine.visible=(phase==='aim');
-  if(phase==='aim' && !pulling){       // during a pull, the move handler drives the aim line
+  aimLine.visible=(phase==='aim' && !fromRack);
+  if(phase==='aim' && !fromRack && !pulling){       // during a pull, the move handler drives the aim line
     const p=aimLine.geometry.attributes.position;
     p.setXYZ(0,ball.x,BALL_R,ball.y); p.setXYZ(1,ball.x,BALL_R,520); p.needsUpdate=true;
     aimLine.computeLineDistances();
@@ -823,6 +915,7 @@ let lastT=0;
 function loop(t){
   const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
   if(phase==='rolling'){ const n=6; for(let k=0;k<n;k++) step(dt/n); }
+  else if(phase==='returning'){ stepReturn(dt); }
   if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
   if(renderer && ball){ sync(dt); updateCamera(dt); renderer.render(scene,camera); }   // render even in the menu (lanes behind the title)
   requestAnimationFrame(loop);
@@ -838,10 +931,12 @@ const _hit=new THREE.Vector3();
 function aimTo(n){
   raycaster.setFromCamera({x:n.x,y:n.y},camera);
   if(raycaster.ray.intersectPlane(groundPlane,_hit)){
-    ball.x=Math.max(-AIM_X,Math.min(AIM_X,_hit.x));       // lateral
-    ball.y=Math.max(AIM_Y_MIN,Math.min(AIM_Y_MAX,_hit.z)); // forward/back (full 2D positioning)
+    ball.x=Math.max(-POS_X,Math.min(POS_X,_hit.x));        // free lateral positioning (out to the return)
+    ball.y=Math.max(AIM_Y_MIN,Math.min(AIM_Y_MAX,_hit.z)); // forward/back on the approach
   }
 }
+// a throw only counts if the ball is within the lane's throwable area
+function canThrow(){ return Math.abs(ball.x)<=AIM_X; }
 function down(e){ if(phase!=='aim') return; e.preventDefault(); getAC();
   dragging=true; samples=[]; stage.classList.add('throwing');
   const n=ndc(e); samples.push({px:n.px,py:n.py,t:performance.now()}); aimTo(n); }
@@ -853,6 +948,7 @@ function up(e){ if(!dragging) return; e.preventDefault(); dragging=false; stage.
   const dtv=Math.max(0.03,(now-ref.t)/1000);
   const vyPix=(n.py-ref.py)/dtv, vxPix=(n.px-ref.px)/dtv;
   if(-vyPix<180){ flash('Flick forward to roll'); return; }
+  if(!canThrow()){ flash('Bring the ball onto the lane'); return; }
   launch(vyPix,vxPix);
 }
 // ── golf-style click & pull ──
@@ -884,6 +980,7 @@ function pMove(e){ if(!pulling) return; e.preventDefault();
 }
 function pUp(e){ if(!pulling) return; e.preventDefault(); pulling=false; clearDrag();
   if(pPower<0.08){ flash('Pull back to roll'); return; }
+  if(!canThrow()){ flash('Bring the ball onto the lane'); return; }
   launchPull(pPower,pLat);
 }
 
@@ -988,8 +1085,16 @@ function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return; c
   if(ballLight){ ballLight.color.set(e.glow||0xffffff); ballLight.intensity=e.glow?1.8:0; } }
 function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
 function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
+// optimized-quality mode: lower the retina pixel ratio (big win on older tablets like a 2020 iPad)
+function applyQuality(){
+  if(!renderer) return;
+  const dpr=window.devicePixelRatio||1;
+  renderer.setPixelRatio(settings.optimized ? Math.min(1.0,dpr) : Math.min(1.5,dpr));
+  lastW=lastH=0; resize();                 // force the size to re-apply at the new pixel ratio
+}
+function setOptimized(on){ settings.optimized=on; saveSettings(); applyQuality(); }
 // persist selections
-function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,_ballBefore:settings._ballBefore})); }catch(e){} }
+function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,optimized:settings.optimized,_ballBefore:settings._ballBefore})); }catch(e){} }
 function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
 function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
 function highlightTheme(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme)); }
@@ -1023,9 +1128,14 @@ function setupSettings(){
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });   // click backdrop to close
   const bumpBtn=document.getElementById('setBumpers');
-  function refreshToggles(){ bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off'); }
+  const optBtn=document.getElementById('setOpt');
+  function refreshToggles(){
+    bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off');
+    optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Optimized quality: '+(settings.optimized?'On':'Off');
+  }
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
+  optBtn.addEventListener('click',()=>{ setOptimized(!settings.optimized); refreshToggles(); });
   document.getElementById('newGameBtn').addEventListener('click',()=>{
     clearGame(); getAC(); initSfx(); newGame(); phase='aim';
     document.getElementById('ov').classList.remove('show');   // dismiss the title overlay
