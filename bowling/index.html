@@ -18,6 +18,11 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
 .fr.f10{min-width:52px;}
 .fr .tot{text-align:center;font-size:.82rem;font-weight:700;line-height:18px;color:#fff;}
 .fr.cur{border-color:#ffd54a;box-shadow:0 0 8px rgba(255,213,74,.4);}
+@media (max-width:520px){    /* shrink the scoreboard so all 10 frames (incl. the 10th's 3rd box) fit */
+  #hud{padding:4px 3px;} #board{gap:1px;}
+  .fr{min-width:28px;} .fr.f10{min-width:40px;}
+  .fr .fh{font-size:.5rem;} .fr .rw{height:14px;} .fr .rb{font-size:.62rem;line-height:14px;} .fr .tot{font-size:.7rem;line-height:16px;}
+}
 #msg{position:absolute;top:42%;left:0;right:0;text-align:center;font-size:clamp(1.6rem,6vw,2.6rem);font-weight:800;color:#ffd54a;
   text-shadow:0 2px 14px #000;pointer-events:none;letter-spacing:1px;z-index:5;}
 #celebrate{position:fixed;left:0;right:0;top:30%;text-align:center;z-index:15;pointer-events:none;opacity:0;
@@ -45,15 +50,15 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
 #startbtn:hover{background:#ffe27a;}
 a.back{color:#67769c;font-size:.8rem;text-decoration:none;margin-top:8px;}
 a.back:hover{color:#9fb0d8;}
-#cog{position:fixed;left:12px;top:5vh;z-index:25;border:none;background:none;color:#cfd8ea;
+#cog{position:fixed;left:12px;top:6vh;z-index:25;border:none;background:none;color:#cfd8ea;
   display:flex;align-items:center;justify-content:center;height:1em;font-size:4em;line-height:1;padding:0;
   opacity:0.5;cursor:pointer;transition:transform .15s,opacity .15s;}
 #cog:hover{opacity:0.85;transform:rotate(45deg);}
-#mute{position:fixed;right:12px;top:5vh;z-index:25;border:none;background:none;color:#cfd8ea;
+#mute{position:fixed;right:12px;top:6vh;z-index:25;border:none;background:none;color:#cfd8ea;
   display:flex;align-items:center;justify-content:center;height:1em;font-size:4em;line-height:1;padding:0;
   opacity:0.5;cursor:pointer;transition:opacity .15s;}
 #mute:hover{opacity:0.85;}
-#mute svg{width:0.8em;height:0.8em;display:block;}
+#mute svg,#cog svg{width:0.8em;height:0.8em;display:block;}
 #settings{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
   background:rgba(2,4,8,.62);}
 #settings.open{display:flex;}
@@ -94,7 +99,7 @@ a.back:hover{color:#9fb0d8;}
 <div id="msg"></div>
 <div id="celebrate"></div>
 
-<button id="cog" title="Settings">⚙</button>
+<button id="cog" title="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94a7.6 7.6 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.61-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 00-.61.22L2.68 8.84a.5.5 0 00.12.64l2.03 1.58a7.6 7.6 0 000 1.88l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54a.5.5 0 00.5.42h3.84a.5.5 0 00.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96a.5.5 0 00.61-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z"/></svg></button>
 <button id="mute" title="Mute"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/><path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 6a9 9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
 <div id="settings">
   <div class="modal-card">
@@ -1160,7 +1165,7 @@ function setupSettings(){
   muteBtn.innerHTML=muteIcon(_muted); muteBtn.title=_muted?'Unmute':'Mute';
   muteBtn.addEventListener('click',()=>applyMute(!_muted));
   // sit the cog + mute just below the score bar, aligned at the same height
-  const placeCtrls=()=>{ document.getElementById('cog').style.top='5vh'; muteBtn.style.top='5vh'; };
+  const placeCtrls=()=>{ document.getElementById('cog').style.top='6vh'; muteBtn.style.top='6vh'; };
   placeCtrls(); window.addEventListener('resize',placeCtrls);
   const modal=document.getElementById('settings');
   document.getElementById('cog').addEventListener('click',()=>modal.classList.add('open'));
