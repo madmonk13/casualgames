@@ -45,12 +45,12 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
 #startbtn:hover{background:#ffe27a;}
 a.back{color:#67769c;font-size:.8rem;text-decoration:none;margin-top:8px;}
 a.back:hover{color:#9fb0d8;}
-#cog{position:fixed;left:12px;top:44px;z-index:25;border:none;background:none;color:#cfd8ea;
-  display:flex;align-items:center;justify-content:center;font-size:4em;line-height:1;padding:0;
+#cog{position:fixed;left:12px;top:5vh;z-index:25;border:none;background:none;color:#cfd8ea;
+  display:flex;align-items:center;justify-content:center;height:1em;font-size:4em;line-height:1;padding:0;
   opacity:0.5;cursor:pointer;transition:transform .15s,opacity .15s;}
 #cog:hover{opacity:0.85;transform:rotate(45deg);}
-#mute{position:fixed;right:12px;top:44px;z-index:25;border:none;background:none;color:#cfd8ea;
-  display:flex;align-items:center;justify-content:center;font-size:4em;line-height:1;padding:0;
+#mute{position:fixed;right:12px;top:5vh;z-index:25;border:none;background:none;color:#cfd8ea;
+  display:flex;align-items:center;justify-content:center;height:1em;font-size:4em;line-height:1;padding:0;
   opacity:0.5;cursor:pointer;transition:opacity .15s;}
 #mute:hover{opacity:0.85;}
 #mute svg{width:0.8em;height:0.8em;display:block;}
@@ -65,10 +65,10 @@ a.back:hover{color:#9fb0d8;}
 #settingsClose{background:none;border:none;color:#9fb0d8;font-size:1.3rem;line-height:1;padding:4px 6px;cursor:pointer;}
 #settingsClose:hover{color:#fff;}
 .sec-label{color:#9fb0d8;font-size:.8rem;letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase;}
-.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;}
-.grid.mural{grid-template-columns:repeat(2,1fr);}
-.tile{cursor:pointer;border:2px solid transparent;border-radius:10px;padding:6px 4px;text-align:center;
+.grid{display:flex;flex-wrap:nowrap;gap:9px;overflow-x:auto;padding-bottom:6px;-webkit-overflow-scrolling:touch;scrollbar-width:thin;}
+.tile{flex:0 0 62px;cursor:pointer;border:2px solid transparent;border-radius:10px;padding:6px 4px;text-align:center;
   background:rgba(255,255,255,.05);transition:background .12s,border-color .12s;}
+.grid.mural .tile{flex:0 0 120px;}
 .tile:hover{background:rgba(255,255,255,.11);}
 .tile.selected{border-color:#ffd54a;background:rgba(255,213,74,.14);}
 .tile .thumb{width:100%;aspect-ratio:1;border-radius:50%;object-fit:cover;display:block;background:#0c0f16;}
@@ -103,6 +103,7 @@ a.back:hover{color:#9fb0d8;}
     <div class="sec"><div class="sec-label">Theme</div><div id="muralGrid" class="grid mural"></div></div>
     <button class="toggle" id="setBumpers"></button>
     <button class="toggle" id="setOpt"></button>
+    <button class="toggle" id="setFreecam">Free-cam (debug)</button>
     <button class="toggle" id="newGameBtn">New Game</button>
   </div>
 </div>
@@ -194,7 +195,7 @@ const CHASE_UP=20, CHASE_BACK=115, CHASE_AHEAD=320;
 const CHASE_PULL=110, CHASE_RISE=55;   // near the pins, the cam pulls back & rises to frame the deck
 const CHASE_STOP=PIN_BASE-40;   // camera stops advancing once the ball reaches the pins
 // how far the ball may be positioned before release (inches) — kept behind the foul line
-const AIM_X=18, AIM_Y_MIN=-110, AIM_Y_MAX=0;   // throwable area (lateral / back-of-approach / foul line)
+const AIM_X=30, AIM_Y_MIN=-110, AIM_Y_MAX=0;   // throwable area (lateral out to the gutter / back-of-approach / foul line)
 const POS_X=46;                                  // how far the ball may be dragged laterally (includes the return at x≈-38)
 
 // ═══════════════════════════════════════════════════════
@@ -216,10 +217,11 @@ function pinLayout(){ const P=[]; let id=0;
 let renderer,scene,camera,ballMesh,pinMeshes=[],aimLine,raycaster,groundPlane,WOOD=null,fx,fxctx;
 let returnBall=null,ret=null,rackBodyMat=null,fromRack=false;  // surface ball-return: animated ball + anim state + themeable rack body + "ball waiting in cradle" flag
 const RET_CH=-38;                               // player's return runs on the player's RIGHT (screen-right = world -X)
-const RACK_NZ=-40, RACK_Y=20.25;                // elevated cradle: near/hood z, ball-center rest height (raised for clearance)
-const RACK_RZ=RACK_NZ+8;                         // ball's resting z in the cradle
+const PAD_TOP=6, PAD_CZ=-31, PAD_LEN=34, PAD_W=13, RAMP_RUN=22;   // pad: top height, center z, length, width; ramp horizontal run
+const RACK_Y=PAD_TOP+BALL_R;                     // ball-center rest height on the pad
+const RACK_RZ=PAD_CZ-PAD_LEN/2+5;                // rest z, tucked against the back (bowler-side) ledge
 let lastW=0,lastH=0;
-let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null; // referenced by settings
+let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null,returnLight=null; // referenced by settings
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
 let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[],stripeMeshes=[],wallMat=null;   // wood/carpet + walls + wall stripes (live re-theming)
@@ -501,24 +503,25 @@ function buildBallMesh(){
   ballMesh=grp; scene.add(grp);
 }
 
-// ── surface ball return: low channel rails + pin-end ramp + an elevated cradle on angled legs ──
+// ── surface ball return: a small ramp up to a flat carpeted pad, with a low ledge on 3 sides ──
+// (hood + legs to come later; the pin-facing side stays open where the ramp feeds in)
 function buildReturnUnit(cx){
-  const railMat=new THREE.MeshStandardMaterial({color:0x2a2e36,roughness:0.7,metalness:0.3});
-  const hoodMat=new THREE.MeshStandardMaterial({color:0x15181f,roughness:0.5,metalness:0.4,side:THREE.DoubleSide});
-  const y0=16, armLen=46, armCz=RACK_NZ+22;      // elevated trough floor top (raised so the ball clears underneath) / arm length / center
-  const armFar=armCz+armLen/2;                    // pin-side (far) end of the arm
-  const floor=new THREE.Mesh(new THREE.BoxGeometry(12,1.6,armLen),rackBodyMat); floor.position.set(cx,y0-0.8,armCz); scene.add(floor);
-  for(const s of [-1,1]){ const rl=new THREE.Mesh(new THREE.BoxGeometry(1.4,6,armLen),railMat); rl.position.set(cx+s*6.2,y0+1.5,armCz); scene.add(rl); }
-  // rounded hood canopy at the PIN (far) end — open underside so the ball rises up under it
-  const hood=new THREE.Mesh(new THREE.CylinderGeometry(8,8,15,20,1,true,0,Math.PI),hoodMat); hood.rotation.z=Math.PI/2; hood.rotation.y=Math.PI/2; hood.position.set(cx,y0+1,armFar-1); scene.add(hood);
-  // back ridge at the bowler end so the ball can't roll out of the cradle
-  const ridge=new THREE.Mesh(new THREE.BoxGeometry(12,5,1.6),railMat); ridge.position.set(cx,y0+2,armCz-armLen/2+1); scene.add(ridge);
-  // angled support legs + feet — the white "body" holding the cradle up off the lane
-  // (kept below the trough floor so they don't poke up through the cradle surface)
-  for(const lz of [RACK_NZ+12, RACK_NZ+34]){
-    const leg=new THREE.Mesh(new THREE.BoxGeometry(2.6,30,15),rackBodyMat); leg.position.set(cx,1,lz); leg.rotation.x=0.32; scene.add(leg);
-    const foot=new THREE.Mesh(new THREE.BoxGeometry(3.2,2,22),rackBodyMat);  foot.position.set(cx,-7,lz+3); scene.add(foot);
+  const padMat=sepMat;                             // flat top like the between-lane carpet
+  const pinEdge=PAD_CZ+PAD_LEN/2, backEdge=PAD_CZ-PAD_LEN/2;
+  // flat holding pad, raised a little off the channel floor
+  const pad=new THREE.Mesh(new THREE.BoxGeometry(PAD_W,PAD_TOP,PAD_LEN),padMat); pad.position.set(cx,PAD_TOP/2,PAD_CZ); scene.add(pad);
+  // small ramp from the channel floor up onto the pad (pin side); angle set so it meets the floor at the new height
+  const rampHyp=Math.hypot(PAD_TOP,RAMP_RUN);
+  const ramp=new THREE.Mesh(new THREE.BoxGeometry(PAD_W,1.4,rampHyp),padMat);
+  ramp.position.set(cx,PAD_TOP/2,pinEdge+RAMP_RUN/2); ramp.rotation.x=Math.atan2(PAD_TOP,RAMP_RUN); scene.add(ramp);
+  // low ledge surrounding left, right, and back (bowler side); pin side left open for the ramp
+  const LEDGE_H=5, LEDGE_T=1.4;
+  for(const s of [-1,1]){
+    const w=new THREE.Mesh(new THREE.BoxGeometry(LEDGE_T,LEDGE_H,PAD_LEN),rackBodyMat);
+    w.position.set(cx+s*(PAD_W/2-LEDGE_T/2),PAD_TOP+LEDGE_H/2,PAD_CZ); scene.add(w);
   }
+  const back=new THREE.Mesh(new THREE.BoxGeometry(PAD_W,LEDGE_H,LEDGE_T),rackBodyMat);
+  back.position.set(cx,PAD_TOP+LEDGE_H/2,backEdge+LEDGE_T/2); scene.add(back);
 }
 function buildReturns(){
   const chans=[-190,-114,-38,38,114];            // right-side channel of each of the 5 lanes
@@ -536,21 +539,23 @@ function buildReturns(){
     buildReturnUnit(cx);
   }
   returnBall=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,32,24),ballMat); returnBall.visible=false; scene.add(returnBall);   // only the player's ball rides back
+  returnLight=new THREE.PointLight(0x1dff5a,0,170,1.6); returnBall.add(returnLight);   // glow travels with the return ball too
+  { const e=ballEntry(settings.ball); returnLight.color.set(e.glow||0xffffff); returnLight.intensity=e.glow?1.8:0; }
 }
-// after a throw settles: ball rides back up the channel and comes to rest in the elevated cradle.
-// it rests there live; the player's first aim-drag grabs it out of the cradle and onto the lane.
+// after a throw settles: ball rides back up the channel, up the ramp onto the pad, holds, then feeds to center.
 function startReturn(){
   if(!returnBall){ resetBall(); phase='aim'; return; }
   ballMesh.visible=false; returnBall.visible=true;
-  const X=RET_CH, Y=BALL_R;
+  const X=RET_CH, Y=BALL_R, padPin=PAD_CZ+PAD_LEN/2, rampFoot=padPin+RAMP_RUN;
   ret={ i:0, t:0, onEnd:finishFeed,
     segs:[
-      {from:[X,-6,785],         to:[X,Y,728],           d:0.5},   // emerge up the ramp
-      {from:[X,Y,728],          to:[X,Y,6],             d:1.2},   // roll back down the channel to the unit's pin end
-      {from:[X,Y,6],            to:[X,RACK_Y,2],        d:0.5},   // rise under the hood into the trough
-      {from:[X,RACK_Y,2],       to:[X,RACK_Y,RACK_RZ],  d:0.6},   // roll along the cradle to the rest spot
-      {from:[X,RACK_Y,RACK_RZ], to:[X,RACK_Y,RACK_RZ],  d:0.5},   // hold half a second in the return
-      {from:[X,RACK_Y,RACK_RZ], to:[0,Y,-6],            d:0.7},   // then glide to the middle-of-lane start
+      {from:[X,-6,785],         to:[X,Y,728],            d:0.5},   // emerge up the pit ramp
+      {from:[X,Y,728],          to:[X,Y,rampFoot],       d:1.2},   // roll back down the channel to the ramp foot
+      {from:[X,Y,rampFoot],     to:[X,RACK_Y,padPin],    d:0.5},   // up the ramp onto the pad
+      {from:[X,RACK_Y,padPin],  to:[X,RACK_Y,RACK_RZ],   d:0.6},   // across the pad to rest against the back ledge
+      {from:[X,RACK_Y,RACK_RZ], to:[X,RACK_Y,RACK_RZ],   d:0.5},   // hold half a second in the return
+      {from:[X,RACK_Y,RACK_RZ], to:[X,RACK_Y+6,RACK_RZ], d:0.3},   // lift up over the ledge
+      {from:[X,RACK_Y+6,RACK_RZ], to:[0,Y,-6],           d:0.7},   // then glide to the middle-of-lane start
     ]};
   phase='returning';
 }
@@ -705,10 +710,10 @@ function step(dt){
     if(!ball.gutter){ if(CURVE_ENABLED) ball.vx+=ball.spin*CURVE_GAIN*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }
     ball.y+=ball.vy*dt; ball.vy*=(1-VY_FRICTION*dt);
     { const sp=Math.min(1,ball.vy/POWER_MAX); setRollVolume(ball.gutter?0.25:0.35+0.45*sp); }
-    const edge=PLAY-BALL_R*0.4;
-    if(!ball.gutter && Math.abs(ball.x)>=edge){
-      if(settings.bumpers){ ball.x=Math.sign(ball.x)*edge; ball.vx=-ball.vx; ball.spin=-ball.spin; } // bounce: reverse horizontal vector
-      else { ball.gutter=true; ball.spin=0; ball.vx=0; ball.x=Math.sign(ball.x)*(PLAY+3); }
+    const laneEdge=PLAY, gutEdge=PLAY;   // bumpers bounce at the lane edge; gutter once the ball's center reaches it (edge trick shots stay up, no floating)
+    if(!ball.gutter){
+      if(settings.bumpers){ if(Math.abs(ball.x)>=laneEdge){ ball.x=Math.sign(ball.x)*laneEdge; ball.vx=-ball.vx; ball.spin=-ball.spin; } }   // bounce: reverse horizontal vector
+      else if(Math.abs(ball.x)>=gutEdge){ ball.gutter=true; ball.spin=0; ball.vx=0; ball.x=Math.sign(ball.x)*(PLAY+3); }
     }
     if(!ball.gutter){ for(let i=0;i<pins.length;i++){ if(pins[i].racked) collide(ball,BALL_R,pins[i],PIN_R,10.0,dt,true); } }
   }
@@ -898,7 +903,25 @@ function sync(dt){
 const _ovPos=new THREE.Vector3(0,OV_Y,OV_Z), _ovLook=new THREE.Vector3(0,OV_LY,OV_LZ);
 const _cPos=new THREE.Vector3(), _cLook=new THREE.Vector3(), _pPos=new THREE.Vector3(), _pLook=new THREE.Vector3();
 let camBlend=0;
+// ── debug free-camera: fly around the alley to inspect graphics ──
+let freecam=null; const _fkeys={};
+function toggleFreecam(){
+  if(freecam){ freecam=null; flash('Free-cam OFF'); return; }
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir);
+  freecam={ pos:camera.position.clone(), yaw:Math.atan2(dir.x,dir.z), pitch:Math.asin(Math.max(-1,Math.min(1,dir.y))) };
+  flash('Free-cam ON · WASD/QE fly · drag look · Shift fast · F exit');
+}
+function _fcDir(){ const cp=Math.cos(freecam.pitch); return new THREE.Vector3(Math.sin(freecam.yaw)*cp, Math.sin(freecam.pitch), Math.cos(freecam.yaw)*cp); }
+function updateFreecam(dt){
+  const spd=(_fkeys.shift?1400:520)*dt, fwd=_fcDir(), right=new THREE.Vector3(-fwd.z,0,fwd.x).normalize(), mv=new THREE.Vector3();
+  if(_fkeys.w) mv.add(fwd); if(_fkeys.s) mv.sub(fwd);
+  if(_fkeys.d) mv.add(right); if(_fkeys.a) mv.sub(right);
+  if(_fkeys.e) mv.y+=1; if(_fkeys.q) mv.y-=1;
+  if(mv.lengthSq()>0) freecam.pos.add(mv.normalize().multiplyScalar(spd));
+  camera.position.copy(freecam.pos); camera.lookAt(freecam.pos.clone().add(_fcDir()));
+}
 function updateCamera(dt){
+  if(freecam) return;   // free-cam drives the camera itself
   const target=(phase==='rolling')?1:0;
   camBlend += (target-camBlend)*(1-Math.exp(-dt*5));   // smooth ease
   const cy=Math.min(ball.y, CHASE_STOP);               // freeze forward advance at the pins
@@ -917,7 +940,7 @@ function loop(t){
   if(phase==='rolling'){ const n=6; for(let k=0;k<n;k++) step(dt/n); }
   else if(phase==='returning'){ stepReturn(dt); }
   if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
-  if(renderer && ball){ sync(dt); updateCamera(dt); renderer.render(scene,camera); }   // render even in the menu (lanes behind the title)
+  if(renderer && ball){ sync(dt); if(freecam) updateFreecam(dt); else updateCamera(dt); renderer.render(scene,camera); }   // render even in the menu (lanes behind the title)
   requestAnimationFrame(loop);
 }
 
@@ -937,7 +960,7 @@ function aimTo(n){
 }
 // a throw only counts if the ball is within the lane's throwable area
 function canThrow(){ return Math.abs(ball.x)<=AIM_X; }
-function down(e){ if(phase!=='aim') return; e.preventDefault(); getAC();
+function down(e){ if(freecam) return; if(phase!=='aim') return; e.preventDefault(); getAC();
   dragging=true; samples=[]; stage.classList.add('throwing');
   const n=ndc(e); samples.push({px:n.px,py:n.py,t:performance.now()}); aimTo(n); }
 function move(e){ if(!dragging) return; e.preventDefault();
@@ -966,7 +989,7 @@ function drawDrag(cur){
 }
 function clearDrag(){ if(fxctx&&fx) fxctx.clearRect(0,0,fx.width,fx.height); }
 
-function pDown(e){ if(phase!=='aim') return; e.preventDefault(); getAC();
+function pDown(e){ if(freecam) return; if(phase!=='aim') return; e.preventDefault(); getAC();
   pulling=true; pPower=0; pLat=0; const n=ndc(e); pStart={px:n.px,py:n.py}; clearDrag(); }
 function pMove(e){ if(!pulling) return; e.preventDefault();
   const n=ndc(e); const dx=n.px-pStart.px, dy=n.py-pStart.py;   // pull DOWN (dy>0) = power
@@ -993,6 +1016,22 @@ function bindInput(){
     el.addEventListener('mousedown',down); el.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
     el.addEventListener('touchstart',down,{passive:false}); el.addEventListener('touchmove',move,{passive:false}); el.addEventListener('touchend',up,{passive:false});
   }
+  // free-cam drag-to-look (only active while freecam is on)
+  let flook=false,flx=0,fly=0;
+  const pos=e=>(e.touches&&e.touches[0])||e;
+  const fdown=e=>{ if(!freecam)return; flook=true; const s=pos(e); flx=s.clientX; fly=s.clientY; };
+  const fmove=e=>{ if(!freecam||!flook)return; const s=pos(e); freecam.yaw-=(s.clientX-flx)*0.005; freecam.pitch=Math.max(-1.45,Math.min(1.45,freecam.pitch-(s.clientY-fly)*0.005)); flx=s.clientX; fly=s.clientY; e.preventDefault(); };
+  const fup=()=>{ flook=false; };
+  el.addEventListener('mousedown',fdown); window.addEventListener('mousemove',fmove); window.addEventListener('mouseup',fup);
+  el.addEventListener('touchstart',fdown,{passive:true}); window.addEventListener('touchmove',fmove,{passive:false}); window.addEventListener('touchend',fup);
+  // keyboard: F toggles free-cam; WASD/QE fly while it's on
+  const code=e=>({KeyW:'w',KeyA:'a',KeyS:'s',KeyD:'d',KeyQ:'q',KeyE:'e',ArrowUp:'w',ArrowDown:'s',ArrowLeft:'a',ArrowRight:'d'})[e.code];
+  window.addEventListener('keydown',e=>{
+    if(e.code==='KeyF'){ toggleFreecam(); return; }
+    if(!freecam) return;
+    _fkeys.shift=e.shiftKey; const k=code(e); if(k){ _fkeys[k]=true; e.preventDefault(); }
+  });
+  window.addEventListener('keyup',e=>{ _fkeys.shift=e.shiftKey; const k=code(e); if(k) _fkeys[k]=false; });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1082,7 +1121,8 @@ function applyCosmic(){
 function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return; const e=ballEntry(id);
   ballMat.color.set(0xffffff); ballMat.map=loadTex(TEX+e.file,()=>{ballMat.needsUpdate=true;});
   ballMat.emissive.set(e.glow||0x000000); ballMat.emissiveIntensity=e.glow?1.3:1; ballMat.needsUpdate=true;
-  if(ballLight){ ballLight.color.set(e.glow||0xffffff); ballLight.intensity=e.glow?1.8:0; } }
+  if(ballLight){ ballLight.color.set(e.glow||0xffffff); ballLight.intensity=e.glow?1.8:0; }
+  if(returnLight){ returnLight.color.set(e.glow||0xffffff); returnLight.intensity=e.glow?1.8:0; } }
 function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
 function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
 // optimized-quality mode: lower the retina pixel ratio (big win on older tablets like a 2020 iPad)
@@ -1120,8 +1160,7 @@ function setupSettings(){
   muteBtn.innerHTML=muteIcon(_muted); muteBtn.title=_muted?'Unmute':'Mute';
   muteBtn.addEventListener('click',()=>applyMute(!_muted));
   // sit the cog + mute just below the score bar, aligned at the same height
-  const hud=document.getElementById('hud');
-  const placeCtrls=()=>{ const y=(hud?hud.offsetHeight:36)+8; document.getElementById('cog').style.top=y+'px'; muteBtn.style.top=y+'px'; };
+  const placeCtrls=()=>{ document.getElementById('cog').style.top='5vh'; muteBtn.style.top='5vh'; };
   placeCtrls(); window.addEventListener('resize',placeCtrls);
   const modal=document.getElementById('settings');
   document.getElementById('cog').addEventListener('click',()=>modal.classList.add('open'));
@@ -1136,6 +1175,7 @@ function setupSettings(){
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
   optBtn.addEventListener('click',()=>{ setOptimized(!settings.optimized); refreshToggles(); });
+  document.getElementById('setFreecam').addEventListener('click',()=>{ modal.classList.remove('open'); toggleFreecam(); });
   document.getElementById('newGameBtn').addEventListener('click',()=>{
     clearGame(); getAC(); initSfx(); newGame(); phase='aim';
     document.getElementById('ov').classList.remove('show');   // dismiss the title overlay
