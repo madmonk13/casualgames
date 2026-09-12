@@ -108,7 +108,6 @@ a.back:hover{color:#9fb0d8;}
     <div class="sec"><div class="sec-label">Theme</div><div id="muralGrid" class="grid mural"></div></div>
     <button class="toggle" id="setBumpers"></button>
     <button class="toggle" id="setOpt"></button>
-    <button class="toggle" id="setFreecam">Free-cam (debug)</button>
     <button class="toggle" id="newGameBtn">New Game</button>
   </div>
 </div>
@@ -138,6 +137,9 @@ const IMG='images/', TEX='textures/', SFX='sfx/';
 
 // selectable balls (id, label, texture file, optional always-on emissive glow color)
 const BALL_TEXTURES=[
+  {id:'black', label:'Black', file:'black.png'},
+  {id:'silver',label:'Silver',file:'silver.png'},
+  {id:'white', label:'White', file:'white.png'},
   {id:'blue',  label:'Blue',  file:'blue.png'},
   {id:'green', label:'Green', file:'green.png'},
   {id:'pink',  label:'Pink',  file:'pink.png'},
@@ -149,9 +151,6 @@ const BALL_TEXTURES=[
   {id:'fire',  label:'Fire',  file:'fire.png'},
   {id:'skull', label:'Skull', file:'skull.png'},
   {id:'checkered',label:'Checkered',file:'checkered.png'},
-  {id:'silver',label:'Silver',file:'silver.png'},
-  {id:'black', label:'Black', file:'black.png'},
-  {id:'white', label:'White', file:'white.png'},
   {id:'glow',  label:'Glow',  file:'white.png', glow:0x1dff5a},   // subtle neon-green glow
 ];
 function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0]; }
@@ -161,15 +160,25 @@ const THEMES=[
   {id:'classic',  label:'Classic', mural:'default.png', wood:['#b57a34','#cf9147','#a06a2a'], wall:0x6b6f76,
     bg:0x090c13, hemi:[0xbfd4ff,0x39302a,0.90], key:[0xfff2d8,0.50], fill:[0x88aaff,0.35], pin:0.30,
     ret:{body:0xc7ccd2, accent:0x1fb6c6, rough:0.40, metal:0.55}, sep:{base:0x24272f,speckle:[0x3a3f4a,0x565d6b]}, stripes:[0xefb241,0x054f9b,0xcc4c33]},
-  {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#7f562a','#9b6931','#654321'], wall:0x7d8a3c,
-    bg:0x130f0a, hemi:[0xfaebd0,0x2b2116,0.90], key:[0xf9e5c8,0.74], fill:[0xf5cfa4,0.32], pin:0.35,
-    ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}, stripes:[0xd79a20,0x8a3a1e,0x5c1e24]},
-  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0x8a4a3a, wallTex:'brick.png', wallRepeat:[16,6], wallEmissive:0.2,
-    bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
-    ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
   {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], wall:0x181d2a, wallTex:'cosmic-walls.jpg', wallRepeat:[2,0.67], wallEmissive:0.35, cosmic:true,
     bg:0x000208, hemi:[0x3a4a80,0x101830,0.0], key:[0x223060,0.0], fill:[0x223060,0.0], pin:0.0,
     ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}, stripes:[0x2bff77,0x18d0ff,0xd020ff]},
+  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0xf6e7b5,
+    bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
+    ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
+  {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#7f562a','#9b6931','#654321'], wall:0x7d8a3c,
+    bg:0x130f0a, hemi:[0xfaebd0,0x2b2116,0.90], key:[0xf9e5c8,0.74], fill:[0xf5cfa4,0.32], pin:0.35,
+    ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}, stripes:[0xd79a20,0x8a3a1e,0x5c1e24]},
+  // ── no stripes on the mid-century themes (doesn't fit the aesthetic) ──
+  {id:'sixties',  label:'1960s',   mural:'1960s.png',  wood:['#b5813e','#d29a52','#976a2f'], wall:0xc8caa9,   // mod: honey oak, soft sage walls, teal trim
+    bg:0x15140f, hemi:[0xf1eee6,0x2e2a24,0.95], key:[0xfff3df,0.60], fill:[0xefe6d2,0.32], pin:0.30,
+    sep:{base:0x216371,speckle:[0x2c7a88,0x184a55,0x0f3b44]}, stripes:[]},
+  {id:'fifties',  label:'1950s',   mural:'1950s.png',  wood:['#8b6c42','#9d8154','#765930'], wall:0xffecb4,   // diner: deeper maple, banner-beige walls, cherry-red trim
+    bg:0x1a1712, hemi:[0xf4f0e8,0x35322c,1.00], key:[0xfff6ec,0.60], fill:[0xf0e6d2,0.34], pin:0.32,
+    sep:{base:0xc5301c,speckle:[0xd6483a,0x8f2115,0xe8e8ea]}, stripes:[]},
+  {id:'forties',  label:'1940s',   mural:'1940s.png',  wood:['#7a5326','#96682f','#5f4020'], wall:0xcdb489,   // classic: walnut + aged-tan walls, oxblood trim, warm dim light
+    bg:0x150f0a, hemi:[0xf0e2c8,0x2a2016,0.85], key:[0xf6e6c8,0.62], fill:[0xe6cfa8,0.30], pin:0.34,
+    sep:{base:0x5e2a24,speckle:[0x743630,0x40201c,0x7a5a2e]}, stripes:[]},
 ];
 function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
@@ -227,14 +236,22 @@ const RACK_Y=PAD_TOP+BALL_R;                     // ball-center rest height on t
 const RACK_RZ=PAD_CZ-PAD_LEN/2+5;                // rest z, tucked against the back (bowler-side) ledge
 let lastW=0,lastH=0;
 let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null,returnLight=null; // referenced by settings
+let muralPlane=null,muralWallW=0,muralH0=145;   // back-wall mural: visible width, and the max (previous) tile height
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
 let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[],stripeMeshes=[],wallMat=null;   // wood/carpet + walls + wall stripes (live re-theming)
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
 const stage=document.getElementById('stage');
 
+// Performance mode: cheaper Lambert shading instead of PBR Standard (big win on old GPUs)
+let PERF=false;
+function mkMat(p){
+  if(PERF){ const q=Object.assign({},p); delete q.roughness; delete q.metalness; return new THREE.MeshLambertMaterial(q); }
+  return new THREE.MeshStandardMaterial(p);
+}
 function initScene(){
-  renderer=new THREE.WebGLRenderer({antialias:true});
+  PERF=!!settings.optimized;
+  renderer=new THREE.WebGLRenderer({antialias:!PERF, precision:PERF?'mediump':'highp'});   // no MSAA + mediump in perf
   applyQuality();                                                     // pixel ratio per quality setting
   stage.appendChild(renderer.domElement);
   // 2D overlay for the drag-vector preview
@@ -252,15 +269,14 @@ function initScene(){
   hemiLight=new THREE.HemisphereLight(0xbfd4ff,0x39302a,HEMI0); scene.add(hemiLight);   // soft ambient fill
   keyLight=new THREE.DirectionalLight(0xfff2d8,KEY0);
   keyLight.position.set(120,440,280); scene.add(keyLight);      // high/far → smaller near hotspot
-  fillLight=new THREE.DirectionalLight(0x88aaff,FILL0);
-  fillLight.position.set(-120,160,-160); scene.add(fillLight);
-  pinLight=new THREE.PointLight(0xffffff,PIN0,1100);
-  pinLight.position.set(0,230,PIN_BASE+20); scene.add(pinLight);
+  fillLight=new THREE.DirectionalLight(0x88aaff,FILL0); fillLight.position.set(-120,160,-160);
+  pinLight=new THREE.PointLight(0xffffff,PIN0,1100); pinLight.position.set(0,230,PIN_BASE+20);
+  if(!PERF){ scene.add(fillLight); scene.add(pinLight); }   // perf: fewer real-time lights
 
   buildLane();
   buildBallMesh();
   buildPinMeshes();
-  buildReturns();                                // surface ball-returns in the right channel of each lane
+  if(!PERF) buildReturns();                       // surface ball-returns (dropped in low graphics; returnBall stays null → return anim skipped)
   buildBumpers();
   applyThemeLights(themeById(settings.theme));   // base wood/lights per theme
   applyCosmic();                                 // then apply cosmic override if enabled
@@ -290,7 +306,8 @@ function loadTex(url,onload){
 // load a tileable texture: draw onto a power-of-two canvas so WebGL1 can RepeatWrap + mipmap
 // it even when the source image is NPOT (e.g. brick.png at 513×408).
 function loadTiledTex(url,repeat,cb){
-  const np2=v=>{ let p=1; while(p<v) p*=2; const lo=p/2; return Math.min(1024,(v-lo<p-v)?lo:p); };
+  const cap=PERF?512:1024;
+  const np2=v=>{ let p=1; while(p<v) p*=2; const lo=p/2; return Math.min(cap,(v-lo<p-v)?lo:p); };
   const img=new Image();
   img.onload=()=>{
     const c=document.createElement('canvas'); c.width=np2(img.width); c.height=np2(img.height);
@@ -306,7 +323,7 @@ function loadTiledTex(url,repeat,cb){
 
 function woodTexture(pal){
   pal=pal||['#a86a2a','#c2843a','#9c5f24'];
-  const c=document.createElement('canvas'); c.width=256; c.height=1024; const g=c.getContext('2d');
+  const c=document.createElement('canvas'); c.width=PERF?128:256; c.height=PERF?512:1024; const g=c.getContext('2d');
   const grad=g.createLinearGradient(0,0,c.width,0);
   grad.addColorStop(0,pal[0]); grad.addColorStop(.5,pal[1]); grad.addColorStop(1,pal[2]);
   g.fillStyle=grad; g.fillRect(0,0,c.width,c.height);
@@ -321,7 +338,7 @@ function woodTexture(pal){
 
 // subtle fine-grain noise texture for the space between lanes
 function carpetTexture(cfg){
-  const S=128, c=document.createElement('canvas'); c.width=S; c.height=S; const g=c.getContext('2d');
+  const S=PERF?64:128, c=document.createElement('canvas'); c.width=S; c.height=S; const g=c.getContext('2d');
   const img=g.createImageData(S,S), d=img.data;
   const br=(cfg.base>>16)&255, bg=(cfg.base>>8)&255, bb=cfg.base&255, spk=cfg.speckle||[];
   for(let i=0;i<S*S;i++){
@@ -343,7 +360,7 @@ function regenSep(cfg){ if(sepMat){ sepMat.map=carpetTexture(cfg); sepMat.needsU
 function applyWallMat(t){
   if(!wallMat) return;
   const c=(t.wall!=null?t.wall:0x6b6f76);
-  if(t.wallTex){
+  if(t.wallTex && !PERF){
     // tiled image on the walls: lit via `map` (so the cosmic accent lights play across it),
     // with a low `emissiveMap` floor so it never sinks to full black under the dark lighting.
     if(wallMat._texKey!==t.wallTex){
@@ -366,7 +383,7 @@ function buildLane(){
   for(let k=-NEIGH_LANES;k<=NEIGH_LANES;k++){ if(k!==0) addLaneStrip(k*LANE_PITCH,true); }  // neighbor lanes
 
   // themed carpet filling the space between adjacent lanes
-  sepMat=new THREE.MeshStandardMaterial({map:carpetTexture(themeById(settings.theme).sep),roughness:0.92});
+  sepMat=mkMat({map:carpetTexture(themeById(settings.theme).sep),roughness:0.92});
   const gapW=LANE_PITCH-2*(GUT+1.5)-1;   // only the strip between the two raised rails
   const carpLen=LANE_LEN+20;             // foul line → past the pins (matches the rails)
   for(let k=-NEIGH_LANES;k<NEIGH_LANES;k++){
@@ -380,31 +397,31 @@ function buildLane(){
   appRepeat=[appW/(2*PLAY), appD*(LANE_LEN/120)/(LANE_LEN+80)];
   const appTex=WOOD.clone(); appTex.wrapS=appTex.wrapT=THREE.RepeatWrapping;
   appTex.repeat.set(appRepeat[0],appRepeat[1]); appTex.needsUpdate=true;
-  appMat=new THREE.MeshStandardMaterial({map:appTex,roughness:0.72}); laneGlow.push(appMat);
+  appMat=mkMat({map:appTex,roughness:0.72}); laneGlow.push(appMat);
   const approach=new THREE.Mesh(new THREE.BoxGeometry(appW,4,appD),appMat);
   approach.position.set(0,-2.05,-180); scene.add(approach);
   const wallW=2*spanHalf+160;
   // ball & pin collection pit — kept blank/dark, behind and at the base of the pins
-  const pitMat=new THREE.MeshStandardMaterial({color:0x05070c,roughness:1});
+  const pitMat=mkMat({color:0x05070c,roughness:1});
   const pit=new THREE.Mesh(new THREE.BoxGeometry(wallW,70,20),pitMat);
   pit.position.set(0,-15,LANE_LEN+30); scene.add(pit);        // spans y ≈ -50..20
   // mural on the back wall, above the collection area.
   // Loaded from the file over http:// (run the local server); starts dark, swaps in on load.
-  muralMat=new THREE.MeshBasicMaterial({color:0x05070c,side:THREE.DoubleSide});
-  loadTex(IMG+settings.mural, t=>{ muralMat.map=t; muralMat.color.set(0xffffff); muralMat.needsUpdate=true; });
-  // tile the mural: one copy centered on the player's lane (x=0), tiling outward both ways
-  const naspect=1671/462;
-  const tileW=wallW/Math.max(2,Math.round(wallW/(120*naspect)));
-  const muralH=tileW/naspect;
-  const half=Math.ceil((wallW/2)/tileW);
-  for(let k=-half;k<=half;k++){
-    const m=new THREE.Mesh(new THREE.PlaneGeometry(tileW,muralH),muralMat);
-    m.position.set(k*tileW,20+muralH/2,LANE_LEN+29.8); scene.add(m);
-  }
+  // single mural plane spanning the wall; height follows the image's real aspect (no squish),
+  // rotated to face the camera so it isn't mirrored.
+  muralMat=new THREE.MeshBasicMaterial({color:0x05070c,side:(PERF?THREE.FrontSide:THREE.DoubleSide)});
+  muralWallW=2*(spanHalf+40)-8;   // width between the side walls, so the mural isn't cropped behind them
+  muralPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),muralMat);
+  muralPlane.rotation.y=Math.PI;
+  const naspect=1671/462, tileW0=wallW/Math.max(2,Math.round(wallW/(120*naspect)));
+  const muralH=tileW0/naspect;   // original stripe-band height (restores the previous stripe size/position)
+  muralH0=muralWallW/5.569;      // banner-area height = the 1960s banner's height (narrower banners tile to fill)
+  muralPlane.position.set(0,20,LANE_LEN+29.8); muralPlane.scale.set(muralWallW,muralH0,1); scene.add(muralPlane);
+  loadTex(IMG+settings.mural, t=>{ muralMat.map=t; muralMat.color.set(0xffffff); muralMat.needsUpdate=true; fitMural(t); });
 
   // enclosing room so the lanes don't float in the void
-  const roomMat=new THREE.MeshStandardMaterial({color:0x10151d,roughness:0.95});   // floor/ceiling (dark)
-  wallMat=new THREE.MeshStandardMaterial({roughness:0.9});   // themed walls (color/emissive set by applyWallMat)
+  const roomMat=mkMat({color:0x10151d,roughness:0.95});   // floor/ceiling (dark)
+  wallMat=mkMat({roughness:0.9});   // themed walls (color/emissive set by applyWallMat)
   applyWallMat(themeById(settings.theme));
   const spanX=spanHalf+40, zA=-220, zB=LANE_LEN+50, roomLen=zB-zA, roomCz=(zA+zB)/2;
   const floor=new THREE.Mesh(new THREE.BoxGeometry(2*spanX+40,4,roomLen),roomMat);
@@ -418,8 +435,9 @@ function buildLane(){
   const ceil=new THREE.Mesh(new THREE.BoxGeometry(2*spanX,6,roomLen),roomMat);
   ceil.position.set(0,215,roomCz); scene.add(ceil);                        // ceiling
   // themed horizontal stripes on the side walls, at the mural's level, full wall length
-  const stripeCols=themeById(settings.theme).stripes||[0xefb241,0x054f9b,0xcc4c33];
-  stripeMats=stripeCols.map(c=>new THREE.MeshStandardMaterial({color:c,roughness:0.7}));
+  const th0=themeById(settings.theme);
+  const stripeCols=(th0.stripes&&th0.stripes.length)?th0.stripes:[0xefb241,0x054f9b,0xcc4c33];  // always build 3 (toggled per theme)
+  stripeMats=stripeCols.map(c=>mkMat({color:c,roughness:0.7}));
   stripeMeshes=[];
   const sh=muralH/stripeMats.length;
   for(const s of [-1,1]){
@@ -429,31 +447,31 @@ function buildLane(){
       st.position.set(s*(spanX-4.02), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
     }
   }
-  stripeMeshes.forEach(m=>m.visible=!settings.cosmic);       // cosmic uses the wall image instead of stripes
+  { const hs=(th0.stripes&&th0.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic); }   // hide when a theme has no stripes (or cosmic)
 }
 
 // One lane strip: wood bed (extends under the pins), gutters, rails, and — for
 // neighbor lanes — a static full rack of decorative pins.
 function addLaneStrip(xoff,deco){
-  const laneMat=new THREE.MeshStandardMaterial({map:WOOD,roughness:0.72,metalness:0.0}); // rougher → no harsh glare
+  const laneMat=mkMat({map:WOOD,roughness:0.72,metalness:0.0}); // rougher → no harsh glare
   laneGlow.push(laneMat); laneMats.push(laneMat);
   const lane=new THREE.Mesh(new THREE.BoxGeometry(2*PLAY,4,LANE_LEN+80),laneMat);
   lane.position.set(xoff,-2,LANE_LEN/2-20); scene.add(lane);
 
   const sepLen=LANE_LEN+20, sepZ=sepLen/2;   // gutters/rails run from the foul line (z=0) to past the pins
-  const gutMat=new THREE.MeshStandardMaterial({color:0x11161f,roughness:0.6});
+  const gutMat=mkMat({color:0x11161f,roughness:0.6});
   const gw=GUT-PLAY;
   for(const s of [-1,1]){
     const gutter=new THREE.Mesh(new THREE.BoxGeometry(gw,6,sepLen),gutMat);
     gutter.position.set(xoff+s*(PLAY+gw/2),-5,sepZ); scene.add(gutter);
   }
-  const railMat=new THREE.MeshStandardMaterial({color:0x1b2231,roughness:0.5});
+  const railMat=mkMat({color:0x1b2231,roughness:0.5});
   for(const s of [-1,1]){
     const rail=new THREE.Mesh(new THREE.BoxGeometry(3,10,sepLen),railMat);
     rail.position.set(xoff+s*(GUT+1.5),-1,sepZ); scene.add(rail);
   }
   // aiming arrows + approach dots + foul line (on every lane)
-  const markMat=new THREE.MeshStandardMaterial({color:0x3a230c,roughness:0.75});
+  const markMat=mkMat({color:0x3a230c,roughness:0.75});
   for(let a=-3;a<=3;a++){
     const sh=new THREE.Shape(); sh.moveTo(0,4); sh.lineTo(-2.4,-3); sh.lineTo(2.4,-3); sh.closePath();
     const arw=new THREE.Mesh(new THREE.ShapeGeometry(sh),markMat);
@@ -461,11 +479,11 @@ function addLaneStrip(xoff,deco){
     const dot=new THREE.Mesh(new THREE.CircleGeometry(1.6,16),markMat);
     dot.rotation.x=-Math.PI/2; dot.position.set(xoff+a*5.06,0.1,84); scene.add(dot);
   }
-  const flMat=new THREE.MeshStandardMaterial({color:0xf2f2f2,roughness:0.6});
+  const flMat=mkMat({color:0xf2f2f2,roughness:0.6});
   const fl=new THREE.Mesh(new THREE.BoxGeometry(2*PLAY,0.3,1.5),flMat);
   fl.position.set(xoff,0.15,2); scene.add(fl);
 
-  if(deco){ for(const p of pinLayout()){ const m=makePinObject(true); m.position.set(p.ox+xoff,0,p.oy); scene.add(m); } }
+  if(deco && !PERF){ for(const p of pinLayout()){ const m=makePinObject(true); m.position.set(p.ox+xoff,0,p.oy); scene.add(m); } }  // no decorative neighbor pins in low graphics
 }
 
 
@@ -477,13 +495,13 @@ function makePinObject(deco){
     [0.98,11.3],[1.12,12.1],[1.22,12.9],[1.16,13.5],[0.95,14.0],[0.68,14.4],
     [0.40,14.72],[0.16,14.92],[0.0,15.0]
   ].map(p=>new THREE.Vector2(p[0],p[1]));
-  const bodyMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.45,metalness:0.02,side:THREE.DoubleSide});
+  const bodyMat=mkMat({color:0xffffff,roughness:0.45,metalness:0.02,side:(PERF?THREE.FrontSide:THREE.DoubleSide)});
   pinGlow.push(bodyMat);
-  const body=new THREE.Mesh(new THREE.LatheGeometry(pts, deco?12:24),bodyMat);   // fewer segments for distant decorative pins
+  const body=new THREE.Mesh(new THREE.LatheGeometry(pts, (deco||PERF)?12:24),bodyMat);   // fewer segments for distant/decorative pins (and all pins in perf)
   const grp=new THREE.Group(); grp.add(body);
   // red neck rings — only on the playable pins (decorative ones skip them to cut draw calls)
   if(!deco){
-    const ringMat=new THREE.MeshStandardMaterial({color:0xe23b30,roughness:0.45});
+    const ringMat=mkMat({color:0xe23b30,roughness:0.45});
     for(const y of [10.3,11.1]){
       const ring=new THREE.Mesh(new THREE.TorusGeometry(0.98,0.16,8,18),ringMat);
       ring.rotation.x=Math.PI/2; ring.position.y=y; grp.add(ring);
@@ -497,13 +515,13 @@ function buildPinMeshes(){
 
 function buildBallMesh(){
   const grp=new THREE.Group();
-  ballMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.28,metalness:0.15});
+  ballMat=mkMat({color:0xffffff,roughness:0.28,metalness:0.15});
   const be=ballEntry(settings.ball);
   ballMat.map=loadTex(TEX+be.file, ()=>{ ballMat.needsUpdate=true; });
   ballLight=new THREE.PointLight(0x1dff5a,0,170,1.6);   // travels with the ball; lit only for the Glow ball
   grp.add(ballLight);
   if(be.glow){ ballMat.emissive.set(be.glow); ballMat.emissiveIntensity=1.3; ballLight.color.set(be.glow); ballLight.intensity=1.8; }
-  const sphere=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,48,36),ballMat);
+  const sphere=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,PERF?20:48,PERF?14:36),ballMat);
   grp.add(sphere);
   ballMesh=grp; scene.add(grp);
 }
@@ -530,9 +548,9 @@ function buildReturnUnit(cx){
 }
 function buildReturns(){
   const chans=[-190,-114,-38,38,114];            // right-side channel of each of the 5 lanes
-  const railMat=new THREE.MeshStandardMaterial({color:0x2a2e36,roughness:0.7,metalness:0.3});
-  const trayMat=new THREE.MeshStandardMaterial({color:0x3a3f49,roughness:0.6,metalness:0.35});
-  rackBodyMat=new THREE.MeshStandardMaterial({color:themeById(settings.theme).sep.base,roughness:0.6});   // match the between-lane color
+  const railMat=mkMat({color:0x2a2e36,roughness:0.7,metalness:0.3});
+  const trayMat=mkMat({color:0x3a3f49,roughness:0.6,metalness:0.35});
+  rackBodyMat=mkMat({color:themeById(settings.theme).sep.base,roughness:0.6});   // match the between-lane color
   const railLen=LANE_LEN+20;
   for(const cx of chans){
     for(const s of [-1,1]){                       // two rails ~just wider than the ball → narrows the channel
@@ -543,7 +561,7 @@ function buildReturns(){
     ramp.position.set(cx,-2,752); ramp.rotation.x=-0.18; scene.add(ramp);
     buildReturnUnit(cx);
   }
-  returnBall=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,32,24),ballMat); returnBall.visible=false; scene.add(returnBall);   // only the player's ball rides back
+  returnBall=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,PERF?16:32,PERF?12:24),ballMat); returnBall.visible=false; scene.add(returnBall);   // only the player's ball rides back
   returnLight=new THREE.PointLight(0x1dff5a,0,170,1.6); returnBall.add(returnLight);   // glow travels with the return ball too
   { const e=ballEntry(settings.ball); returnLight.color.set(e.glow||0xffffff); returnLight.intensity=e.glow?1.8:0; }
 }
@@ -1047,11 +1065,11 @@ function bindInput(){
 // ═══════════════════════════════════════════════════════
 function buildBumpers(){
   bumperGroup=new THREE.Group();
-  const mat=new THREE.MeshStandardMaterial({color:0xff4488,roughness:0.95,metalness:0.0,emissive:0x330011,emissiveIntensity:0.25});
+  const mat=mkMat({color:0xff4488,roughness:0.95,metalness:0.0,emissive:0x330011,emissiveIntensity:0.25});
   const r=(GUT-PLAY)/2;                               // fills the gutter width exactly, no wider
   const len=PIN_BASE;                                 // run the full length to the pin deck
   for(const s of [-1,1]){
-    const tube=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,16),mat);
+    const tube=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,PERF?8:16),mat);
     tube.rotation.x=Math.PI/2;                        // lie along the lane
     tube.position.set(s*(PLAY+r),3,len/2);            // centered in the gutter (inner edge ≈ PLAY, outer ≈ GUT)
     bumperGroup.add(tube);
@@ -1079,7 +1097,7 @@ function applyTheme(id){
   if(laneMats.length){ regenWood(t.wood); regenSep(t.sep);      // live re-tint if the scene is built
     (t.stripes||[]).forEach((c,i)=>{ if(stripeMats[i]){ stripeMats[i].color.setHex(c); stripeMats[i].needsUpdate=true; } });
     applyWallMat(t);
-    stripeMeshes.forEach(m=>m.visible=!settings.cosmic); }
+    { const hs=(t.stripes&&t.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic); } }
   if(settings.cosmic && !wasCosmic){ settings._ballBefore=settings.ball; applyBall('glow'); }   // cosmic → glow ball
   else if(!settings.cosmic && wasCosmic){ applyBall(settings._ballBefore||'blue'); }            // leaving cosmic → restore
   applyMural(settings.cosmic?'cosmic.png':t.mural);
@@ -1098,12 +1116,14 @@ function applyCosmic(){
   }
   if(on && !cosmicLights){
     cosmicLights=new THREE.Group();
-    // low, side-grazing accents (kept low so they don't flood the lane like an overhead light)
-    const mag =new THREE.PointLight(0xd020ff,0.8,900); mag.position.set(-160,45,260);   // magenta accent
-    const cyan=new THREE.PointLight(0x18d0ff,0.8,900); cyan.position.set(160,45,540);    // cyan accent
-    // (4) blacklight aimed at the mural (up at the wall, not over the lane)
-    const uv  =new THREE.PointLight(0x8a4bff,1.4,1500); uv.position.set(0,120,LANE_LEN+8);
-    cosmicLights.add(mag,cyan,uv);
+    if(!PERF){   // perf: drop the extra point lights (biggest cosmic cost), keep the neon strips below
+      // low, side-grazing accents (kept low so they don't flood the lane like an overhead light)
+      const mag =new THREE.PointLight(0xd020ff,0.8,900); mag.position.set(-160,45,260);   // magenta accent
+      const cyan=new THREE.PointLight(0x18d0ff,0.8,900); cyan.position.set(160,45,540);    // cyan accent
+      // (4) blacklight aimed at the mural (up at the wall, not over the lane)
+      const uv  =new THREE.PointLight(0x8a4bff,1.4,1500); uv.position.set(0,120,LANE_LEN+8);
+      cosmicLights.add(mag,cyan,uv);
+    }
     // (5) long thin green light strips running along the border rails of every lane
     const stripMat=new THREE.MeshBasicMaterial({color:0x2bff77});
     const stripLen=PIN_BASE-40, stripGeo=new THREE.BoxGeometry(1.6,1.2,stripLen);
@@ -1128,7 +1148,16 @@ function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return; c
   ballMat.emissive.set(e.glow||0x000000); ballMat.emissiveIntensity=e.glow?1.3:1; ballMat.needsUpdate=true;
   if(ballLight){ ballLight.color.set(e.glow||0xffffff); ballLight.intensity=e.glow?1.8:0; }
   if(returnLight){ returnLight.color.set(e.glow||0xffffff); returnLight.intensity=e.glow?1.8:0; } }
-function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;}); } }
+// size the mural plane to the loaded image's aspect (keeps its base at y≈20, no vertical squish)
+function fitMural(tex){
+  if(!muralPlane) return;
+  const img=tex&&tex.image, asp=(img&&img.width&&img.height)?img.width/img.height:5.569;
+  const VW=muralWallW, h=muralH0;              // fixed banner height (= 1960s banner height)
+  const r=VW/(h*asp);                          // horizontal repeats to fill the wall at that height (no squish)
+  muralPlane.scale.set(VW,h,1); muralPlane.position.y=20+h/2;
+  const m=muralMat.map; if(m){ m.wrapS=THREE.RepeatWrapping; m.repeat.set(r,1); m.offset.x=-((r-1)/2); m.needsUpdate=true; }  // center so any partial tiles split evenly
+}
+function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;fitMural(t);}); } }
 function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
 // optimized-quality mode: lower the retina pixel ratio (big win on older tablets like a 2020 iPad)
 function applyQuality(){
@@ -1137,12 +1166,23 @@ function applyQuality(){
   renderer.setPixelRatio(settings.optimized ? Math.min(1.0,dpr) : Math.min(1.5,dpr));
   lastW=lastH=0; resize();                 // force the size to re-apply at the new pixel ratio
 }
-function setOptimized(on){ settings.optimized=on; saveSettings(); applyQuality(); }
+function setOptimized(on){ settings.optimized=on; saveSettings(); saveGame();
+  try{ if(phase!=='menu') sessionStorage.setItem('justbowl_resume','1'); sessionStorage.setItem('justbowl_opensettings','1'); }catch(e){}   // skip title + reopen settings on reload
+  location.reload(); }  // rebuild the scene with perf settings (game resumes from session)
 // persist selections
 function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,optimized:settings.optimized,_ballBefore:settings._ballBefore})); }catch(e){} }
 function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
 function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
 function highlightTheme(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme)); }
+// center each horizontal strip on its currently-selected tile (call after the modal is visible)
+function scrollToSelections(){
+  for(const id of ['ballGrid','muralGrid']){
+    const c=document.getElementById(id); if(!c) continue;
+    const sel=c.querySelector('.tile.selected'); if(!sel) continue;
+    const cr=c.getBoundingClientRect(), sr=sel.getBoundingClientRect();
+    c.scrollLeft += (sr.left-cr.left) - (c.clientWidth-sel.offsetWidth)/2;
+  }
+}
 function setupSettings(){
   loadSettings();
   settings.cosmic = !!themeById(settings.theme).cosmic;                                 // cosmic is now a theme
@@ -1168,19 +1208,19 @@ function setupSettings(){
   const placeCtrls=()=>{ document.getElementById('cog').style.top='6vh'; muteBtn.style.top='6vh'; };
   placeCtrls(); window.addEventListener('resize',placeCtrls);
   const modal=document.getElementById('settings');
-  document.getElementById('cog').addEventListener('click',()=>modal.classList.add('open'));
+  document.getElementById('cog').addEventListener('click',()=>{ modal.classList.add('open'); requestAnimationFrame(scrollToSelections); });
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });   // click backdrop to close
   const bumpBtn=document.getElementById('setBumpers');
   const optBtn=document.getElementById('setOpt');
   function refreshToggles(){
     bumpBtn.classList.toggle('on',settings.bumpers); bumpBtn.textContent='Bumpers: '+(settings.bumpers?'On':'Off');
-    optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Optimized quality: '+(settings.optimized?'On':'Off');
+    optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Low graphics: '+(settings.optimized?'On':'Off');
   }
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
   optBtn.addEventListener('click',()=>{ setOptimized(!settings.optimized); refreshToggles(); });
-  document.getElementById('setFreecam').addEventListener('click',()=>{ modal.classList.remove('open'); toggleFreecam(); });
+  // free-cam is still available for debugging via the F key (toggleFreecam)
   document.getElementById('newGameBtn').addEventListener('click',()=>{
     clearGame(); getAC(); initSfx(); newGame(); phase='aim';
     document.getElementById('ov').classList.remove('show');   // dismiss the title overlay
@@ -1201,6 +1241,11 @@ initScene(); bindInput();
 const sg=loadGame();
 if(sg && Array.isArray(sg.rolls) && (sg.frame|0)<10) resumeGame(sg); else newGame();
 phase='menu';                        // gate input until START (overlay shown over the lanes)
+// if we just reloaded to apply a settings change, skip the title and drop straight back into play
+if(sessionStorage.getItem('justbowl_resume')){ sessionStorage.removeItem('justbowl_resume');
+  document.getElementById('ov').classList.remove('show'); phase='aim'; }
+if(sessionStorage.getItem('justbowl_opensettings')){ sessionStorage.removeItem('justbowl_opensettings');
+  document.getElementById('settings').classList.add('open'); requestAnimationFrame(scrollToSelections); }   // reopen settings after a low-graphics reload
 requestAnimationFrame(t=>{lastT=t;loop(t);});
 </script>
 </body>
