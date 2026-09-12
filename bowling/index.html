@@ -52,12 +52,12 @@ a.back{color:#67769c;font-size:.8rem;text-decoration:none;margin-top:8px;}
 a.back:hover{color:#9fb0d8;}
 #cog{position:fixed;left:12px;top:6vh;z-index:25;border:none;background:none;color:#cfd8ea;
   display:flex;align-items:center;justify-content:center;height:1em;font-size:4em;line-height:1;padding:0;
-  opacity:0.5;cursor:pointer;transition:transform .15s,opacity .15s;}
-#cog:hover{opacity:0.85;transform:rotate(45deg);}
+  opacity:0.9;cursor:pointer;transition:transform .15s,opacity .15s;}
+#cog:hover{opacity:1;transform:rotate(45deg);}
 #mute{position:fixed;right:12px;top:6vh;z-index:25;border:none;background:none;color:#cfd8ea;
   display:flex;align-items:center;justify-content:center;height:1em;font-size:4em;line-height:1;padding:0;
-  opacity:0.5;cursor:pointer;transition:opacity .15s;}
-#mute:hover{opacity:0.85;}
+  opacity:0.9;cursor:pointer;transition:opacity .15s;}
+#mute:hover{opacity:1;}
 #mute svg,#cog svg{width:0.8em;height:0.8em;display:block;}
 #settings{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
   background:rgba(2,4,8,.62);}
@@ -163,6 +163,15 @@ const THEMES=[
   {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], wall:0x181d2a, wallTex:'cosmic-walls.jpg', wallRepeat:[2,0.67], wallEmissive:0.35, cosmic:true,
     bg:0x000208, hemi:[0x3a4a80,0x101830,0.0], key:[0x223060,0.0], fill:[0x223060,0.0], pin:0.0,
     ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}, stripes:[0x2bff77,0x18d0ff,0xd020ff]},
+  {id:'halloween',label:'Halloween',mural:'halloween.jpg', wood:['#5a3d24','#6f4a2c','#43301c'], wall:0x1f3e59, pinGlowColor:0x33dd55,   // spooky night: dark-navy walls, orange trim, eerie green-glow pins
+    bg:0x08060f, hemi:[0x9a7bd0,0x120a1e,0.70], key:[0xffb060,0.50], fill:[0x6a4a9a,0.25], pin:0.30,
+    sep:{base:0xf57f20,speckle:[0x5e336e,0xb76f2a,0x8ad08a]}, stripes:[]},
+  {id:'aughts',   label:'2000s',   mural:'2000s.jpg',  wood:['#7f6b50','#927e62','#68543c'], wall:0x9b9a9f,   // Y2K: silver-grey walls, teal trim (sampled)
+    bg:0x121316, hemi:[0xe8ecf2,0x2c2e33,0.95], key:[0xf2f6ff,0.50], fill:[0xc9d2de,0.30], pin:0.30,
+    sep:{base:0x3da493,speckle:[0x4181c9,0x6626ae,0xcfd2d6]}, stripes:[0x4181c9,0x6626ae,0x3da493]},   // Y2K blue/purple/teal
+  {id:'nineties', label:'1990s',   mural:'1990s.jpg',  wood:['#8b6b41','#9c7d4e','#74562f'], wall:0x78c7c1,   // teal walls, lavender trim (sampled)
+    bg:0x14181a, hemi:[0xeaf2f0,0x2e3634,0.95], key:[0xfff4e6,0.55], fill:[0xdfeae8,0.32], pin:0.30,
+    sep:{base:0xb39bcb,speckle:[0x9ce3ab,0x8f6fb0,0xe1d0b8]}, stripes:[0xb39bcb,0x9ce3ab,0xe1d0b8]},   // memphis lavender/green/cream
   {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0xf6e7b5,
     bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
     ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
@@ -434,20 +443,22 @@ function buildLane(){
   back.position.set(0,110,LANE_LEN+40); scene.add(back);                   // solid wall behind the mural
   const ceil=new THREE.Mesh(new THREE.BoxGeometry(2*spanX,6,roomLen),roomMat);
   ceil.position.set(0,215,roomCz); scene.add(ceil);                        // ceiling
-  // themed horizontal stripes on the side walls, at the mural's level, full wall length
-  const th0=themeById(settings.theme);
-  const stripeCols=(th0.stripes&&th0.stripes.length)?th0.stripes:[0xefb241,0x054f9b,0xcc4c33];  // always build 3 (toggled per theme)
-  stripeMats=stripeCols.map(c=>mkMat({color:c,roughness:0.7}));
-  stripeMeshes=[];
-  const sh=muralH/stripeMats.length;
-  for(const s of [-1,1]){
-    for(let i=0;i<stripeMats.length;i++){
-      const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
-      st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
-      st.position.set(s*(spanX-4.02), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
+  // themed horizontal stripes on the side walls, at the mural's level, full wall length (skipped in low graphics)
+  stripeMats=[]; stripeMeshes=[];
+  if(!PERF){
+    const th0=themeById(settings.theme);
+    const stripeCols=(th0.stripes&&th0.stripes.length)?th0.stripes:[0xefb241,0x054f9b,0xcc4c33];  // always build 3 (toggled per theme)
+    stripeMats=stripeCols.map(c=>mkMat({color:c,roughness:0.7}));
+    const sh=muralH/stripeMats.length;
+    for(const s of [-1,1]){
+      for(let i=0;i<stripeMats.length;i++){
+        const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
+        st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
+        st.position.set(s*(spanX-4.02), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
+      }
     }
+    const hs=(th0.stripes&&th0.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic);   // hide when a theme has no stripes (or cosmic)
   }
-  { const hs=(th0.stripes&&th0.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic); }   // hide when a theme has no stripes (or cosmic)
 }
 
 // One lane strip: wood bed (extends under the pins), gutters, rails, and — for
@@ -1139,7 +1150,9 @@ function applyCosmic(){
   if(cosmicLights) cosmicLights.visible=on;
   // glows: lanes deep blue, (3) pins inner green, (2) ball inner blue
   for(const m of laneGlow){ if(m&&m.emissive){ m.emissive.set(on?0x0a1e5a:0x000000); m.emissiveIntensity=on?0.7:1; m.needsUpdate=true; } }
-  for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(on?0x1a9e46:0x000000); m.emissiveIntensity=on?0.9:1; m.needsUpdate=true; } }
+  // pins: green in cosmic, or a per-theme pin glow (e.g. Halloween) when not cosmic
+  const pg = on ? 0x1a9e46 : (themeById(settings.theme).pinGlowColor||0x000000);
+  for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(pg); m.emissiveIntensity=(pg?0.9:1); m.needsUpdate=true; } }
   // (4) blacklight tint on the mural (MeshBasic ignores lights, so tint its color)
   if(muralMat) muralMat.color.set(on?0x8f9cff:0xffffff);
 }
