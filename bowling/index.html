@@ -629,28 +629,31 @@ window.addEventListener('resize',()=>{ if(renderer) resize(); });
 // HTMLMediaElement seizes the exclusive "playback" audio session and stops the
 // user's background music; Web Audio uses a mixable session, and we explicitly
 // request the "ambient" session so background audio (Spotify, podcasts…) keeps playing.
-let _ac=null, master=null, rollSrc=null, rollGain=null, _muted=false;
+let _ac=null, master=null, rollSrc=null, rollGain=null, _muted=false, _sfxInit=false;
 const BUFFERS={};
 const SFX_FILES={ roll:'roll.mp3', hit:'hit.mp3', strike:'strike.mp3', spare:'spare.mp3' };
+function newCtx(){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  _ac=new AC({latencyHint:'interactive'});             // low output latency → less audible lag on mobile
+  master=_ac.createGain(); master.gain.value=_muted?0:1; master.connect(_ac.destination);
+  try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}   // mix with background audio
+  if(_ac.addEventListener) _ac.addEventListener('statechange',()=>{ if(_ac && _ac.state!=='running' && _ac.state!=='closed' && _ac.resume) _ac.resume().catch(()=>{}); });
+  rollSrc=null; rollGain=null;
+  _sfxInit=false; initSfx();                            // (re)decode buffers into this context
+}
 function getAC(){
-  if(!_ac){
-    _ac=new (window.AudioContext||window.webkitAudioContext)();
-    master=_ac.createGain(); master.gain.value=_muted?0:1; master.connect(_ac.destination);
-    // request a mixable session ONCE (iOS 16.4+): keeps the user's background audio playing,
-    // and avoids re-setting it repeatedly, which can interrupt our own context.
-    try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}
-  }
-  if(_ac.state!=='running' && _ac.resume) _ac.resume().catch(()=>{});
+  // iOS can leave the context 'interrupted' (screen lock / another app / returning to the tab) where
+  // resume() never recovers — rebuild it instead. getAC runs from user gestures, so a rebuild can start audio.
+  if(!_ac || _ac.state==='closed' || _ac.state==='interrupted'){ try{ if(_ac) _ac.close(); }catch(e){} newCtx(); }
+  else if(_ac.state!=='running' && _ac.resume){ _ac.resume().catch(()=>{}); }
   return _ac;
 }
-// iOS suspends/interrupts the context whenever another app grabs audio focus; the only prior
-// resume was on START, so it stayed silent once interrupted. Recover on any interaction.
-function resumeAudio(){ if(_ac && _ac.state!=='running' && _ac.resume){ try{ _ac.resume(); }catch(e){} } }
-['pointerdown','touchend','visibilitychange'].forEach(ev=>window.addEventListener(ev,resumeAudio,{passive:true}));
-let _sfxInit=false;
+// any interaction (or returning to the tab) recovers the context — resume, or rebuild if interrupted
+function resumeAudio(){ if(_ac) getAC(); }
+['pointerdown','touchend','visibilitychange','focus','pageshow'].forEach(ev=>window.addEventListener(ev,resumeAudio,{passive:true}));
 function initSfx(){
   if(_sfxInit) return; _sfxInit=true;
-  const ac=getAC();
+  const ac=_ac||getAC();
   for(const name in SFX_FILES){
     fetch(SFX+SFX_FILES[name])
       .then(r=>r.ok?r.arrayBuffer():Promise.reject())
