@@ -62,6 +62,15 @@ a.back:hover{color:#9fb0d8;}
 #settings{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
   background:rgba(2,4,8,.62);}
 #settings.open{display:flex;}
+#builder{position:fixed;inset:0;z-index:27;display:none;align-items:center;justify-content:center;background:rgba(2,4,8,.66);}
+#builder.open{display:flex;}
+#builder .row{display:flex;gap:10px;align-items:flex-end;}
+#builder .row>label{flex:1;}
+#builder input[type=color]{width:100%;height:30px;border:1px solid #33405a;border-radius:6px;background:#1a2130;cursor:pointer;padding:2px;}
+#builder input[type=range]{width:100%;}
+#builder input[type=number]{width:100%;background:#1a2130;color:#fff;border:1px solid #33405a;border-radius:6px;padding:5px 6px;font-size:.82rem;}
+#builder #tbStripe0,#builder #tbStripe1,#builder #tbStripe2{flex:1;}
+#builder textarea{width:100%;height:110px;font:600 .68rem/1.4 monospace;background:#0c0f16;color:#bfe;border:1px solid #33405a;border-radius:6px;padding:6px;resize:vertical;}
 .modal-card{width:min(94vw,480px);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:16px;
   background:rgba(14,18,28,.98);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px;
   box-shadow:0 24px 60px rgba(0,0,0,.6);}
@@ -108,7 +117,25 @@ a.back:hover{color:#9fb0d8;}
     <div class="sec"><div class="sec-label">Theme</div><div id="muralGrid" class="grid mural"></div></div>
     <button class="toggle" id="setBumpers"></button>
     <button class="toggle" id="setOpt"></button>
+    <button class="toggle" id="openBuilder">Theme Builder (dev)</button>
     <button class="toggle" id="newGameBtn">New Game</button>
+  </div>
+</div>
+<div id="builder">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Theme Builder</h3><button id="builderClose" aria-label="Close">✕</button></div>
+    <label>Mural<select id="tbMural"></select></label>
+    <label>Wood base color<input type="color" id="tbWood"></label>
+    <div class="row"><label>Lighting color<input type="color" id="tbLight"></label><label>Intensity<input type="range" id="tbLightInt" min="0" max="1.5" step="0.05"></label></div>
+    <label>Wall color<input type="color" id="tbWall"></label>
+    <label>Highlight / trim color<input type="color" id="tbTrim"></label>
+    <label>Ball return color<input type="color" id="tbReturn"></label>
+    <label class="chk"><input type="checkbox" id="tbStripes"> Stripes</label>
+    <div class="row" id="tbStripeRow"><input type="color" id="tbStripe0"><input type="color" id="tbStripe1"><input type="color" id="tbStripe2"></div>
+    <label>Wall texture<select id="tbWallTex"></select></label>
+    <div class="row"><label>Repeat X<input type="number" id="tbRepX" min="0.25" step="0.25"></label><label>Repeat Y<input type="number" id="tbRepY" min="0.25" step="0.25"></label></div>
+    <button class="toggle" id="tbExport">Export JSON</button>
+    <textarea id="tbJson" readonly placeholder="Export JSON appears here — paste it into themes.json as a new entry (add a comma between entries) and give it a real id/label."></textarea>
   </div>
 </div>
 <div id="stage"></div>
@@ -124,6 +151,24 @@ a.back:hover{color:#9fb0d8;}
 // ═══════════════════════════════════════════════════════
 //  REGULATION DIMENSIONS (inches) — courtdimensions.net / USBC
 // ═══════════════════════════════════════════════════════
+// surface errors on-screen instead of a silent black screen
+let _fatalShown=false;
+function showFatal(err){
+  try{ console.error(err); }catch(e){}
+  if(_fatalShown) return; _fatalShown=true;
+  try{ const ov=document.getElementById('ov'); if(ov){ ov.classList.add('show');
+    const p=ov.querySelector('p'); if(p) p.textContent='\u26a0 '+((err&&(err.message||err))+'').slice(0,200); } }catch(e){}
+}
+function scrollToSelections(){
+  for(const id of ['ballGrid','muralGrid']){
+    const c=document.getElementById(id); if(!c) continue;
+    const sel=c.querySelector('.tile.selected'); if(!sel) continue;
+    const cr=c.getBoundingClientRect(), sr=sel.getBoundingClientRect();
+    c.scrollLeft += (sr.left-cr.left) - (c.clientWidth-sel.offsetWidth)/2;
+  }
+}
+window.addEventListener('error',e=>showFatal(e.error||e.message));
+window.addEventListener('unhandledrejection',e=>showFatal(e.reason));
 const LANE_LEN=760;              // foul line → past pin deck (head pin at 720" = 60 ft)
 const PLAY=20.75, GUT=30.0;      // playable half-width (41.5" lane) / gutter outer
 const BALL_R=4.25, PIN_R=2.383;  // ball Ø8.5" ; pin waist Ø4.766"
@@ -133,7 +178,7 @@ const LANE_PITCH=2*GUT+16;                         // center-to-center spacing t
 const NEIGH_LANES=2;                               // decorative lanes on EACH side (fewer = better perf)
 
 // asset folders (served over http:// — run serve.command)
-const IMG='images/', TEX='textures/', SFX='sfx/';
+const IMG='images/', TEX='textures/', SFX='sfx/', WALLTEX='walls/';
 
 // selectable balls (id, label, texture file, optional always-on emissive glow color)
 const BALL_TEXTURES=[
@@ -156,39 +201,9 @@ const BALL_TEXTURES=[
 function ballEntry(id){ return BALL_TEXTURES.find(b=>b.id===id)||BALL_TEXTURES[0]; }
 // decade themes: wood palette (3 gradient stops), room background, and light moods.
 // hemi:[sky,ground,intensity]  key:[color,intensity]  fill:[color,intensity]  pin:intensity
-const THEMES=[
-  {id:'classic',  label:'Classic', mural:'default.png', wood:['#b57a34','#cf9147','#a06a2a'], wall:0x6b6f76,
-    bg:0x090c13, hemi:[0xbfd4ff,0x39302a,0.90], key:[0xfff2d8,0.50], fill:[0x88aaff,0.35], pin:0.30,
-    ret:{body:0xc7ccd2, accent:0x1fb6c6, rough:0.40, metal:0.55}, sep:{base:0x24272f,speckle:[0x3a3f4a,0x565d6b]}, stripes:[0xefb241,0x054f9b,0xcc4c33]},
-  {id:'cosmic',   label:'Cosmic',  mural:'cosmic.png', wood:['#39476a','#495f8c','#2d3b58'], wall:0x181d2a, wallTex:'cosmic-walls.jpg', wallRepeat:[2,0.67], wallEmissive:0.35, cosmic:true,
-    bg:0x000208, hemi:[0x3a4a80,0x101830,0.0], key:[0x223060,0.0], fill:[0x223060,0.0], pin:0.0,
-    ret:{body:0x141824, accent:0x2bff77, rough:0.5, metal:0.2, emissive:0x2bff77}, sep:{base:0x05060e,speckle:[0x2bff77,0x18d0ff,0xd020ff]}, stripes:[0x2bff77,0x18d0ff,0xd020ff]},
-  {id:'halloween',label:'Halloween',mural:'halloween.jpg', wood:['#5a3d24','#6f4a2c','#43301c'], wall:0x1f3e59, pinGlowColor:0x33dd55,   // spooky night: dark-navy walls, orange trim, eerie green-glow pins
-    bg:0x08060f, hemi:[0x9a7bd0,0x120a1e,0.70], key:[0xffb060,0.50], fill:[0x6a4a9a,0.25], pin:0.30,
-    sep:{base:0xf57f20,speckle:[0x5e336e,0xb76f2a,0x8ad08a]}, stripes:[]},
-  {id:'aughts',   label:'2000s',   mural:'2000s.jpg',  wood:['#7f6b50','#927e62','#68543c'], wall:0x9b9a9f,   // Y2K: silver-grey walls, teal trim (sampled)
-    bg:0x121316, hemi:[0xe8ecf2,0x2c2e33,0.95], key:[0xf2f6ff,0.50], fill:[0xc9d2de,0.30], pin:0.30,
-    sep:{base:0x3da493,speckle:[0x4181c9,0x6626ae,0xcfd2d6]}, stripes:[0x4181c9,0x6626ae,0x3da493]},   // Y2K blue/purple/teal
-  {id:'nineties', label:'1990s',   mural:'1990s.jpg',  wood:['#8b6b41','#9c7d4e','#74562f'], wall:0x78c7c1,   // teal walls, lavender trim (sampled)
-    bg:0x14181a, hemi:[0xeaf2f0,0x2e3634,0.95], key:[0xfff4e6,0.55], fill:[0xdfeae8,0.32], pin:0.30,
-    sep:{base:0xb39bcb,speckle:[0x9ce3ab,0x8f6fb0,0xe1d0b8]}, stripes:[0xb39bcb,0x9ce3ab,0xe1d0b8]},   // memphis lavender/green/cream
-  {id:'eighties', label:'1980s',   mural:'1980s.png',  wood:['#c2915a','#d8ab73','#a87c4c'], wall:0xf6e7b5,
-    bg:0x0a0e16, hemi:[0xd6e6ff,0x363b46,0.72], key:[0xeef4ff,0.42], fill:[0x9fb8ff,0.30], pin:0.30,
-    ret:{body:0x1b1f2a, accent:0xff2bd0, rough:0.50, metal:0.20, emissive:0xff2bd0}, sep:{base:0x0c0f16,speckle:[0xff2bd0,0x18d0ff,0x2bff77,0xffe11a]}, stripes:[0xff2bd0,0x18d0ff,0x2bff77]},
-  {id:'seventies',label:'1970s',   mural:'1970s.png',  wood:['#7f562a','#9b6931','#654321'], wall:0x7d8a3c,
-    bg:0x130f0a, hemi:[0xfaebd0,0x2b2116,0.90], key:[0xf9e5c8,0.74], fill:[0xf5cfa4,0.32], pin:0.35,
-    ret:{body:0x6f4420, accent:0xd79a20, rough:0.70, metal:0.05}, sep:{base:0x5c1e24,speckle:[0x7a2c33,0x431319,0xc0912e,0x8a4a1e]}, stripes:[0xd79a20,0x8a3a1e,0x5c1e24]},
-  // ── no stripes on the mid-century themes (doesn't fit the aesthetic) ──
-  {id:'sixties',  label:'1960s',   mural:'1960s.png',  wood:['#b5813e','#d29a52','#976a2f'], wall:0xc8caa9,   // mod: honey oak, soft sage walls, teal trim
-    bg:0x15140f, hemi:[0xf1eee6,0x2e2a24,0.95], key:[0xfff3df,0.60], fill:[0xefe6d2,0.32], pin:0.30,
-    sep:{base:0x216371,speckle:[0x2c7a88,0x184a55,0x0f3b44]}, stripes:[]},
-  {id:'fifties',  label:'1950s',   mural:'1950s.png',  wood:['#8b6c42','#9d8154','#765930'], wall:0xffecb4,   // diner: deeper maple, banner-beige walls, cherry-red trim
-    bg:0x1a1712, hemi:[0xf4f0e8,0x35322c,1.00], key:[0xfff6ec,0.60], fill:[0xf0e6d2,0.34], pin:0.32,
-    sep:{base:0xc5301c,speckle:[0xd6483a,0x8f2115,0xe8e8ea]}, stripes:[]},
-  {id:'forties',  label:'1940s',   mural:'1940s.png',  wood:['#7a5326','#96682f','#5f4020'], wall:0xcdb489,   // classic: walnut + aged-tan walls, oxblood trim, warm dim light
-    bg:0x150f0a, hemi:[0xf0e2c8,0x2a2016,0.85], key:[0xf6e6c8,0.62], fill:[0xe6cfa8,0.30], pin:0.34,
-    sep:{base:0x5e2a24,speckle:[0x743630,0x40201c,0x7a5a2e]}, stripes:[]},
-];
+// Themes are loaded from themes.json at startup (see loadThemes() in the bootstrap).
+// Colors are stored as numbers there (JSON has no 0x literal); wood stays as CSS hex strings.
+let THEMES=[];
 function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
 // live settings
@@ -196,7 +211,7 @@ const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:fals
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
-const CURVE_ENABLED=false;            // false = no hook; ball travels straight along the release vector
+const CURVE_ENABLED=true;             // hook driven by ball.spin (set from the post-foul-line spin gesture)
 const CURVE_GAIN=7.0;                 // spin → lateral accel (in/s²)
 const CURVE_VREF=350;                 // curve gain is nominal at this speed; slower = more hook, faster = less
 const VY_FRICTION=0.085;             // more lane friction → ball slows toward pins so the hook builds at the back end
@@ -228,6 +243,7 @@ let pins=[], ball=null, phase='menu';
 let frame=0, ballInFrame=0, rolls=[], standing=[];
 let msgT=0, settleT=0, rumble=null, clattered=false;
 let dragging=false, samples=[];
+let crossed=false, _cx=0, _appLen=1;   // flick launched at the foul-line crossing; then curl → live spin
 let pulling=false, pStart=null, pPower=0, pLat=0;   // golf-style pull state
 
 function pinLayout(){ const P=[]; let id=0;
@@ -237,6 +253,7 @@ function pinLayout(){ const P=[]; let id=0;
 // ═══════════════════════════════════════════════════════
 //  THREE.JS SCENE
 // ═══════════════════════════════════════════════════════
+let PERF=false;   // Low graphics mode flag (set from settings.optimized at scene build)
 let renderer,scene,camera,ballMesh,pinMeshes=[],aimLine,raycaster,groundPlane,WOOD=null,fx,fxctx;
 let returnBall=null,ret=null,rackBodyMat=null,fromRack=false;  // surface ball-return: animated ball + anim state + themeable rack body + "ball waiting in cradle" flag
 const RET_CH=-38;                               // player's return runs on the player's RIGHT (screen-right = world -X)
@@ -244,7 +261,7 @@ const PAD_TOP=6, PAD_CZ=-31, PAD_LEN=34, PAD_W=13, RAMP_RUN=22;   // pad: top he
 const RACK_Y=PAD_TOP+BALL_R;                     // ball-center rest height on the pad
 const RACK_RZ=PAD_CZ-PAD_LEN/2+5;                // rest z, tucked against the back (bowler-side) ledge
 let lastW=0,lastH=0;
-let ballMat=null,muralMat=null,bumperGroup=null,ballLight=null,returnLight=null; // referenced by settings
+let ballMat=null,muralMat=null,bumperGroup=null,bumperMat=null,ballLight=null,returnLight=null; // referenced by settings
 let muralPlane=null,muralWallW=0,muralH0=145;   // back-wall mural: visible width, and the max (previous) tile height
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
@@ -252,15 +269,9 @@ let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[],stripeMesh
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
 const stage=document.getElementById('stage');
 
-// Performance mode: cheaper Lambert shading instead of PBR Standard (big win on old GPUs)
-let PERF=false;
-function mkMat(p){
-  if(PERF){ const q=Object.assign({},p); delete q.roughness; delete q.metalness; return new THREE.MeshLambertMaterial(q); }
-  return new THREE.MeshStandardMaterial(p);
-}
 function initScene(){
-  PERF=!!settings.optimized;
-  renderer=new THREE.WebGLRenderer({antialias:!PERF, precision:PERF?'mediump':'highp'});   // no MSAA + mediump in perf
+  PERF=!!settings.optimized;                                          // Low graphics mode: read once at scene build
+  renderer=new THREE.WebGLRenderer({antialias:!PERF, powerPreference:PERF?'low-power':'high-performance', precision:PERF?'mediump':'highp'});
   applyQuality();                                                     // pixel ratio per quality setting
   stage.appendChild(renderer.domElement);
   // 2D overlay for the drag-vector preview
@@ -278,14 +289,17 @@ function initScene(){
   hemiLight=new THREE.HemisphereLight(0xbfd4ff,0x39302a,HEMI0); scene.add(hemiLight);   // soft ambient fill
   keyLight=new THREE.DirectionalLight(0xfff2d8,KEY0);
   keyLight.position.set(120,440,280); scene.add(keyLight);      // high/far → smaller near hotspot
-  fillLight=new THREE.DirectionalLight(0x88aaff,FILL0); fillLight.position.set(-120,160,-160);
-  pinLight=new THREE.PointLight(0xffffff,PIN0,1100); pinLight.position.set(0,230,PIN_BASE+20);
-  if(!PERF){ scene.add(fillLight); scene.add(pinLight); }   // perf: fewer real-time lights
+  if(!PERF){                                                    // Low graphics: drop the fill + pin lights (hemi bumped to compensate)
+    fillLight=new THREE.DirectionalLight(0x88aaff,FILL0);
+    fillLight.position.set(-120,160,-160); scene.add(fillLight);
+    pinLight=new THREE.PointLight(0xffffff,PIN0,1100);
+    pinLight.position.set(0,230,PIN_BASE+20); scene.add(pinLight);
+  } else { hemiLight.intensity=HEMI0*1.25; keyLight.intensity=KEY0*1.15; }
 
   buildLane();
   buildBallMesh();
   buildPinMeshes();
-  if(!PERF) buildReturns();                       // surface ball-returns (dropped in low graphics; returnBall stays null → return anim skipped)
+  buildReturns();                                // surface ball-returns in the right channel of each lane
   buildBumpers();
   applyThemeLights(themeById(settings.theme));   // base wood/lights per theme
   applyCosmic();                                 // then apply cosmic override if enabled
@@ -314,13 +328,17 @@ function loadTex(url,onload){
 }
 // load a tileable texture: draw onto a power-of-two canvas so WebGL1 can RepeatWrap + mipmap
 // it even when the source image is NPOT (e.g. brick.png at 513×408).
-function loadTiledTex(url,repeat,cb){
-  const cap=PERF?512:1024;
+function loadTiledTex(url,repeat,cb,bgColor){
+  const cap=PERF?256:1024;   // Low graphics: cap wall texture at 256px
   const np2=v=>{ let p=1; while(p<v) p*=2; const lo=p/2; return Math.min(cap,(v-lo<p-v)?lo:p); };
   const img=new Image();
   img.onload=()=>{
     const c=document.createElement('canvas'); c.width=np2(img.width); c.height=np2(img.height);
-    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    const cx=c.getContext('2d');
+    // fill the wall color first so a semi-transparent texture (e.g. brick2.png) composites over it,
+    // letting the color tint show through the transparent areas
+    if(bgColor!=null){ cx.fillStyle=bgColor; cx.fillRect(0,0,c.width,c.height); }
+    cx.drawImage(img,0,0,c.width,c.height);
     const tx=new THREE.CanvasTexture(c);
     tx.wrapS=tx.wrapT=THREE.RepeatWrapping; tx.repeat.set(repeat[0],repeat[1]);
     tx.minFilter=THREE.LinearMipmapLinearFilter; tx.magFilter=THREE.LinearFilter; tx.generateMipmaps=true;
@@ -330,6 +348,13 @@ function loadTiledTex(url,repeat,cb){
   img.src=url;
 }
 
+// material factory: Standard (PBR) normally, cheap Lambert in Low graphics mode.
+// Lambert ignores roughness/metalness, so those keys are stripped when downgrading.
+function mkMat(p){
+  p=p||{};
+  if(PERF){ const q={}; for(const k in p){ if(k!=='roughness'&&k!=='metalness') q[k]=p[k]; } return new THREE.MeshLambertMaterial(q); }
+  return new THREE.MeshStandardMaterial(p);
+}
 function woodTexture(pal){
   pal=pal||['#a86a2a','#c2843a','#9c5f24'];
   const c=document.createElement('canvas'); c.width=PERF?128:256; c.height=PERF?512:1024; const g=c.getContext('2d');
@@ -372,9 +397,11 @@ function applyWallMat(t){
   if(t.wallTex && !PERF){
     // tiled image on the walls: lit via `map` (so the cosmic accent lights play across it),
     // with a low `emissiveMap` floor so it never sinks to full black under the dark lighting.
-    if(wallMat._texKey!==t.wallTex){
-      wallMat._texKey=t.wallTex;
-      loadTiledTex(IMG+t.wallTex, t.wallRepeat||[6,2], tx=>{ wallMat.map=tx; wallMat.emissiveMap=tx; wallMat.needsUpdate=true; });
+    const key=t.wallTex+'|'+c;   // recomposite when either the texture or the wall color changes
+    if(wallMat._texKey!==key){
+      wallMat._texKey=key;
+      const bg='#'+((c>>>0)&0xffffff).toString(16).padStart(6,'0');
+      loadTiledTex(WALLTEX+t.wallTex, t.wallRepeat||[6,2], tx=>{ wallMat.map=tx; wallMat.emissiveMap=tx; wallMat.needsUpdate=true; }, bg);
     }
     wallMat.color.setHex(0xffffff); wallMat.emissive.setHex(0xffffff);
     wallMat.emissiveIntensity=(t.wallEmissive!=null?t.wallEmissive:0.35);
@@ -418,13 +445,11 @@ function buildLane(){
   // Loaded from the file over http:// (run the local server); starts dark, swaps in on load.
   // single mural plane spanning the wall; height follows the image's real aspect (no squish),
   // rotated to face the camera so it isn't mirrored.
-  muralMat=new THREE.MeshBasicMaterial({color:0x05070c,side:(PERF?THREE.FrontSide:THREE.DoubleSide)});
+  muralMat=new THREE.MeshBasicMaterial({color:0x05070c,side:THREE.DoubleSide});
   muralWallW=2*(spanHalf+40)-8;   // width between the side walls, so the mural isn't cropped behind them
   muralPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),muralMat);
   muralPlane.rotation.y=Math.PI;
-  const naspect=1671/462, tileW0=wallW/Math.max(2,Math.round(wallW/(120*naspect)));
-  const muralH=tileW0/naspect;   // original stripe-band height (restores the previous stripe size/position)
-  muralH0=muralWallW/5.569;      // banner-area height = the 1960s banner's height (narrower banners tile to fill)
+  muralH0=muralWallW/5.569;   // banner-area height = the 1960s banner's height (narrower banners tile to fill)
   muralPlane.position.set(0,20,LANE_LEN+29.8); muralPlane.scale.set(muralWallW,muralH0,1); scene.add(muralPlane);
   loadTex(IMG+settings.mural, t=>{ muralMat.map=t; muralMat.color.set(0xffffff); muralMat.needsUpdate=true; fitMural(t); });
 
@@ -443,22 +468,21 @@ function buildLane(){
   back.position.set(0,110,LANE_LEN+40); scene.add(back);                   // solid wall behind the mural
   const ceil=new THREE.Mesh(new THREE.BoxGeometry(2*spanX,6,roomLen),roomMat);
   ceil.position.set(0,215,roomCz); scene.add(ceil);                        // ceiling
-  // themed horizontal stripes on the side walls, at the mural's level, full wall length (skipped in low graphics)
+  // themed horizontal stripes on the side walls, at the mural's level, full wall length
+  const th0=themeById(settings.theme);
+  const stripeCols=(th0.stripes&&th0.stripes.length)?th0.stripes:[0xefb241,0x054f9b,0xcc4c33];  // always build 3 (toggled per theme)
   stripeMats=[]; stripeMeshes=[];
-  if(!PERF){
-    const th0=themeById(settings.theme);
-    const stripeCols=(th0.stripes&&th0.stripes.length)?th0.stripes:[0xefb241,0x054f9b,0xcc4c33];  // always build 3 (toggled per theme)
-    stripeMats=stripeCols.map(c=>mkMat({color:c,roughness:0.7}));
-    const sh=muralH/stripeMats.length;
-    for(const s of [-1,1]){
-      for(let i=0;i<stripeMats.length;i++){
-        const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
-        st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
-        st.position.set(s*(spanX-4.02), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);
-      }
+  if(PERF){ return; }   // Low graphics: no decorative wall stripes (empty arrays keep the retint code safe)
+  stripeMats=stripeCols.map(c=>mkMat({color:c,roughness:0.7}));
+  const sh=muralH0/stripeMats.length;   // stripe band matches the mural banner height
+  for(const s of [-1,1]){
+    for(let i=0;i<stripeMats.length;i++){
+      const st=new THREE.Mesh(new THREE.PlaneGeometry(roomLen,sh*0.9),stripeMats[i]);
+      st.rotation.y = s>0 ? -Math.PI/2 : Math.PI/2;         // flat on the wall, facing the lanes
+      st.position.set(s*(spanX-4.6), 20+sh*(i+0.5), roomCz); scene.add(st); stripeMeshes.push(st);   // 0.6" off the wall face to avoid z-fighting
     }
-    const hs=(th0.stripes&&th0.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic);   // hide when a theme has no stripes (or cosmic)
   }
+  { const hs=(th0.stripes&&th0.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic); }   // hide when a theme has no stripes (or cosmic)
 }
 
 // One lane strip: wood bed (extends under the pins), gutters, rails, and — for
@@ -494,7 +518,7 @@ function addLaneStrip(xoff,deco){
   const fl=new THREE.Mesh(new THREE.BoxGeometry(2*PLAY,0.3,1.5),flMat);
   fl.position.set(xoff,0.15,2); scene.add(fl);
 
-  if(deco && !PERF){ for(const p of pinLayout()){ const m=makePinObject(true); m.position.set(p.ox+xoff,0,p.oy); scene.add(m); } }  // no decorative neighbor pins in low graphics
+  if(deco && !PERF){ for(const p of pinLayout()){ const m=makePinObject(true); m.position.set(p.ox+xoff,0,p.oy); scene.add(m); } }   // Low graphics: no decorative pin racks on neighbor lanes
 }
 
 
@@ -506,9 +530,9 @@ function makePinObject(deco){
     [0.98,11.3],[1.12,12.1],[1.22,12.9],[1.16,13.5],[0.95,14.0],[0.68,14.4],
     [0.40,14.72],[0.16,14.92],[0.0,15.0]
   ].map(p=>new THREE.Vector2(p[0],p[1]));
-  const bodyMat=mkMat({color:0xffffff,roughness:0.45,metalness:0.02,side:(PERF?THREE.FrontSide:THREE.DoubleSide)});
+  const bodyMat=mkMat({color:0xffffff,roughness:0.45,metalness:0.02,side:PERF?THREE.FrontSide:THREE.DoubleSide});
   pinGlow.push(bodyMat);
-  const body=new THREE.Mesh(new THREE.LatheGeometry(pts, (deco||PERF)?12:24),bodyMat);   // fewer segments for distant/decorative pins (and all pins in perf)
+  const body=new THREE.Mesh(new THREE.LatheGeometry(pts, deco?(PERF?8:12):(PERF?12:24)),bodyMat);   // fewer segments for distant decorative pins (and fewer still in Low graphics)
   const grp=new THREE.Group(); grp.add(body);
   // red neck rings — only on the playable pins (decorative ones skip them to cut draw calls)
   if(!deco){
@@ -532,7 +556,7 @@ function buildBallMesh(){
   ballLight=new THREE.PointLight(0x1dff5a,0,170,1.6);   // travels with the ball; lit only for the Glow ball
   grp.add(ballLight);
   if(be.glow){ ballMat.emissive.set(be.glow); ballMat.emissiveIntensity=1.3; ballLight.color.set(be.glow); ballLight.intensity=1.8; }
-  const sphere=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,PERF?20:48,PERF?14:36),ballMat);
+  const sphere=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,PERF?24:48,PERF?16:36),ballMat);
   grp.add(sphere);
   ballMesh=grp; scene.add(grp);
 }
@@ -558,10 +582,11 @@ function buildReturnUnit(cx){
   back.position.set(cx,PAD_TOP+LEDGE_H/2,backEdge+LEDGE_T/2); scene.add(back);
 }
 function buildReturns(){
+  if(PERF) return;                               // Low graphics: no surface ball-returns (ball just resets at the return spot)
   const chans=[-190,-114,-38,38,114];            // right-side channel of each of the 5 lanes
   const railMat=mkMat({color:0x2a2e36,roughness:0.7,metalness:0.3});
   const trayMat=mkMat({color:0x3a3f49,roughness:0.6,metalness:0.35});
-  rackBodyMat=mkMat({color:themeById(settings.theme).sep.base,roughness:0.6});   // match the between-lane color
+  { const th=themeById(settings.theme); rackBodyMat=mkMat({color:(th.ret!=null?th.ret:th.sep.base),roughness:0.6}); }   // ball-return body (falls back to the trim color)
   const railLen=LANE_LEN+20;
   for(const cx of chans){
     for(const s of [-1,1]){                       // two rails ~just wider than the ball → narrows the channel
@@ -572,7 +597,7 @@ function buildReturns(){
     ramp.position.set(cx,-2,752); ramp.rotation.x=-0.18; scene.add(ramp);
     buildReturnUnit(cx);
   }
-  returnBall=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,PERF?16:32,PERF?12:24),ballMat); returnBall.visible=false; scene.add(returnBall);   // only the player's ball rides back
+  returnBall=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,32,24),ballMat); returnBall.visible=false; scene.add(returnBall);   // only the player's ball rides back
   returnLight=new THREE.PointLight(0x1dff5a,0,170,1.6); returnBall.add(returnLight);   // glow travels with the return ball too
   { const e=ballEntry(settings.ball); returnLight.color.set(e.glow||0xffffff); returnLight.intensity=e.glow?1.8:0; }
 }
@@ -634,7 +659,7 @@ const BUFFERS={};
 const SFX_FILES={ roll:'roll.mp3', hit:'hit.mp3', strike:'strike.mp3', spare:'spare.mp3' };
 function newCtx(){
   const AC=window.AudioContext||window.webkitAudioContext;
-  _ac=new AC({latencyHint:'interactive'});             // low output latency → less audible lag on mobile
+  _ac=new AC({latencyHint:'interactive'});             // low output latency -> less audible lag on mobile
   master=_ac.createGain(); master.gain.value=_muted?0:1; master.connect(_ac.destination);
   try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){}   // mix with background audio
   if(_ac.addEventListener) _ac.addEventListener('statechange',()=>{ if(_ac && _ac.state!=='running' && _ac.state!=='closed' && _ac.resume) _ac.resume().catch(()=>{}); });
@@ -643,12 +668,12 @@ function newCtx(){
 }
 function getAC(){
   // iOS can leave the context 'interrupted' (screen lock / another app / returning to the tab) where
-  // resume() never recovers — rebuild it instead. getAC runs from user gestures, so a rebuild can start audio.
+  // resume() never recovers -- rebuild it. getAC runs from user gestures, so a rebuild can start audio.
   if(!_ac || _ac.state==='closed' || _ac.state==='interrupted'){ try{ if(_ac) _ac.close(); }catch(e){} newCtx(); }
   else if(_ac.state!=='running' && _ac.resume){ _ac.resume().catch(()=>{}); }
   return _ac;
 }
-// any interaction (or returning to the tab) recovers the context — resume, or rebuild if interrupted
+// any interaction (or returning to the tab) recovers the context -- resume, or rebuild if interrupted
 function resumeAudio(){ if(_ac) getAC(); }
 ['pointerdown','touchend','visibilitychange','focus','pageshow'].forEach(ev=>window.addEventListener(ev,resumeAudio,{passive:true}));
 function initSfx(){
@@ -973,11 +998,14 @@ function updateCamera(dt){
 }
 let lastT=0;
 function loop(t){
-  const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
-  if(phase==='rolling'){ const n=6; for(let k=0;k<n;k++) step(dt/n); }
-  else if(phase==='returning'){ stepReturn(dt); }
-  if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
-  if(renderer && ball){ sync(dt); if(freecam) updateFreecam(dt); else updateCamera(dt); renderer.render(scene,camera); }   // render even in the menu (lanes behind the title)
+  try{
+    const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
+    if(renderer && (lastW<2||lastH<2)) resize();   // self-heal: keep trying until the canvas has a size (mobile startup race)
+    if(phase==='rolling'){ const n=6; for(let k=0;k<n;k++) step(dt/n); }
+    else if(phase==='returning'){ stepReturn(dt); }
+    if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
+    if(renderer && ball){ sync(dt); if(freecam) updateFreecam(dt); else updateCamera(dt); renderer.render(scene,camera); }   // render even in the menu (lanes behind the title)
+  }catch(err){ showFatal(err); }   // one bad frame shouldn't kill the loop / go black
   requestAnimationFrame(loop);
 }
 
@@ -988,27 +1016,48 @@ function ndc(e){ const r=renderer.domElement.getBoundingClientRect();
   const s=(e.touches&&e.touches[0])||(e.changedTouches&&e.changedTouches[0])||e;
   return { x:((s.clientX-r.left)/r.width)*2-1, y:-((s.clientY-r.top)/r.height)*2+1, px:s.clientX, py:s.clientY }; }
 const _hit=new THREE.Vector3();
-function aimTo(n){
-  raycaster.setFromCamera({x:n.x,y:n.y},camera);
-  if(raycaster.ray.intersectPlane(groundPlane,_hit)){
-    ball.x=Math.max(-POS_X,Math.min(POS_X,_hit.x));        // free lateral positioning (out to the return)
-    ball.y=Math.max(AIM_Y_MIN,Math.min(AIM_Y_MAX,_hit.z)); // forward/back on the approach
-  }
-}
+// raycast the pointer to the lane floor -> unclamped world {x,z} (z<0 behind foul line, z>0 past it)
+function groundOf(n){ raycaster.setFromCamera({x:n.x,y:n.y},camera); return raycaster.ray.intersectPlane(groundPlane,_hit)?{x:_hit.x,z:_hit.z}:null; }
+function aimAt(gx,gz){ ball.x=Math.max(-POS_X,Math.min(POS_X,gx)); ball.y=Math.max(AIM_Y_MIN,Math.min(AIM_Y_MAX,gz)); }
 // a throw only counts if the ball is within the lane's throwable area
 function canThrow(){ return Math.abs(ball.x)<=AIM_X; }
+function samp(e){ const n=ndc(e); const g=groundOf(n); return {px:n.px,py:n.py,t:performance.now(),gx:g?g.x:0,gz:g?g.z:AIM_Y_MIN}; }
 function down(e){ if(freecam) return; if(phase!=='aim') return; e.preventDefault(); getAC();
-  dragging=true; samples=[]; stage.classList.add('throwing');
-  const n=ndc(e); samples.push({px:n.px,py:n.py,t:performance.now()}); aimTo(n); }
+  dragging=true; crossed=false; samples=[]; stage.classList.add('throwing');
+  const s=samp(e); samples.push(s); if(s.gz<0) aimAt(s.gx,s.gz); }
 function move(e){ if(!dragging) return; e.preventDefault();
-  const n=ndc(e); samples.push({px:n.px,py:n.py,t:performance.now()}); if(samples.length>8) samples.shift(); aimTo(n); }
+  const prev=samples[samples.length-1];
+  const s=samp(e); samples.push(s); if(samples.length>200) samples.shift();
+  if(crossed){   // already rolling: read the post-line curl as live spin (capped to the approach length)
+    const dxW=s.gx-_cx; ball.spin=Math.max(-1.6,Math.min(1.6, (dxW/_appLen)*1.6)); return;
+  }
+  if(s.gz<0){ aimAt(s.gx,s.gz); return; }        // aim while behind the foul line
+  if(prev && prev.gz<0) launchAtCrossing(prev,s);  // behind→past transition: launch immediately (no pause)
+}
+// launch the roll the moment the flick crosses the foul line; power from the flick speed there
+function launchAtCrossing(a,b){
+  if(!canThrow()){ flash('Bring the ball onto the lane'); dragging=false; stage.classList.remove('throwing'); return; }
+  const f=(0-a.gz)/((b.gz-a.gz)||1);
+  const C={ x:a.gx+f*(b.gx-a.gx), t:a.t+f*(b.t-a.t), px:a.px+f*(b.px-a.px), py:a.py+f*(b.py-a.py) };
+  const start=samples[0];
+  let ref=samples[0]; for(let i=samples.length-1;i>=0;i--){ if(C.t-samples[i].t>=110){ ref=samples[i]; break; } if(i===0) ref=samples[0]; }
+  const dtv=Math.max(0.03,(C.t-ref.t)/1000), vyPix=(C.py-ref.py)/dtv;
+  if(-vyPix<180){ flash('Flick forward to roll'); dragging=false; stage.classList.remove('throwing'); return; }
+  const power=Math.max(POWER_MIN,Math.min(POWER_MAX,mapRange(-vyPix,300,2800,POWER_MIN,POWER_MAX)));
+  const Ax=C.x-start.gx, Az=Math.max(1,0-start.gz);
+  _cx=C.x; _appLen=Math.max(1,Math.hypot(Ax,Az)); crossed=true;
+  ball.vy=power; ball.vx=0; ball.spin=0;   // aim from the release position; the post-line curl adds spin live
+  beginRoll();
+}
 function up(e){ if(!dragging) return; e.preventDefault(); dragging=false; stage.classList.remove('throwing');
-  const n=ndc(e); const now=performance.now(); samples.push({px:n.px,py:n.py,t:now});
-  let ref=samples[0]; for(let i=samples.length-1;i>=0;i--){ if(now-samples[i].t>=110){ ref=samples[i]; break; } if(i===0) ref=samples[0]; }
-  const dtv=Math.max(0.03,(now-ref.t)/1000);
-  const vyPix=(n.py-ref.py)/dtv, vxPix=(n.px-ref.px)/dtv;
-  if(-vyPix<180){ flash('Flick forward to roll'); return; }
+  if(crossed) return;   // already launched at the crossing; spin was tracked live
+  samples.push(samp(e)); const now=performance.now();
   if(!canThrow()){ flash('Bring the ball onto the lane'); return; }
+  // never crossed the foul line -> plain forward flick, no spin
+  let ref=samples[0]; for(let i=samples.length-1;i>=0;i--){ if(now-samples[i].t>=110){ ref=samples[i]; break; } if(i===0) ref=samples[0]; }
+  const dtv=Math.max(0.03,(now-ref.t)/1000), last=samples[samples.length-1];
+  const vyPix=(last.py-ref.py)/dtv, vxPix=(last.px-ref.px)/dtv;
+  if(-vyPix<180){ flash('Flick forward to roll'); return; }
   launch(vyPix,vxPix);
 }
 // ── golf-style click & pull ──
@@ -1077,9 +1126,18 @@ function bindInput(){
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
+// the ball-return color, used for the return body and the bumpers (falls back to the trim color)
+function returnColorOf(t){ return t.ret!=null?t.ret:t.sep.base; }
+// live-retint the return body + bumpers together
+function retintReturn(col){
+  if(rackBodyMat){ rackBodyMat.color.setHex(col); rackBodyMat.needsUpdate=true; }
+  if(bumperMat){ bumperMat.color.setHex(col); if(bumperMat.emissive) bumperMat.emissive.setHex(col); bumperMat.needsUpdate=true; }
+}
 function buildBumpers(){
   bumperGroup=new THREE.Group();
-  const mat=mkMat({color:0xff4488,roughness:0.95,metalness:0.0,emissive:0x330011,emissiveIntensity:0.25});
+  const rc=returnColorOf(themeById(settings.theme));
+  const mat=mkMat({color:rc,roughness:0.95,metalness:0.0,emissive:rc,emissiveIntensity:0.18});
+  bumperMat=mat;
   const r=(GUT-PLAY)/2;                               // fills the gutter width exactly, no wider
   const len=PIN_BASE;                                 // run the full length to the pin deck
   for(const s of [-1,1]){
@@ -1094,9 +1152,10 @@ function buildBumpers(){
 function applyThemeLights(t){
   if(!hemiLight) return;
   hemiLight.color.setHex(t.hemi[0]); hemiLight.groundColor.setHex(t.hemi[1]); hemiLight.intensity=t.hemi[2];
-  keyLight.color.setHex(t.key[0]); keyLight.intensity=t.key[1];
-  fillLight.color.setHex(t.fill[0]); fillLight.intensity=t.fill[1];
-  pinLight.intensity=t.pin;
+  keyLight.color.setHex(t.key[0]); keyLight.intensity=t.key[1]*(PERF?1.15:1);
+  if(PERF) hemiLight.intensity=t.hemi[2]*1.25;
+  if(fillLight){ fillLight.color.setHex(t.fill[0]); fillLight.intensity=t.fill[1]; }
+  if(pinLight) pinLight.intensity=t.pin;
   if(scene){ scene.background.setHex(t.bg); if(scene.fog) scene.fog.color.setHex(t.bg); }
 }
 // re-tint the wood (lanes + approach) live for a theme palette
@@ -1110,7 +1169,7 @@ function applyTheme(id){
   settings.theme=id; const t=themeById(id); settings.cosmic=!!t.cosmic;
   if(laneMats.length){ regenWood(t.wood); regenSep(t.sep);      // live re-tint if the scene is built
     (t.stripes||[]).forEach((c,i)=>{ if(stripeMats[i]){ stripeMats[i].color.setHex(c); stripeMats[i].needsUpdate=true; } });
-    applyWallMat(t);
+    applyWallMat(t); retintReturn(returnColorOf(t));
     { const hs=(t.stripes&&t.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic); } }
   if(settings.cosmic && !wasCosmic){ settings._ballBefore=settings.ball; applyBall('glow'); }   // cosmic → glow ball
   else if(!settings.cosmic && wasCosmic){ applyBall(settings._ballBefore||'blue'); }            // leaving cosmic → restore
@@ -1126,18 +1185,18 @@ function applyCosmic(){
   else {
     scene.background.set(0x000208);
     if(scene.fog){ scene.fog.color.set(0x000208); scene.fog.near=350; scene.fog.far=1700; }
-    hemiLight.intensity=0; keyLight.intensity=0; fillLight.intensity=0; pinLight.intensity=0;
+    if(PERF){ hemiLight.color.setHex(0x5566aa); hemiLight.intensity=0.5; keyLight.color.setHex(0x8a4bff); keyLight.intensity=0.4; }  // no accent lights in Low graphics → keep a dim wash
+    else { hemiLight.intensity=0; keyLight.intensity=0; }
+    if(fillLight) fillLight.intensity=0; if(pinLight) pinLight.intensity=0;
   }
-  if(on && !cosmicLights){
+  if(on && !cosmicLights && !PERF){   // Low graphics: skip the cosmic accent point-lights + green light strips
     cosmicLights=new THREE.Group();
-    if(!PERF){   // perf: drop the extra point lights (biggest cosmic cost), keep the neon strips below
-      // low, side-grazing accents (kept low so they don't flood the lane like an overhead light)
-      const mag =new THREE.PointLight(0xd020ff,0.8,900); mag.position.set(-160,45,260);   // magenta accent
-      const cyan=new THREE.PointLight(0x18d0ff,0.8,900); cyan.position.set(160,45,540);    // cyan accent
-      // (4) blacklight aimed at the mural (up at the wall, not over the lane)
-      const uv  =new THREE.PointLight(0x8a4bff,1.4,1500); uv.position.set(0,120,LANE_LEN+8);
-      cosmicLights.add(mag,cyan,uv);
-    }
+    // low, side-grazing accents (kept low so they don't flood the lane like an overhead light)
+    const mag =new THREE.PointLight(0xd020ff,0.8,900); mag.position.set(-160,45,260);   // magenta accent
+    const cyan=new THREE.PointLight(0x18d0ff,0.8,900); cyan.position.set(160,45,540);    // cyan accent
+    // (4) blacklight aimed at the mural (up at the wall, not over the lane)
+    const uv  =new THREE.PointLight(0x8a4bff,1.4,1500); uv.position.set(0,120,LANE_LEN+8);
+    cosmicLights.add(mag,cyan,uv);
     // (5) long thin green light strips running along the border rails of every lane
     const stripMat=new THREE.MeshBasicMaterial({color:0x2bff77});
     const stripLen=PIN_BASE-40, stripGeo=new THREE.BoxGeometry(1.6,1.2,stripLen);
@@ -1153,8 +1212,7 @@ function applyCosmic(){
   if(cosmicLights) cosmicLights.visible=on;
   // glows: lanes deep blue, (3) pins inner green, (2) ball inner blue
   for(const m of laneGlow){ if(m&&m.emissive){ m.emissive.set(on?0x0a1e5a:0x000000); m.emissiveIntensity=on?0.7:1; m.needsUpdate=true; } }
-  // pins: green in cosmic, or a per-theme pin glow (e.g. Halloween) when not cosmic
-  const pg = on ? 0x1a9e46 : (themeById(settings.theme).pinGlowColor||0x000000);
+  const pg = on ? 0x1a9e46 : (themeById(settings.theme).pinGlowColor||0x000000);   // green in cosmic, or a per-theme pin glow (Halloween)
   for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(pg); m.emissiveIntensity=(pg?0.9:1); m.needsUpdate=true; } }
   // (4) blacklight tint on the mural (MeshBasic ignores lights, so tint its color)
   if(muralMat) muralMat.color.set(on?0x8f9cff:0xffffff);
@@ -1182,22 +1240,145 @@ function applyQuality(){
   renderer.setPixelRatio(settings.optimized ? Math.min(1.0,dpr) : Math.min(1.5,dpr));
   lastW=lastH=0; resize();                 // force the size to re-apply at the new pixel ratio
 }
-function setOptimized(on){ settings.optimized=on; saveSettings(); saveGame();
-  try{ if(phase!=='menu') sessionStorage.setItem('justbowl_resume','1'); sessionStorage.setItem('justbowl_opensettings','1'); }catch(e){}   // skip title + reopen settings on reload
-  location.reload(); }  // rebuild the scene with perf settings (game resumes from session)
+// Low graphics mode changes how the whole scene is built, so flip the setting and reload.
+// A session flag lets the fresh load skip the title overlay and reopen Settings so the toggle feels in-place.
+function setOptimized(on){ settings.optimized=on; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); }
 // persist selections
 function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,optimized:settings.optimized,_ballBefore:settings._ballBefore})); }catch(e){} }
 function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
 function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
 function highlightTheme(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme)); }
-// center each horizontal strip on its currently-selected tile (call after the modal is visible)
-function scrollToSelections(){
-  for(const id of ['ballGrid','muralGrid']){
-    const c=document.getElementById(id); if(!c) continue;
-    const sel=c.querySelector('.tile.selected'); if(!sel) continue;
-    const cr=c.getBoundingClientRect(), sr=sel.getBoundingClientRect();
-    c.scrollLeft += (sr.left-cr.left) - (c.clientWidth-sel.offsetWidth)/2;
-  }
+
+// ── Theme Builder (dev tool): live-preview a custom theme and export it as a THEMES entry ──
+const WALL_TEXTURES=['cosmic-walls.jpg','brick.png'];   // fallback seed if the walls/ listing can't be read
+function _h2i(h){ return parseInt(String(h).replace('#',''),16)||0; }
+function _i2h(n){ return '#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'); }
+function _scale(h,f){ const n=_h2i(h); const r=Math.min(255,Math.round(((n>>16)&255)*f)),g=Math.min(255,Math.round(((n>>8)&255)*f)),b=Math.min(255,Math.round((n&255)*f)); return '#'+(((r<<16)|(g<<8)|b)>>>0).toString(16).padStart(6,'0'); }
+function deriveWood(base){ return [_scale(base,0.88), base, _scale(base,0.72)]; }
+let _muralLoaded=null;
+const builder={ mural:'default.png', wood:'#b57a34', light:'#fff2d8', lightInt:0.6, wall:'#6b6f76',
+  stripesOn:true, stripe:['#efb241','#054f9b','#cc4c33'], trim:'#24272f', ret:'#24272f', wallTex:'', repX:2, repY:2 };
+function builderToTheme(){
+  const t={ mural:builder.mural, wood:deriveWood(builder.wood), wall:_h2i(builder.wall),
+    bg:_h2i(_scale(builder.wall,0.14)),
+    hemi:[_h2i(builder.light), _h2i(_scale(builder.light,0.3)), builder.lightInt],
+    key:[_h2i(builder.light), builder.lightInt], fill:[_h2i(builder.light), +(builder.lightInt*0.55).toFixed(2)], pin:0.3,
+    sep:{base:_h2i(builder.trim), speckle:[_h2i(_scale(builder.trim,1.25)), _h2i(_scale(builder.trim,0.6))]},
+    ret:_h2i(builder.ret),
+    stripes: builder.stripesOn ? builder.stripe.map(_h2i) : [] };
+  if(builder.wallTex){ t.wallTex=builder.wallTex; t.wallRepeat=[builder.repX,builder.repY]; t.wallEmissive=0; }
+  return t;
+}
+function applyBuilderTheme(t){
+  settings.cosmic=false;
+  if(cosmicLights) cosmicLights.visible=false;
+  if(scene&&scene.fog){ scene.fog.near=700; scene.fog.far=2000; }
+  regenWood(t.wood); regenSep(t.sep);
+  (t.stripes||[]).forEach((c,i)=>{ if(stripeMats[i]){ stripeMats[i].color.setHex(c); stripeMats[i].needsUpdate=true; } });
+  { const hs=(t.stripes&&t.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs); }
+  if(wallMat) wallMat._texKey=null;   // force wall texture to reload so repeat X/Y edits take effect
+  applyWallMat(t); applyThemeLights(t);
+  for(const m of laneGlow){ if(m&&m.emissive){ m.emissive.set(0x000000); m.emissiveIntensity=1; m.needsUpdate=true; } }
+  for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(0x000000); m.emissiveIntensity=1; m.needsUpdate=true; } }
+  retintReturn(returnColorOf(t));   // live ball-return + bumper retint
+  if(t.mural!==_muralLoaded){ _muralLoaded=t.mural; applyMural(t.mural); }   // avoid re-fetching the mural on every tweak
+}
+function builderJSON(){
+  // emit strict JSON matching themes.json (double quotes, decimal color numbers, wood as hex strings),
+  // key order mirroring the file so it can be pasted straight in as a new array entry
+  const t=builderToTheme(), o={id:'custom', label:'Custom', mural:t.mural, wood:t.wood, wall:t.wall};
+  if(t.wallTex!=null){ o.wallTex=t.wallTex; o.wallRepeat=t.wallRepeat; o.wallEmissive=t.wallEmissive; }
+  o.bg=t.bg; o.hemi=t.hemi; o.key=t.key; o.fill=t.fill; o.pin=t.pin; o.ret=t.ret; o.sep=t.sep; o.stripes=t.stripes;
+  return JSON.stringify(o,null,2);
+}
+let _builderSeededFrom=null;   // which base theme the builder was last seeded from
+// load the `builder` state from a theme (only done when the base theme has changed)
+function seedBuilderFromTheme(){
+  const cur=themeById(settings.theme);
+  builder.mural=cur.mural; builder.wood=Array.isArray(cur.wood)?cur.wood[1]:'#b57a34';
+  builder.light=_i2h(cur.key[0]); builder.lightInt=cur.key[1];
+  builder.wall=_i2h(cur.wall||0x6b6f76); builder.trim=_i2h((cur.sep&&cur.sep.base)||0x24272f);
+  builder.ret=_i2h(cur.ret!=null?cur.ret:((cur.sep&&cur.sep.base)||0x24272f));
+  builder.stripesOn=!!(cur.stripes&&cur.stripes.length);
+  builder.stripe=(cur.stripes&&cur.stripes.length?cur.stripes:[0xefb241,0x054f9b,0xcc4c33]).slice(0,3).map(_i2h);
+  while(builder.stripe.length<3) builder.stripe.push('#888888');
+  builder.wallTex=cur.wallTex||''; builder.repX=cur.wallRepeat?cur.wallRepeat[0]:2; builder.repY=cur.wallRepeat?cur.wallRepeat[1]:2;
+}
+// push the current `builder` state into the on-screen controls
+function reflectBuilder(){
+  const g=id=>document.getElementById(id);
+  g('tbMural').value=builder.mural; g('tbWood').value=builder.wood; g('tbLight').value=builder.light;
+  g('tbLightInt').value=builder.lightInt; g('tbWall').value=builder.wall; g('tbTrim').value=builder.trim;
+  g('tbReturn').value=builder.ret;
+  g('tbStripes').checked=builder.stripesOn; g('tbStripeRow').style.display=builder.stripesOn?'flex':'none';
+  for(let i=0;i<3;i++) g('tbStripe'+i).value=builder.stripe[i];
+  g('tbWallTex').value=builder.wallTex; g('tbRepX').value=builder.repX; g('tbRepY').value=builder.repY;
+}
+// on open: reseed only when the base theme changed since last time; otherwise keep in-progress edits
+function seedBuilder(){
+  if(_builderSeededFrom!==settings.theme){ seedBuilderFromTheme(); _builderSeededFrom=settings.theme; }
+  reflectBuilder();
+}
+// Discover the murals in images/ dynamically by scraping the dev server's directory listing
+// (works with python -m http.server, `npx serve`, http-server, …). Always includes the murals
+// the themes reference, and falls back to just those if the listing can't be read.
+async function listMurals(){
+  const set=new Set(THEMES.map(t=>t.mural));
+  try{
+    const res=await fetch('images/',{cache:'no-cache'});
+    if(res.ok){
+      const html=await res.text(), re=/href="([^"?#]+\.(?:png|jpe?g|gif|webp))"/gi; let m;
+      while((m=re.exec(html))){ const f=decodeURIComponent(m[1].split('/').pop());
+        if(f && !/wall/i.test(f)) set.add(f); }   // skip wall textures (e.g. cosmic-walls.jpg)
+    }
+  }catch(e){}
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+// (re)populate the mural dropdown, preserving the current selection
+async function refreshMuralOptions(){
+  const sel=document.getElementById('tbMural'); if(!sel) return;
+  const cur=sel.value||builder.mural, murals=await listMurals();
+  sel.innerHTML=murals.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(cur && murals.includes(cur)) sel.value=cur;
+}
+// Discover wall textures in walls/ the same way; seeded with the known list + any the themes use.
+async function listWallTextures(){
+  const set=new Set(WALL_TEXTURES);
+  for(const t of THEMES){ if(t.wallTex) set.add(t.wallTex); }
+  try{
+    const res=await fetch(WALLTEX,{cache:'no-cache'});
+    if(res.ok){
+      const html=await res.text(), re=/href="([^"?#]+\.(?:png|jpe?g|gif|webp))"/gi; let m;
+      while((m=re.exec(html))){ set.add(decodeURIComponent(m[1].split('/').pop())); }
+    }
+  }catch(e){}
+  return [...set].sort((a,b)=>a.localeCompare(b));
+}
+// (re)populate the wall-texture dropdown (with a leading "None"), preserving the current selection
+async function refreshWallTexOptions(){
+  const sel=document.getElementById('tbWallTex'); if(!sel) return;
+  const cur=sel.value||builder.wallTex, texs=await listWallTextures();
+  sel.innerHTML=`<option value="">None</option>`+texs.map(w=>`<option value="${w}">${w}</option>`).join('');
+  sel.value=(cur && texs.includes(cur))?cur:'';
+}
+function setupBuilder(){
+  const g=id=>document.getElementById(id);
+  refreshMuralOptions();
+  refreshWallTexOptions();
+  const live=()=>applyBuilderTheme(builderToTheme());
+  const bind=(id,prop,num)=>{ const el=g(id); el.addEventListener('input',()=>{ builder[prop]=num?parseFloat(el.value):el.value; live(); }); };
+  bind('tbMural','mural'); bind('tbWood','wood'); bind('tbLight','light'); bind('tbLightInt','lightInt',true);
+  bind('tbWall','wall'); bind('tbTrim','trim'); bind('tbReturn','ret'); bind('tbWallTex','wallTex'); bind('tbRepX','repX',true); bind('tbRepY','repY',true);
+  g('tbStripes').addEventListener('input',e=>{ builder.stripesOn=e.target.checked; g('tbStripeRow').style.display=builder.stripesOn?'flex':'none'; live(); });
+  for(let i=0;i<3;i++) g('tbStripe'+i).addEventListener('input',e=>{ builder.stripe[i]=e.target.value; live(); });
+  g('tbExport').addEventListener('click',()=>{ const ta=g('tbJson'); ta.value=builderJSON(); ta.focus(); ta.select(); });
+  const modal=g('builder');
+  g('openBuilder').addEventListener('click',()=>{ document.getElementById('settings').classList.remove('open'); _muralLoaded=null; seedBuilder(); refreshMuralOptions(); refreshWallTexOptions(); modal.classList.add('open'); applyBuilderTheme(builderToTheme()); });
+  // keep the previewed custom theme applied after closing so it can be play-tested;
+  // it stays until a theme is picked from the Settings menu (or the page reloads)
+  const closeB=()=>{ modal.classList.remove('open'); if(typeof flash==='function') flash('Custom theme applied'); };
+  g('builderClose').addEventListener('click',closeB);
+  modal.addEventListener('click',e=>{ if(e.target===modal) closeB(); });
 }
 function setupSettings(){
   loadSettings();
@@ -1236,7 +1417,6 @@ function setupSettings(){
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
   optBtn.addEventListener('click',()=>{ setOptimized(!settings.optimized); refreshToggles(); });
-  // free-cam is still available for debugging via the F key (toggleFreecam)
   document.getElementById('newGameBtn').addEventListener('click',()=>{
     clearGame(); getAC(); initSfx(); newGame(); phase='aim';
     document.getElementById('ov').classList.remove('show');   // dismiss the title overlay
@@ -1250,19 +1430,31 @@ document.getElementById('startbtn').addEventListener('click',()=>{
   if(phase==='over') newGame();     // PLAY AGAIN → fresh game
   phase='aim';                       // begin play (state was set up on load)
 });
-buildBoard();
-setupSettings();
-// build the scene, set up the game state (resume this session's game if any), then start rendering
-initScene(); bindInput();
-const sg=loadGame();
-if(sg && Array.isArray(sg.rolls) && (sg.frame|0)<10) resumeGame(sg); else newGame();
-phase='menu';                        // gate input until START (overlay shown over the lanes)
-// if we just reloaded to apply a settings change, skip the title and drop straight back into play
-if(sessionStorage.getItem('justbowl_resume')){ sessionStorage.removeItem('justbowl_resume');
-  document.getElementById('ov').classList.remove('show'); phase='aim'; }
-if(sessionStorage.getItem('justbowl_opensettings')){ sessionStorage.removeItem('justbowl_opensettings');
-  document.getElementById('settings').classList.add('open'); requestAnimationFrame(scrollToSelections); }   // reopen settings after a low-graphics reload
-requestAnimationFrame(t=>{lastT=t;loop(t);});
+// load the theme catalogue, then build everything that reads from it
+async function loadThemes(){
+  const res=await fetch('themes.json',{cache:'no-cache'});
+  if(!res.ok) throw new Error('themes.json failed to load ('+res.status+')');
+  const data=await res.json();
+  if(!Array.isArray(data)||!data.length) throw new Error('themes.json is empty or malformed');
+  THEMES=data;
+}
+async function boot(){
+  await loadThemes();
+  buildBoard();
+  setupSettings();
+  setupBuilder();
+  // build the scene, set up the game state (resume this session's game if any), then start rendering
+  initScene(); bindInput();
+  const sg=loadGame();
+  if(sg && Array.isArray(sg.rolls) && (sg.frame|0)<10) resumeGame(sg); else newGame();
+  phase='menu';                        // gate input until START (overlay shown over the lanes)
+  // returning from a Low graphics toggle: skip the title overlay and reopen Settings
+  try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload');
+    document.getElementById('ov').classList.remove('show'); phase='aim';
+    const m=document.getElementById('settings'); if(m) m.classList.add('open'); } }catch(e){}
+  requestAnimationFrame(t=>{lastT=t;loop(t);});
+}
+boot().catch(err=>showFatal(err));
 </script>
 </body>
 </html>
