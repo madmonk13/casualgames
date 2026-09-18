@@ -125,6 +125,7 @@ a.back:hover{color:#9fb0d8;}
   <div class="modal-card">
     <div class="modal-head"><h3>Theme Builder</h3><button id="builderClose" aria-label="Close">✕</button></div>
     <label>Mural<select id="tbMural"></select></label>
+    <label>Mural X offset<input type="range" id="tbMuralX" min="-0.5" max="0.5" step="0.01" value="0"></label>
     <label>Wood base color<input type="color" id="tbWood"></label>
     <div class="row"><label>Lighting color<input type="color" id="tbLight"></label><label>Intensity<input type="range" id="tbLightInt" min="0" max="1.5" step="0.05"></label></div>
     <label>Wall color<input type="color" id="tbWall"></label>
@@ -263,6 +264,7 @@ const RACK_RZ=PAD_CZ-PAD_LEN/2+5;                // rest z, tucked against the b
 let lastW=0,lastH=0;
 let ballMat=null,muralMat=null,bumperGroup=null,bumperMat=null,ballLight=null,returnLight=null; // referenced by settings
 let muralPlane=null,muralWallW=0,muralH0=145;   // back-wall mural: visible width, and the max (previous) tile height
+let muralOffX=0;   // per-theme horizontal nudge for off-center murals (fraction of banner width; +right)
 let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
 let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[],stripeMeshes=[],wallMat=null;   // wood/carpet + walls + wall stripes (live re-theming)
@@ -451,6 +453,7 @@ function buildLane(){
   muralPlane.rotation.y=Math.PI;
   muralH0=muralWallW/5.569;   // banner-area height = the 1960s banner's height (narrower banners tile to fill)
   muralPlane.position.set(0,20,LANE_LEN+29.8); muralPlane.scale.set(muralWallW,muralH0,1); scene.add(muralPlane);
+  muralOffX=themeById(settings.theme).muralX||0;
   loadTex(IMG+settings.mural, t=>{ muralMat.map=t; muralMat.color.set(0xffffff); muralMat.needsUpdate=true; fitMural(t); });
 
   // enclosing room so the lanes don't float in the void
@@ -1173,6 +1176,7 @@ function applyTheme(id){
     { const hs=(t.stripes&&t.stripes.length); stripeMeshes.forEach(m=>m.visible=!!hs && !settings.cosmic); } }
   if(settings.cosmic && !wasCosmic){ settings._ballBefore=settings.ball; applyBall('glow'); }   // cosmic → glow ball
   else if(!settings.cosmic && wasCosmic){ applyBall(settings._ballBefore||'blue'); }            // leaving cosmic → restore
+  muralOffX=t.muralX||0;
   applyMural(settings.cosmic?'cosmic.png':t.mural);
   applyCosmic();                                         // lights/glows/mural-tint based on settings.cosmic
   highlightBall(); highlightTheme();
@@ -1229,7 +1233,7 @@ function fitMural(tex){
   const VW=muralWallW, h=muralH0;              // fixed banner height (= 1960s banner height)
   const r=VW/(h*asp);                          // horizontal repeats to fill the wall at that height (no squish)
   muralPlane.scale.set(VW,h,1); muralPlane.position.y=20+h/2;
-  const m=muralMat.map; if(m){ m.wrapS=THREE.RepeatWrapping; m.repeat.set(r,1); m.offset.x=-((r-1)/2); m.needsUpdate=true; }  // center so any partial tiles split evenly
+  const m=muralMat.map; if(m){ m.wrapS=THREE.RepeatWrapping; m.repeat.set(r,1); m.offset.x=-((r-1)/2)-muralOffX*r; m.needsUpdate=true; }  // center, then nudge for off-center murals (+muralOffX shifts image right)
 }
 function applyMural(file){ settings.mural=file; saveSettings(); if(muralMat){ loadTex(IMG+file,t=>{muralMat.map=t;muralMat.color.set(settings.cosmic?0x8f9cff:0xffffff);muralMat.needsUpdate=true;fitMural(t);}); } }
 function setBumpers(on){ settings.bumpers=on; saveSettings(); if(bumperGroup) bumperGroup.visible=on; }
@@ -1256,10 +1260,10 @@ function _i2h(n){ return '#'+((n>>>0)&0xffffff).toString(16).padStart(6,'0'); }
 function _scale(h,f){ const n=_h2i(h); const r=Math.min(255,Math.round(((n>>16)&255)*f)),g=Math.min(255,Math.round(((n>>8)&255)*f)),b=Math.min(255,Math.round((n&255)*f)); return '#'+(((r<<16)|(g<<8)|b)>>>0).toString(16).padStart(6,'0'); }
 function deriveWood(base){ return [_scale(base,0.88), base, _scale(base,0.72)]; }
 let _muralLoaded=null;
-const builder={ mural:'default.png', wood:'#b57a34', light:'#fff2d8', lightInt:0.6, wall:'#6b6f76',
+const builder={ mural:'default.png', muralX:0, wood:'#b57a34', light:'#fff2d8', lightInt:0.6, wall:'#6b6f76',
   stripesOn:true, stripe:['#efb241','#054f9b','#cc4c33'], trim:'#24272f', ret:'#24272f', wallTex:'', repX:2, repY:2 };
 function builderToTheme(){
-  const t={ mural:builder.mural, wood:deriveWood(builder.wood), wall:_h2i(builder.wall),
+  const t={ mural:builder.mural, muralX:+builder.muralX||0, wood:deriveWood(builder.wood), wall:_h2i(builder.wall),
     bg:_h2i(_scale(builder.wall,0.14)),
     hemi:[_h2i(builder.light), _h2i(_scale(builder.light,0.3)), builder.lightInt],
     key:[_h2i(builder.light), builder.lightInt], fill:[_h2i(builder.light), +(builder.lightInt*0.55).toFixed(2)], pin:0.3,
@@ -1281,12 +1285,15 @@ function applyBuilderTheme(t){
   for(const m of laneGlow){ if(m&&m.emissive){ m.emissive.set(0x000000); m.emissiveIntensity=1; m.needsUpdate=true; } }
   for(const m of pinGlow ){ if(m&&m.emissive){ m.emissive.set(0x000000); m.emissiveIntensity=1; m.needsUpdate=true; } }
   retintReturn(returnColorOf(t));   // live ball-return + bumper retint
+  muralOffX=t.muralX||0;
   if(t.mural!==_muralLoaded){ _muralLoaded=t.mural; applyMural(t.mural); }   // avoid re-fetching the mural on every tweak
+  else if(muralMat&&muralMat.map){ fitMural(muralMat.map); }                 // offset-only change → just re-fit
 }
 function builderJSON(){
   // emit strict JSON matching themes.json (double quotes, decimal color numbers, wood as hex strings),
   // key order mirroring the file so it can be pasted straight in as a new array entry
   const t=builderToTheme(), o={id:'custom', label:'Custom', mural:t.mural, wood:t.wood, wall:t.wall};
+  if(t.muralX) o.muralX=t.muralX;   // only emit when nudged off center
   if(t.wallTex!=null){ o.wallTex=t.wallTex; o.wallRepeat=t.wallRepeat; o.wallEmissive=t.wallEmissive; }
   o.bg=t.bg; o.hemi=t.hemi; o.key=t.key; o.fill=t.fill; o.pin=t.pin; o.ret=t.ret; o.sep=t.sep; o.stripes=t.stripes;
   return JSON.stringify(o,null,2);
@@ -1295,7 +1302,7 @@ let _builderSeededFrom=null;   // which base theme the builder was last seeded f
 // load the `builder` state from a theme (only done when the base theme has changed)
 function seedBuilderFromTheme(){
   const cur=themeById(settings.theme);
-  builder.mural=cur.mural; builder.wood=Array.isArray(cur.wood)?cur.wood[1]:'#b57a34';
+  builder.mural=cur.mural; builder.muralX=cur.muralX||0; builder.wood=Array.isArray(cur.wood)?cur.wood[1]:'#b57a34';
   builder.light=_i2h(cur.key[0]); builder.lightInt=cur.key[1];
   builder.wall=_i2h(cur.wall||0x6b6f76); builder.trim=_i2h((cur.sep&&cur.sep.base)||0x24272f);
   builder.ret=_i2h(cur.ret!=null?cur.ret:((cur.sep&&cur.sep.base)||0x24272f));
@@ -1307,7 +1314,7 @@ function seedBuilderFromTheme(){
 // push the current `builder` state into the on-screen controls
 function reflectBuilder(){
   const g=id=>document.getElementById(id);
-  g('tbMural').value=builder.mural; g('tbWood').value=builder.wood; g('tbLight').value=builder.light;
+  g('tbMural').value=builder.mural; g('tbMuralX').value=builder.muralX; g('tbWood').value=builder.wood; g('tbLight').value=builder.light;
   g('tbLightInt').value=builder.lightInt; g('tbWall').value=builder.wall; g('tbTrim').value=builder.trim;
   g('tbReturn').value=builder.ret;
   g('tbStripes').checked=builder.stripesOn; g('tbStripeRow').style.display=builder.stripesOn?'flex':'none';
@@ -1367,7 +1374,7 @@ function setupBuilder(){
   refreshWallTexOptions();
   const live=()=>applyBuilderTheme(builderToTheme());
   const bind=(id,prop,num)=>{ const el=g(id); el.addEventListener('input',()=>{ builder[prop]=num?parseFloat(el.value):el.value; live(); }); };
-  bind('tbMural','mural'); bind('tbWood','wood'); bind('tbLight','light'); bind('tbLightInt','lightInt',true);
+  bind('tbMural','mural'); bind('tbMuralX','muralX',true); bind('tbWood','wood'); bind('tbLight','light'); bind('tbLightInt','lightInt',true);
   bind('tbWall','wall'); bind('tbTrim','trim'); bind('tbReturn','ret'); bind('tbWallTex','wallTex'); bind('tbRepX','repX',true); bind('tbRepY','repY',true);
   g('tbStripes').addEventListener('input',e=>{ builder.stripesOn=e.target.checked; g('tbStripeRow').style.display=builder.stripesOn?'flex':'none'; live(); });
   for(let i=0;i<3;i++) g('tbStripe'+i).addEventListener('input',e=>{ builder.stripe[i]=e.target.value; live(); });

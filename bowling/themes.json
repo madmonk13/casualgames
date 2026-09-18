@@ -975,6 +975,7 @@
     "id": "rockandroll-beta",
     "label": "rockandroll-BETA",
     "mural": "rockandroll.jpg",
+    "muralX":50,
     "wood": [
       "#cb7f43",
       "#b86a2e",
@@ -1053,6 +1054,7 @@
     "id": "underwater-beta",
     "label": "underwater-BETA",
     "mural": "underwater.jpg",
+    "muralX":-0.007,
     "wood": [
       "#b17e45",
       "#966937",
