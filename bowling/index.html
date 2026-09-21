@@ -128,6 +128,7 @@ a.back:hover{color:#9fb0d8;}
     <label>Mural X offset<input type="range" id="tbMuralX" min="-0.5" max="0.5" step="0.01" value="0"></label>
     <label>Wood base color<input type="color" id="tbWood"></label>
     <div class="row"><label>Lighting color<input type="color" id="tbLight"></label><label>Intensity<input type="range" id="tbLightInt" min="0" max="1.5" step="0.05"></label></div>
+    <div class="row"><label>Pin light color<input type="color" id="tbPinColor"></label><label>Pin intensity<input type="range" id="tbPinInt" min="0" max="1" step="0.02"></label></div>
     <label>Wall color<input type="color" id="tbWall"></label>
     <label>Highlight / trim color<input type="color" id="tbTrim"></label>
     <label>Ball return color<input type="color" id="tbReturn"></label>
@@ -269,6 +270,7 @@ let hemiLight,keyLight,fillLight,pinLight,cosmicLights=null; // lighting refs
 let laneGlow=[],pinGlow=[];                                  // materials that glow in cosmic mode
 let laneMats=[],appMat=null,appRepeat=[1,1],sepMat=null,stripeMats=[],stripeMeshes=[],wallMat=null;   // wood/carpet + walls + wall stripes (live re-theming)
 const HEMI0=0.9,KEY0=0.5,FILL0=0.35,PIN0=0.3;               // base light intensities
+const SPOT_GAIN=3.2;                                        // pin-deck spotlight is brighter than the old point light per unit `pin`
 const stage=document.getElementById('stage');
 
 function initScene(){
@@ -291,11 +293,13 @@ function initScene(){
   hemiLight=new THREE.HemisphereLight(0xbfd4ff,0x39302a,HEMI0); scene.add(hemiLight);   // soft ambient fill
   keyLight=new THREE.DirectionalLight(0xfff2d8,KEY0);
   keyLight.position.set(120,440,280); scene.add(keyLight);      // high/far → smaller near hotspot
-  if(!PERF){                                                    // Low graphics: drop the fill + pin lights (hemi bumped to compensate)
+  // spotlight pooled on the pin deck — themeable color/intensity (kept in Low graphics too; single, shadowless)
+  pinLight=new THREE.SpotLight(0xfff2e0, PIN0*SPOT_GAIN, 1700, 0.5, 0.45, 1.0);
+  pinLight.position.set(0,300,PIN_BASE-150);            // above & in front of the rack, aiming back at it
+  pinLight.target.position.set(0,0,PIN_BASE+12); scene.add(pinLight); scene.add(pinLight.target);
+  if(!PERF){                                            // Low graphics: drop the fill light (hemi bumped to compensate)
     fillLight=new THREE.DirectionalLight(0x88aaff,FILL0);
     fillLight.position.set(-120,160,-160); scene.add(fillLight);
-    pinLight=new THREE.PointLight(0xffffff,PIN0,1100);
-    pinLight.position.set(0,230,PIN_BASE+20); scene.add(pinLight);
   } else { hemiLight.intensity=HEMI0*1.25; keyLight.intensity=KEY0*1.15; }
 
   buildLane();
@@ -1158,7 +1162,9 @@ function applyThemeLights(t){
   keyLight.color.setHex(t.key[0]); keyLight.intensity=t.key[1]*(PERF?1.15:1);
   if(PERF) hemiLight.intensity=t.hemi[2]*1.25;
   if(fillLight){ fillLight.color.setHex(t.fill[0]); fillLight.intensity=t.fill[1]; }
-  if(pinLight) pinLight.intensity=t.pin;
+  if(pinLight){ pinLight.intensity=(t.pin!=null?t.pin:PIN0)*SPOT_GAIN;   // pin-deck spotlight
+    const sc=(t.spot!=null?t.spot[0]:(t.spotColor!=null?t.spotColor:0xfff2e0)); pinLight.color.setHex(sc);
+    if(t.spot!=null && t.spot[1]!=null) pinLight.intensity=t.spot[1]*SPOT_GAIN; }
   if(scene){ scene.background.setHex(t.bg); if(scene.fog) scene.fog.color.setHex(t.bg); }
 }
 // re-tint the wood (lanes + approach) live for a theme palette
@@ -1261,12 +1267,14 @@ function _scale(h,f){ const n=_h2i(h); const r=Math.min(255,Math.round(((n>>16)&
 function deriveWood(base){ return [_scale(base,0.88), base, _scale(base,0.72)]; }
 let _muralLoaded=null;
 const builder={ mural:'default.png', muralX:0, wood:'#b57a34', light:'#fff2d8', lightInt:0.6, wall:'#6b6f76',
+  pinColor:'#fff2e0', pinInt:0.30,
   stripesOn:true, stripe:['#efb241','#054f9b','#cc4c33'], trim:'#24272f', ret:'#24272f', wallTex:'', repX:2, repY:2 };
 function builderToTheme(){
   const t={ mural:builder.mural, muralX:+builder.muralX||0, wood:deriveWood(builder.wood), wall:_h2i(builder.wall),
     bg:_h2i(_scale(builder.wall,0.14)),
     hemi:[_h2i(builder.light), _h2i(_scale(builder.light,0.3)), builder.lightInt],
-    key:[_h2i(builder.light), builder.lightInt], fill:[_h2i(builder.light), +(builder.lightInt*0.55).toFixed(2)], pin:0.3,
+    key:[_h2i(builder.light), builder.lightInt], fill:[_h2i(builder.light), +(builder.lightInt*0.55).toFixed(2)],
+    pin:+builder.pinInt||0, spotColor:_h2i(builder.pinColor),
     sep:{base:_h2i(builder.trim), speckle:[_h2i(_scale(builder.trim,1.25)), _h2i(_scale(builder.trim,0.6))]},
     ret:_h2i(builder.ret),
     stripes: builder.stripesOn ? builder.stripe.map(_h2i) : [] };
@@ -1295,7 +1303,7 @@ function builderJSON(){
   const t=builderToTheme(), o={id:'custom', label:'Custom', mural:t.mural, wood:t.wood, wall:t.wall};
   if(t.muralX) o.muralX=t.muralX;   // only emit when nudged off center
   if(t.wallTex!=null){ o.wallTex=t.wallTex; o.wallRepeat=t.wallRepeat; o.wallEmissive=t.wallEmissive; }
-  o.bg=t.bg; o.hemi=t.hemi; o.key=t.key; o.fill=t.fill; o.pin=t.pin; o.ret=t.ret; o.sep=t.sep; o.stripes=t.stripes;
+  o.bg=t.bg; o.hemi=t.hemi; o.key=t.key; o.fill=t.fill; o.pin=t.pin; o.spotColor=t.spotColor; o.ret=t.ret; o.sep=t.sep; o.stripes=t.stripes;
   return JSON.stringify(o,null,2);
 }
 let _builderSeededFrom=null;   // which base theme the builder was last seeded from
@@ -1306,6 +1314,8 @@ function seedBuilderFromTheme(){
   builder.light=_i2h(cur.key[0]); builder.lightInt=cur.key[1];
   builder.wall=_i2h(cur.wall||0x6b6f76); builder.trim=_i2h((cur.sep&&cur.sep.base)||0x24272f);
   builder.ret=_i2h(cur.ret!=null?cur.ret:((cur.sep&&cur.sep.base)||0x24272f));
+  builder.pinInt=(cur.pin!=null?cur.pin:0.30);
+  builder.pinColor=_i2h(cur.spotColor!=null?cur.spotColor:(cur.spot!=null?cur.spot[0]:0xfff2e0));
   builder.stripesOn=!!(cur.stripes&&cur.stripes.length);
   builder.stripe=(cur.stripes&&cur.stripes.length?cur.stripes:[0xefb241,0x054f9b,0xcc4c33]).slice(0,3).map(_i2h);
   while(builder.stripe.length<3) builder.stripe.push('#888888');
@@ -1316,6 +1326,7 @@ function reflectBuilder(){
   const g=id=>document.getElementById(id);
   g('tbMural').value=builder.mural; g('tbMuralX').value=builder.muralX; g('tbWood').value=builder.wood; g('tbLight').value=builder.light;
   g('tbLightInt').value=builder.lightInt; g('tbWall').value=builder.wall; g('tbTrim').value=builder.trim;
+  g('tbPinColor').value=builder.pinColor; g('tbPinInt').value=builder.pinInt;
   g('tbReturn').value=builder.ret;
   g('tbStripes').checked=builder.stripesOn; g('tbStripeRow').style.display=builder.stripesOn?'flex':'none';
   for(let i=0;i<3;i++) g('tbStripe'+i).value=builder.stripe[i];
@@ -1375,7 +1386,7 @@ function setupBuilder(){
   const live=()=>applyBuilderTheme(builderToTheme());
   const bind=(id,prop,num)=>{ const el=g(id); el.addEventListener('input',()=>{ builder[prop]=num?parseFloat(el.value):el.value; live(); }); };
   bind('tbMural','mural'); bind('tbMuralX','muralX',true); bind('tbWood','wood'); bind('tbLight','light'); bind('tbLightInt','lightInt',true);
-  bind('tbWall','wall'); bind('tbTrim','trim'); bind('tbReturn','ret'); bind('tbWallTex','wallTex'); bind('tbRepX','repX',true); bind('tbRepY','repY',true);
+  bind('tbWall','wall'); bind('tbTrim','trim'); bind('tbReturn','ret'); bind('tbPinColor','pinColor'); bind('tbPinInt','pinInt',true); bind('tbWallTex','wallTex'); bind('tbRepX','repX',true); bind('tbRepY','repY',true);
   g('tbStripes').addEventListener('input',e=>{ builder.stripesOn=e.target.checked; g('tbStripeRow').style.display=builder.stripesOn?'flex':'none'; live(); });
   for(let i=0;i<3;i++) g('tbStripe'+i).addEventListener('input',e=>{ builder.stripe[i]=e.target.value; live(); });
   g('tbExport').addEventListener('click',()=>{ const ta=g('tbJson'); ta.value=builderJSON(); ta.focus(); ta.select(); });
