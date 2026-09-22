@@ -10,18 +10,22 @@ html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',A
   user-select:none;-webkit-user-select:none;touch-action:none;overflow:hidden;display:flex;flex-direction:column;align-items:center;}
 #hud{width:100%;flex-shrink:0;background:rgba(0,0,0,.6);padding:4px 6px;overflow-x:auto;z-index:6;}
 #board{display:flex;gap:2px;min-width:min-content;justify-content:center;}
-.fr{border:1px solid #2b3550;border-radius:3px;min-width:38px;background:#111826;}
-.fr .fh{font-size:.6rem;text-align:center;color:#7d8db0;border-bottom:1px solid #2b3550;padding:1px 0;}
-.fr .rw{display:flex;height:16px;}
-.fr .rb{flex:1;font-size:.72rem;text-align:center;line-height:16px;border-left:1px solid #2b3550;color:#ffd54a;}
+.fr{border:1px solid #2b3550;border-radius:3px;min-width:48px;background:#111826;}
+.fr .fh{font-size:.72rem;text-align:center;color:#7d8db0;border-bottom:1px solid #2b3550;padding:1px 0;}
+.fr .rw{display:flex;height:20px;}
+.fr .rb{flex:1;font-size:.9rem;text-align:center;line-height:20px;border-left:1px solid #2b3550;color:#ffd54a;}
 .fr .rb:first-child{border-left:none;}
-.fr.f10{min-width:52px;}
-.fr .tot{text-align:center;font-size:.82rem;font-weight:700;line-height:18px;color:#fff;}
+.fr.f10{min-width:66px;}
+.fr .tot{text-align:center;font-size:1.02rem;font-weight:700;line-height:22px;color:#fff;}
 .fr.cur{border-color:#ffd54a;box-shadow:0 0 8px rgba(255,213,74,.4);}
-@media (max-width:520px){    /* shrink the scoreboard so all 10 frames (incl. the 10th's 3rd box) fit */
-  #hud{padding:4px 3px;} #board{gap:1px;}
-  .fr{min-width:28px;} .fr.f10{min-width:40px;}
-  .fr .fh{font-size:.5rem;} .fr .rw{height:14px;} .fr .rb{font-size:.62rem;line-height:14px;} .fr .tot{font-size:.7rem;line-height:16px;}
+/* portrait: stretch the board across the full viewport width */
+@media (orientation:portrait){
+  #hud{padding-left:0;padding-right:0;}
+  #board{width:100vw;gap:1px;}
+  .fr{flex:1 1 0;min-width:0;} .fr.f10{flex:1.4 1 0;min-width:0;}
+}
+@media (max-width:420px){    /* very narrow phones: trim fonts so all 10 frames still fit */
+  .fr .fh{font-size:.56rem;} .fr .rw{height:16px;} .fr .rb{font-size:.68rem;line-height:16px;} .fr .tot{font-size:.8rem;line-height:18px;}
 }
 #msg{position:absolute;top:42%;left:0;right:0;text-align:center;font-size:clamp(1.6rem,6vw,2.6rem);font-weight:800;color:#ffd54a;
   text-shadow:0 2px 14px #000;pointer-events:none;letter-spacing:1px;z-index:5;}
@@ -1420,8 +1424,11 @@ function setupSettings(){
   muteBtn.innerHTML=muteIcon(_muted); muteBtn.title=_muted?'Unmute':'Mute';
   muteBtn.addEventListener('click',()=>applyMute(!_muted));
   // sit the cog + mute just below the score bar, aligned at the same height
-  const placeCtrls=()=>{ document.getElementById('cog').style.top='6vh'; muteBtn.style.top='6vh'; };
-  placeCtrls(); window.addEventListener('resize',placeCtrls);
+  // sit the cog + mute just below the scoreboard (measured), so a taller board never overlaps them
+  const placeCtrls=()=>{ const hud=document.getElementById('hud'); const top=((hud?hud.offsetHeight:0)+10)+'px';
+    document.getElementById('cog').style.top=top; muteBtn.style.top=top; };
+  placeCtrls(); requestAnimationFrame(placeCtrls);
+  window.addEventListener('resize',placeCtrls); window.addEventListener('orientationchange',()=>setTimeout(placeCtrls,120));
   const modal=document.getElementById('settings');
   document.getElementById('cog').addEventListener('click',()=>{ modal.classList.add('open'); requestAnimationFrame(scrollToSelections); });
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
