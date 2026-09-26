@@ -304,6 +304,7 @@
     "id": "beach",
     "label": "Beach",
     "mural": "beach.png",
+    "muralX": -0.01,
     "wood": [
       "#cb9143",
       "#b87c2e",
@@ -385,6 +386,7 @@
     "id": "bigcity",
     "label": "Big City",
     "mural": "bigcity.png",
+    "muralX": -0.015,
     "wood": [
       "#b1845d",
       "#9d6f49",
@@ -551,6 +553,7 @@
     "id": "halloween",
     "label": "Halloween",
     "mural": "halloween.jpg",
+    "muralX": -0.005,
     "wood": [
       "#b68045",
       "#cf924e",
@@ -590,6 +593,7 @@
     "id": "kaiju1",
     "label": "Kaiju",
     "mural": "kaiju.jpg",
+    "muralX": -0.01,
     "wood": [
       "#948f63",
       "#a8a370",
