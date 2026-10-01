@@ -1,0 +1,33 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#070a10;font-family:'Segoe UI',Arial,sans-serif;color:#fff;}
+.modal-card{width:min(94vw,480px);margin:20px auto;max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:16px;
+  background:rgba(14,18,28,.98);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+.sec-label{color:#9fb0d8;font-size:.8rem;letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase;}
+.picker{display:flex;align-items:center;gap:6px;}
+.picker .grid{flex:1 1 auto;min-width:0;}
+.navbtn{flex:0 0 auto;width:30px;align-self:stretch;min-height:46px;border:1px solid #33405a;border-radius:8px;background:#1a2130;color:#cfd8ea;font-size:1.4rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.grid{display:flex;flex-wrap:nowrap;gap:9px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;scroll-snap-type:x mandatory;}
+.grid .tile{scroll-snap-align:center;}
+.tile{flex:0 0 62px;cursor:pointer;border:2px solid transparent;border-radius:10px;padding:6px 4px;text-align:center;background:rgba(255,255,255,.05);}
+.grid.mural .tile{flex:0 0 120px;}
+.tile.selected{border-color:#ffd54a;background:rgba(255,213,74,.14);}
+.tile .thumb{width:100%;aspect-ratio:1;border-radius:50%;background:#2a5bd0;}
+.tile.mtile .thumb{aspect-ratio:16/6;border-radius:6px;background:#6a4a9a;}
+.tile .label{font-size:.68rem;color:#cfd8ea;margin-top:5px;}
+</style></head><body>
+<div class="modal-card">
+  <div class="sec"><div class="sec-label">Ball</div>
+    <div class="picker"><button class="navbtn">‹</button><div id="b" class="grid"></div><button class="navbtn">›</button></div>
+  </div>
+  <div class="sec"><div class="sec-label">Theme</div>
+    <div class="picker"><button class="navbtn">‹</button><div id="m" class="grid mural"></div><button class="navbtn">›</button></div>
+  </div>
+</div>
+<script>
+const balls=['Blue','Red','Black','Silver','White','Green','Glow'];
+const themes=['Classic','2000s','1990s','1980s','Cosmic','Halloween','Kaiju','Beach'];
+balls.forEach((n,i)=>{const t=document.createElement('div');t.className='tile'+(i===0?' selected':'');t.innerHTML='<div class="thumb"></div><div class="label">'+n+'</div>';document.getElementById('b').appendChild(t);});
+themes.forEach((n,i)=>{const t=document.createElement('div');t.className='tile mtile'+(i===0?' selected':'');t.innerHTML='<div class="thumb"></div><div class="label">'+n+'</div>';document.getElementById('m').appendChild(t);});
+</script></body></html>
