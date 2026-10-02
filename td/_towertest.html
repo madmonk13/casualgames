@@ -1,0 +1,42 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;background:#2a4020">
+<canvas id="cv" width="560" height="320"></canvas>
+<script>
+const TILE=80, ctx=document.getElementById('cv').getContext('2d');
+const TDEFS=[{icon:'🏹',color:'#3a7a3a'},{icon:'🔫',color:'#5a6a7a'},{icon:'💣',color:'#7a5030'},{icon:'❄️',color:'#2a5a8a'}];
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.arcTo(x+w,y,x+w,y+r,r);ctx.lineTo(x+w,y+h-r);ctx.arcTo(x+w,y+h,x+w-r,y+h,r);ctx.lineTo(x+r,y+h);ctx.arcTo(x,y+h,x,y+h-r,r);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.closePath();}
+const STONE={0:{hi:'#e4e2d8',mid:'#bdbbb0',lo:'#88857b',bd:'#55514a'},1:{hi:'#dde1e6',mid:'#aab0b8',lo:'#777e86',bd:'#4a4f55'},2:{hi:'#e8decd',mid:'#c2b29c',lo:'#8f7d64',bd:'#574a3a'},3:{hi:'#e2ecf2',mid:'#b6c6d2',lo:'#8198a8',bd:'#4a5a66'}};
+function drawStoneBase(x0,y0,s,cols){
+  const c=cols||STONE[0];
+  ctx.fillStyle=c.bd;roundRect(x0,y0,s,s,5);ctx.fill();
+  const b=3;
+  const g=ctx.createLinearGradient(x0,y0,x0+s,y0+s);g.addColorStop(0,c.hi);g.addColorStop(.5,c.mid);g.addColorStop(1,c.lo);
+  ctx.fillStyle=g;roundRect(x0+b,y0+b,s-2*b,s-2*b,4);ctx.fill();
+  ctx.strokeStyle='rgba(80,75,68,.3)';ctx.lineWidth=1;
+  for(let i=1;i<=2;i++){const yy=y0+b+(s-2*b)*i/3;ctx.beginPath();ctx.moveTo(x0+b+1,yy);ctx.lineTo(x0+s-b-1,yy);ctx.stroke();}
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.strokeStyle='rgba(255,255,255,.65)';ctx.lineWidth=2.6;ctx.beginPath();ctx.moveTo(x0+b+1,y0+s-b-2);ctx.lineTo(x0+b+1,y0+b+1);ctx.lineTo(x0+s-b-2,y0+b+1);ctx.stroke();
+  ctx.strokeStyle='rgba(0,0,0,.38)';ctx.beginPath();ctx.moveTo(x0+s-b-1,y0+b+2);ctx.lineTo(x0+s-b-1,y0+s-b-1);ctx.lineTo(x0+b+2,y0+s-b-1);ctx.stroke();
+  ctx.lineCap='butt';ctx.lineJoin='miter';
+}
+function drawTower(col,row,type,angle){
+  const x=col*TILE,y=row*TILE,cx=x+TILE/2,cy=y+TILE/2,s=TILE*.82,x0=x+(TILE-s)/2,y0=y+(TILE-s)/2;
+  const td=TDEFS[type];
+  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(cx+2,cy+3,s/2-.5,s/4,0,0,Math.PI*2);ctx.fill();
+  drawStoneBase(x0,y0,s,STONE[type]);
+  const EMOJI_AIM={0:{base:-Math.PI/4,dx:-0.025,dy:0.02},1:{base:Math.PI,dx:0,dy:0}};
+  const iconY=cy-TILE*0.03;ctx.font=`${TILE*.48}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  const aim=EMOJI_AIM[type];
+  if(aim&&angle!==undefined){ctx.save();ctx.translate(cx+TILE*(aim.dx||0),aim.dy?cy+TILE*aim.dy:iconY);ctx.rotate(angle-aim.base);ctx.fillText(td.icon,0,0);ctx.restore();}
+  else{ctx.fillText(td.icon,cx,iconY);}
+  const L=1;ctx.fillStyle='#ffd54a';for(let i=0;i<L;i++){ctx.beginPath();ctx.arc(cx+(i-(L-1)/2)*5,y+TILE-4.5,1.7,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='#fff';ctx.font='11px sans-serif';ctx.fillText(angle!==undefined?('aim '+Math.round(angle*180/Math.PI)+'°'):td.icon, cx, y+TILE-14);
+}
+// archers aiming in various directions + other towers
+drawTower(0,0,0,0);              // right
+drawTower(1,0,0,-Math.PI/2);    // up
+drawTower(2,0,0,Math.PI/2);     // down
+drawTower(3,0,0,Math.PI);       // left
+drawTower(4,0,0,-Math.PI/4);    // up-right (natural)
+drawTower(0,1,1);drawTower(1,1,2);drawTower(2,1,3);drawTower(3,1,0,Math.PI*0.75);
+</script></body></html>

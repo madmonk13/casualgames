@@ -1,0 +1,19 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+*{box-sizing:border-box;margin:0;padding:0}body{background:#0f1923;color:#fff;font-family:system-ui;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;max-width:900px}
+.card{background:linear-gradient(145deg,#1e2d3d,#162030);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;gap:12px;position:relative}
+.card-icon{font-size:3em}.card-title{font-size:1.3em;font-weight:700;color:#f0e0a0}
+.card-desc{font-size:.9em;color:rgba(255,255,255,.55);flex:1}
+.card-tags{display:flex;gap:6px;flex-wrap:wrap}.tag{font-size:.75em;padding:3px 9px;border-radius:20px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.5);border:1px solid rgba(255,255,255,.1)}
+.card-play{margin-top:4px;padding:9px 0;background:linear-gradient(135deg,#f0c040,#d4a010);color:#2a1800;font-weight:700;border-radius:8px;text-align:center}
+.platforms{display:flex;gap:8px;align-items:center;margin-top:2px;font-size:.95em}
+.platforms .pf{display:inline-flex;align-items:center;gap:3px;font-size:.72em;color:rgba(255,255,255,.55);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:2px 8px}
+.platforms .pf.off{opacity:.28;filter:grayscale(1)}.platforms .pf .ic{font-size:1.15em;line-height:1}
+</style></head><body><div class="grid">
+<a class="card"><div class="card-icon">🎳</div><div class="card-title">Just Bowl</div><div class="card-desc">Ten-pin bowling.</div><div class="card-tags"><span class="tag">Sports</span></div><div class="card-play">▶ Play</div></a>
+<a class="card" data-platform="desktop"><div class="card-icon">🧩</div><div class="card-title">Example Desktop-only</div><div class="card-desc">Shows a dimmed mobile badge.</div><div class="card-tags"><span class="tag">Logic</span></div><div class="card-play">▶ Play</div></a>
+<a class="card"><div class="card-icon">🤖</div><div class="card-title">Tower Defense</div><div class="card-desc">Place towers.</div><div class="card-tags"><span class="tag">Strategy</span></div><div class="card-play">▶ Play</div></a>
+</div>
+<script>
+document.querySelectorAll('.card').forEach(card=>{const p=card.dataset.platform||'both';const d=(p==='both'||p==='desktop');const m=(p==='both'||p==='mobile');const el=document.createElement('div');el.className='platforms';el.innerHTML=`<span class="pf ${d?'':'off'}" title="Plays on desktop"><span class="ic">🖥️</span>Desktop</span><span class="pf ${m?'':'off'}" title="Plays on mobile"><span class="ic">📱</span>Mobile</span>`;const play=card.querySelector('.card-play');if(play)card.insertBefore(el,play);else card.appendChild(el);});
+</script></body></html>

@@ -1,0 +1,31 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="margin:0;background:#c8a870">
+<canvas id="cv" width="520" height="150"></canvas>
+<script>
+const TILE=40;
+const EDEFS=[
+  {name:'Runner', icon:'👹', rad:.33, color:'#e44', trim:'#922'},
+  {name:'Speeder',icon:'👻', rad:.27, color:'#fc0', trim:'#a70'},
+  {name:'Tank',   icon:'🧟', rad:.42, color:'#55e', trim:'#228'},
+  {name:'Boss',   icon:'🐉', rad:.47, color:'#c3f', trim:'#60a'},
+];
+const ctx=document.getElementById('cv').getContext('2d');
+// lane strip background like the game path
+ctx.fillStyle='#b89050';ctx.fillRect(0,55,520,40);
+EDEFS.forEach((def,i)=>{
+  const e={x:70+i*120,y:75,color:def.color,trim:def.trim,rad:def.rad,hp:7,maxHp:10,slowT:i===1?1:0};
+  const r=e.rad*TILE;
+  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(e.x+2,e.y+r*.35,r*.9,r*.3,0,0,Math.PI*2);ctx.fill();
+  ctx.save();
+  ctx.fillStyle=e.color;ctx.globalAlpha=0.32;ctx.beginPath();ctx.arc(e.x,e.y,r*1.05,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=1;ctx.shadowColor=e.trim;ctx.shadowBlur=r*0.5;
+  ctx.font=`${Math.round(r*2.3)}px serif`;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(def.icon,e.x,e.y);
+  ctx.restore();
+  const bw=TILE*.78,bh=3.5,bx=e.x-bw/2,by=e.y-r-7;
+  ctx.fillStyle='#200';ctx.fillRect(bx,by,bw,bh);
+  ctx.fillStyle='#3d3';ctx.fillRect(bx,by,bw*.7,bh);
+  if(e.slowT>0){ctx.strokeStyle='rgba(80,180,255,.7)';ctx.lineWidth=1.8;ctx.beginPath();ctx.arc(e.x,e.y,r+3,0,Math.PI*2);ctx.stroke();}
+  ctx.fillStyle='#000';ctx.font='11px sans-serif';ctx.fillText(def.name,e.x,e.y+r+16);
+});
+</script></body></html>
