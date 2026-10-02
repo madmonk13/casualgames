@@ -142,14 +142,6 @@ header p {
 }
 .card:hover .card-play { background: linear-gradient(135deg, #ffe060, #e8b820); }
 
-/* Platform support badges */
-.platforms { display: flex; gap: 8px; align-items: center; margin-top: 2px; font-size: 0.95em; }
-.platforms .pf { display: inline-flex; align-items: center; gap: 3px; font-size: 0.72em;
-  color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 2px 8px; }
-.platforms .pf.off { opacity: 0.28; filter: grayscale(1); }
-.platforms .pf .ic { font-size: 1.15em; line-height: 1; }
-
 /* Coming-soon card */
 .card.soon {
   opacity: 0.45; cursor: default;
@@ -440,6 +432,30 @@ footer {
     <div class="card-play">▶ Play</div>
   </a>
 
+  <a class="card" href="https://madmonk13.github.io/mailordermonsters/" target="_blank" rel="noopener" data-category="other">
+    <div class="card-icon">👹</div>
+    <div class="card-title">Mail Order Monsters</div>
+    <div class="card-desc">A clone of the 1985 classic — build and customize your own monster with weapons and armor, then send it into the arena to battle for dominance.</div>
+    <div class="card-tags">
+      <span class="tag">Action</span>
+      <span class="tag">Combat</span>
+      <span class="tag">Customize</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
+  <a class="card" href="https://madmonk13.github.io/pinball/" target="_blank" rel="noopener" data-category="other">
+    <div class="card-icon">🕹️</div>
+    <div class="card-title">Pinball Construction Kit</div>
+    <div class="card-desc">A modernized clone of EA's classic — design your own pinball table with bumpers, flippers, and ramps, then drop a ball and play it.</div>
+    <div class="card-tags">
+      <span class="tag">Pinball</span>
+      <span class="tag">Build &amp; play</span>
+      <span class="tag">Physics</span>
+    </div>
+    <div class="card-play">▶ Play</div>
+  </a>
+
   <!-- ── Puzzle ─────────────────────────────────────────── -->
   <div class="section-header" data-section="puzzle">🧩 Puzzle</div>
 
@@ -650,21 +666,6 @@ footer {
 <footer>Open any game — everything runs locally in your browser.</footer>
 
 <script>
-// Platform badges: every card shows Desktop + Mobile support. A card can override with
-// data-platform="desktop" or "mobile"; default is "both".
-document.querySelectorAll('.card').forEach(card => {
-  const p = card.dataset.platform || 'both';
-  const d = (p === 'both' || p === 'desktop');
-  const m = (p === 'both' || p === 'mobile');
-  const el = document.createElement('div');
-  el.className = 'platforms';
-  el.innerHTML =
-    `<span class="pf ${d?'':'off'}" title="Plays on desktop"><span class="ic">🖥️</span>Desktop</span>`+
-    `<span class="pf ${m?'':'off'}" title="Plays on mobile"><span class="ic">📱</span>Mobile</span>`;
-  const play = card.querySelector('.card-play');
-  if (play) card.insertBefore(el, play); else card.appendChild(el);
-});
-
 const filterBtns = document.querySelectorAll('.filter-btn');
 const cards      = document.querySelectorAll('.card');
 const headers    = document.querySelectorAll('.section-header');
