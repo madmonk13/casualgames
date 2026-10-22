@@ -139,9 +139,12 @@ a.back:hover{color:#9fb0d8;text-decoration:underline;}
     <div class="sec"><div class="sec-label">Theme</div>
       <div class="picker"><button class="navbtn" data-grid="muralGrid" data-dir="-1" aria-label="Previous theme">‹</button><div id="muralGrid" class="grid mural"></div><button class="navbtn" data-grid="muralGrid" data-dir="1" aria-label="Next theme">›</button></div>
     </div>
+    <div class="sec"><div class="sec-label">Curve sensitivity: <span id="curveVal">25%</span></div>
+      <input type="range" id="curveSens" min="0" max="100" step="5" value="25" style="width:100%;accent-color:#ffd54a;cursor:pointer">
+    </div>
     <button class="toggle" id="setBumpers"></button>
     <button class="toggle" id="setOpt"></button>
-    <button class="toggle" id="openBuilder">Theme Builder (dev)</button>
+    <button class="toggle" id="openBuilder" style="display:none">Theme Builder (dev)</button>
     <button class="toggle" id="newGameBtn">New Game</button>
   </div>
 </div>
@@ -233,7 +236,7 @@ let THEMES=[];
 function themeById(id){ return THEMES.find(t=>t.id===id)||THEMES[0]; }
 
 // live settings
-const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false, muted:false, optimized:false };
+const settings={ ball:'blue', theme:'classic', mural:'default.png', bumpers:false, cosmic:false, muted:false, optimized:false, curveSens:0.25 };
 
 // TUNING
 const POWER_MIN=260, POWER_MAX=440;   // release speed in/s (~15–25 mph)
@@ -800,7 +803,7 @@ function mapRange(v,a,b,c,d){ const t=(v-a)/(b-a); return c+(d-c)*Math.max(0,Mat
 function step(dt){
   if(phase!=='rolling') return;
   if(ball.rolling){
-    if(!ball.gutter){ if(CURVE_ENABLED) ball.vx+=ball.spin*CURVE_GAIN*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }
+    if(!ball.gutter){ if(CURVE_ENABLED) ball.vx+=ball.spin*CURVE_GAIN*(settings.curveSens*4)*(CURVE_VREF/Math.max(ball.vy,80))*dt; ball.x+=ball.vx*dt; }   // curveSens 0.25 = default feel (×1)
     ball.y+=ball.vy*dt; ball.vy*=(1-VY_FRICTION*dt);
     { const sp=Math.min(1,ball.vy/POWER_MAX); setRollVolume(ball.gutter?0.25:0.35+0.45*sp); }
     const laneEdge=PLAY, gutEdge=PLAY;   // bumpers bounce at the lane edge; gutter once the ball's center reaches it (edge trick shots stay up, no floating)
@@ -1278,7 +1281,7 @@ function applyQuality(){
 // A session flag lets the fresh load skip the title overlay and reopen Settings so the toggle feels in-place.
 function setOptimized(on){ settings.optimized=on; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); }
 // persist selections
-function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,optimized:settings.optimized,_ballBefore:settings._ballBefore})); }catch(e){} }
+function saveSettings(){ try{ localStorage.setItem('flickbowling',JSON.stringify({ball:settings.ball,theme:settings.theme,bumpers:settings.bumpers,cosmic:settings.cosmic,muted:settings.muted,optimized:settings.optimized,curveSens:settings.curveSens,_ballBefore:settings._ballBefore})); }catch(e){} }
 function loadSettings(){ try{ Object.assign(settings, JSON.parse(localStorage.getItem('flickbowling')||'{}')); }catch(e){} }
 function highlightBall(){ document.querySelectorAll('#ballGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.ball)); }
 function highlightTheme(){ document.querySelectorAll('#muralGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme)); }
@@ -1471,6 +1474,13 @@ function setupSettings(){
   refreshToggles();
   bumpBtn.addEventListener('click',()=>{ setBumpers(!settings.bumpers); refreshToggles(); });
   optBtn.addEventListener('click',()=>{ setOptimized(!settings.optimized); refreshToggles(); });
+  // curve sensitivity slider
+  const curveEl=document.getElementById('curveSens'), curveVal=document.getElementById('curveVal');
+  if(curveEl){
+    const pct=Math.round((settings.curveSens!=null?settings.curveSens:0.25)*100);
+    curveEl.value=pct; curveVal.textContent=pct+'%';
+    curveEl.addEventListener('input',()=>{ settings.curveSens=(+curveEl.value)/100; curveVal.textContent=curveEl.value+'%'; saveSettings(); });
+  }
   document.getElementById('newGameBtn').addEventListener('click',()=>{
     clearGame(); getAC(); initSfx(); newGame(); phase='aim';
     document.getElementById('ov').classList.remove('show');   // dismiss the title overlay
