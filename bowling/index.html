@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>Just Bowl</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#070a10">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Just Bowl">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{width:100dvw;height:100dvh;background:#070a10;font-family:'Segoe UI',Arial,sans-serif;color:#fff;
@@ -1519,6 +1527,7 @@ async function boot(){
   requestAnimationFrame(t=>{lastT=t;loop(t);});
 }
 boot().catch(err=>showFatal(err));
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
 </body>
 </html>
