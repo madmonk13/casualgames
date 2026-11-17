@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "casualgames", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "8017", "--directory", ".."], "port": 8017 }
+  ]
+}
