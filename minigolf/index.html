@@ -954,14 +954,15 @@ function buildWindmill(o,add){
   const r=new THREE.Mesh(rg,M.shingle); r.position.set(0,BASE_Y+top,o.z); if(!PERF) r.castShadow=true; g.add(r);
   // tunnel shadow inside
   const dark=new THREE.Mesh(new THREE.PlaneGeometry(o.gap,tunnel),new THREE.MeshBasicMaterial({color:0x080808})); dark.position.set(0,BASE_Y+tunnel/2,o.z+0.01); g.add(dark);
-  // sails on a hub in front of the house
-  const hubY=BASE_Y+34, L4=33, W=7, sails=new THREE.Group(); sails.position.set(0,hubY,zf-1.5); g.add(sails);
+  // sails on a hub in front of the house, far enough out to clear the roof overhang (it reaches 3" past the front wall)
+  const SZ=zf-5, hubY=BASE_Y+34, L4=33, W=7, sails=new THREE.Group(); sails.position.set(0,hubY,SZ); g.add(sails);
+  const axle=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,zf-SZ,10),M.chrome); axle.rotation.x=Math.PI/2; axle.position.set(0,hubY,(zf+SZ)/2); g.add(axle);
   const hub=new THREE.Mesh(new THREE.CylinderGeometry(2.4,2.4,3,16),M.chrome); hub.rotation.x=Math.PI/2; sails.add(hub);
   for(let k=0;k<4;k++){ const arm=new THREE.Group(); arm.rotation.z=k*Math.PI/2; sails.add(arm);
     const lat=new THREE.Mesh(new THREE.PlaneGeometry(W,L4-3),M.sail); lat.position.set(0,-(L4+3)/2,0); arm.add(lat);
     const cloth=new THREE.Mesh(new THREE.PlaneGeometry(W*0.9,L4-6),M.sailCloth); cloth.position.set(0,-(L4+3)/2,-0.15); arm.add(cloth);
     const spar=new THREE.Mesh(new THREE.BoxGeometry(0.8,L4,0.8),M.white); spar.position.set(-W/2,-L4/2,0.2); arm.add(spar); if(!PERF){ lat.castShadow=true; cloth.castShadow=true; } }
-  BLADES={g:sails,hubY:34,len:L4,w:W,z:zf-1.5,omega:1.05,ang:0,vx:0};
+  BLADES={g:sails,hubY:34,len:L4,w:W,z:SZ,omega:1.05,ang:0,vx:0};
   // collisions: the two side blocks of the house
   for(const [x0,x1] of [[-hw,-gw],[gw,hw]]) for(const [a,b] of [[[x0,zf],[x1,zf]],[[x1,zf],[x1,zb]],[[x1,zb],[x0,zb]],[[x0,zb],[x0,zf]]]) SEGS.push({a,b,r:BALL_R,e:E_RAIL,kind:'rail'});
   OCCLUDERS.push({g,min:V3(-hw-3,BASE_Y,zf-3),max:V3(hw+3,BASE_Y+top+22,zb+3),mats:[]});
