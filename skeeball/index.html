@@ -140,9 +140,9 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     </div>
     <div class="sec"><div class="sec-label" id="sensLbl">Sensitivity</div>
       <div class="seg" role="radiogroup" aria-labelledby="sensLbl">
-        <label><input type="radio" name="sens" value="1"><span>Low<small>100%</small></span></label>
-        <label><input type="radio" name="sens" value="1.15"><span>Medium<small>115%</small></span></label>
-        <label><input type="radio" name="sens" value="1.5"><span>High<small>150%</small></span></label>
+        <label><input type="radio" name="sens" value="1.1"><span>Low<small>110%</small></span></label>
+        <label><input type="radio" name="sens" value="1.2"><span>Medium<small>120%</small></span></label>
+        <label><input type="radio" name="sens" value="1.3"><span>High<small>130%</small></span></label>
       </div>
     </div>
     <button class="toggle" id="setCups"></button>
@@ -160,6 +160,52 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
   <button id="startbtn">START</button>
 </div>
 
+<!-- "Having trouble?" hint: shown after 3 scoreless throws in a row (once per visit; can be switched off) -->
+<style>
+#hintModal{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(2,2,8,.55);}
+#hintModal.open{display:flex;}
+#hintModal .hint-card{width:min(88vw,360px);background:rgba(18,14,28,.98);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:20px 20px 16px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);text-align:center;color:#ece6f8;font-family:'Segoe UI',Arial,sans-serif;animation:hintpop .25s ease-out;}
+@keyframes hintpop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+#hintModal h3{color:#ffd54a;font-size:1.25rem;letter-spacing:.5px;margin:0 0 8px;}
+#hintModal p{font-size:.95rem;line-height:1.5;margin:0 0 16px;color:#ddd3ee;}
+#hintModal .hint-btns{display:flex;gap:10px;justify-content:center;}
+#hintModal button{padding:10px 16px;border-radius:9px;font-weight:800;font-size:.9rem;cursor:pointer;border:1px solid #3d3058;background:#1d1630;color:#ddd3ee;}
+#hintModal button.primary{background:#ffd54a;border-color:#ffd54a;color:#181000;}
+#hintModal label{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;font-size:.78rem;color:#a99bc6;cursor:pointer;}
+#hintModal input{accent-color:#ffd54a;}
+</style>
+<div id="hintModal" role="dialog" aria-modal="true" aria-labelledby="hintTitle">
+  <div class="hint-card">
+    <h3 id="hintTitle">Having trouble?</h3>
+    <p id="hintText"></p>
+    <div class="hint-btns"><button class="primary" id="hintSettings">Open Settings</button><button id="hintOk">Got it</button></div>
+    <label><input type="checkbox" id="hintNever"> Don't show this again</label>
+  </div>
+</div>
+<script>
+// missHint.note(scored): call once per throw. Three scoreless throws in a row shows the hint (once per visit).
+window.missHint=(function(){
+  let key='hint', text='', misses=0, shown=false;
+  const el=()=>document.getElementById('hintModal');
+  function close(){ const m=el(); if(!m) return; if(document.getElementById('hintNever').checked){ try{ localStorage.setItem(key+'_hint_off','1'); }catch(e){} } m.classList.remove('open'); }
+  function show(){ const m=el(); if(!m) return; document.getElementById('hintText').innerHTML=text; document.getElementById('hintNever').checked=false; m.classList.add('open'); shown=true; }
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('hintOk').addEventListener('click',close);
+    document.getElementById('hintSettings').addEventListener('click',()=>{ close(); const c=document.getElementById('cog'); if(c) c.click(); });
+    el().addEventListener('click',e=>{ if(e.target===el()) close(); });
+  });
+  return {
+    setup(k,t){ key=k; text=t; },
+    note(scored){ if(scored){ misses=0; return; } misses++;
+      let off=false; try{ off=localStorage.getItem(key+'_hint_off')==='1'; }catch(e){}
+      if(misses>=3&&!shown&&!off) setTimeout(show,900); },
+    reset(){ misses=0; },
+    isOpen(){ const m=el(); return !!m&&m.classList.contains('open'); },
+  };
+})();
+</script>
+<script>missHint.setup('justroll','Your last few rolls haven\'t made it into the rings.<br><b>Swipe sensitivity</b> can be adjusted in <b>Settings</b> — a higher setting gives the same flick more power.');</script>
 <script src="lib/three.min.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -229,7 +275,7 @@ function buildLips(){
 let POCKETS=[], LIPS=[];
 
 // live settings
-const settings={ theme:'classic', ball:'classic', power:1.0, cups:true, guide:true, muted:false, optimized:false };
+const settings={ theme:'classic', ball:'classic', power:1.1, cups:true, guide:true, muted:false, optimized:false };
 
 // ── themes: every look-dependent value lives here ──
 const THEMES=[
@@ -2040,6 +2086,7 @@ function launchBall(v0,vx){
   startRoll(); flash((v0*0.0568).toFixed(1)+' mph');
 }
 function rollBack(){
+  missHint.note(false);
   ball.mode='hold'; ball.s=START_S; ball.vs=0; ball.vx*=0; phase='aim'; stopRoll(); sfxThunk(60);
   flash('Too soft — roll it again!');
 }
@@ -2054,6 +2101,7 @@ function capture(pts,pocket){
   tween(0.3,u=>{ ballMesh.position.lerpVectors(from,to,u*u); },()=>{ ballMesh.visible=false; award(pts); });
 }
 function award(pts){
+  missHint.note(pts>10);              // a 10 means it never reached the rings
   balls.push(pts); saveGame(); updateScoreDisplays(); sfxScore(pts);
   if(pts>=100){ celebrate('100!','pink'); marqFlash=2.0; }
   else if(pts===50){ celebrate('50!','gold'); marqFlash=1.2; }

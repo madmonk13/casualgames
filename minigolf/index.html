@@ -142,6 +142,53 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
   <p></p>
   <button id="startbtn">START</button>
 </div>
+<!-- "Having trouble?" hint: shown after 3 scoreless throws in a row (once per visit; can be switched off) -->
+<style>
+#hintModal{position:fixed;inset:0;z-index:40;display:none;align-items:center;justify-content:center;background:rgba(2,2,8,.55);}
+#hintModal.open{display:flex;}
+#hintModal .hint-card{width:min(88vw,360px);background:rgba(18,14,28,.98);border:1px solid rgba(255,255,255,.18);border-radius:16px;padding:20px 20px 16px;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);text-align:center;color:#ece6f8;font-family:'Segoe UI',Arial,sans-serif;animation:hintpop .25s ease-out;}
+@keyframes hintpop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+#hintModal h3{color:#ffd54a;font-size:1.25rem;letter-spacing:.5px;margin:0 0 8px;}
+#hintModal p{font-size:.95rem;line-height:1.5;margin:0 0 16px;color:#ddd3ee;}
+#hintModal .hint-btns{display:flex;gap:10px;justify-content:center;}
+#hintModal button{padding:10px 16px;border-radius:9px;font-weight:800;font-size:.9rem;cursor:pointer;border:1px solid #3d3058;background:#1d1630;color:#ddd3ee;}
+#hintModal button.primary{background:#ffd54a;border-color:#ffd54a;color:#181000;}
+#hintModal label{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:12px;font-size:.78rem;color:#a99bc6;cursor:pointer;}
+#hintModal input{accent-color:#ffd54a;}
+</style>
+<div id="hintModal" role="dialog" aria-modal="true" aria-labelledby="hintTitle">
+  <div class="hint-card">
+    <h3 id="hintTitle">Having trouble?</h3>
+    <p id="hintText"></p>
+    <div class="hint-btns"><button class="primary" id="hintSettings">Open Settings</button><button id="hintOk">Got it</button></div>
+    <label><input type="checkbox" id="hintNever"> Don't show this again</label>
+  </div>
+</div>
+<script>
+// missHint: "Having trouble?" tips. note(ok,kind,need,text) — `need` misses in a row of that kind shows `text`;
+// count(kind,need,text) — shows after `need` occurrences (not necessarily in a row). Each tip shows once per visit.
+window.missHint=(function(){
+  let key='hint', defText='', runs={}, shown={};
+  const el=()=>document.getElementById('hintModal'), off=()=>{ try{ return localStorage.getItem(key+'_hint_off')==='1'; }catch(e){ return false; } };
+  function close(){ const m=el(); if(!m) return; if(document.getElementById('hintNever').checked){ try{ localStorage.setItem(key+'_hint_off','1'); }catch(e){} } m.classList.remove('open'); }
+  function show(kind,text){ if(shown[kind]||off()) return; shown[kind]=true; setTimeout(()=>{ const m=el(); if(!m||m.classList.contains('open')) return;
+    document.getElementById('hintText').innerHTML=text; document.getElementById('hintNever').checked=false; m.classList.add('open'); },900); }
+  document.addEventListener('DOMContentLoaded',()=>{
+    document.getElementById('hintOk').addEventListener('click',close);
+    document.getElementById('hintSettings').addEventListener('click',()=>{ close(); const c=document.getElementById('cog'); if(c) c.click(); });
+    el().addEventListener('click',e=>{ if(e.target===el()) close(); });
+  });
+  return {
+    setup(k,t){ key=k; defText=t||''; },
+    note(ok,kind,need,text){ kind=kind||'main'; if(ok){ runs[kind]=0; return; } runs[kind]=(runs[kind]||0)+1; if(runs[kind]>=(need||3)) show(kind,text||defText); },
+    count(kind,need,text){ runs[kind]=(runs[kind]||0)+1; if(runs[kind]>=need) show(kind,text); },
+    reset(kind){ if(kind) runs[kind]=0; else runs={}; },
+    isOpen(){ const m=el(); return !!m&&m.classList.contains('open'); },
+  };
+})();
+</script>
+<script>missHint.setup('justputt');</script>
 <script src="lib/three.min.js"></script>
 <script>
 let _fatalShown=false;
@@ -691,6 +738,7 @@ function updateGates(t){ for(const G of GATES){ const a=gateAngle(G,t), om=(G.a1
   G.seg.b=[G.seg.hx+Math.cos(a)*G.len,G.seg.hz+Math.sin(a)*G.len]; G.seg.om=om; G.g.rotation.y=-a; } }
 function zoneAt(x,z,type){ for(const Z of ZONES) if(Z.t===type&&inZone(Z,x,z)) return Z; return null; }
 function splash(){
+  missHint.count('water',3,'The water keeps winning!<br>Tap the <b>map button</b> to see the whole hole first, and try a gentler putt — the bridges are narrow.');
   phase='splash'; stopRoll(); sfxSplash(); const sx=ball.x, sz=ball.z; ball.visible=false; strokes++; buildHUD();
   const ring=new THREE.Mesh(new THREE.RingGeometry(0.6,1.2,32),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.8,side:THREE.DoubleSide}));
   ring.rotation.x=-Math.PI/2; ring.position.set(sx,BASE_Y+hAt(sx,sz)+0.2,sz); courseGroup.add(ring);
@@ -1014,16 +1062,19 @@ function startHole(){
   buildHUD();
 }
 function putt(dirx,dirz,pow){
-  const v=MAXV*Math.pow(pow,1.35)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
+  puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.35)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
   if(SPIN&&Math.hypot(ball.x-SPIN.x,ball.z-SPIN.z)<SPIN.r){ ball.vx+=-SPIN.w*(ball.z-SPIN.z); ball.vz+=SPIN.w*(ball.x-SPIN.x); }
   strokes++; phase='roll'; rollStart=clock; sfxPutt(pow); startRoll(); buildHUD();
 }
+let puttFrom=1e9;
 function ballStopped(){
   if(phase!=='roll') return; stopRoll();
+  if(puttFrom<=60) missHint.note(Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1])<24,'putt',3,'Short putts are rolling well past or stopping short.<br>Adjust <b>Sensitivity</b> in <b>Settings</b> — a lower setting gives finer control near the cup.');   // only judge putts from within 5 ft
   if(strokes>=MAX_STROKES){ showMsg('Max strokes<small>SCORE '+(MAX_STROKES+1)+'</small>',1.6); endHole(MAX_STROKES+1); return; }
   phase='aim'; camMode=viewOn?'overview':'aim';
 }
 function sinkBall(){
+  missHint.note(true,'putt');
   phase='sunk'; stopRoll(); sfxCup();
   const fx=ball.x, fz=ball.z;
   tween(0.32,u=>{ ball.x=fx+(H.cup[0]-fx)*u; ball.z=fz+(H.cup[1]-fz)*u; ball.sink=u*3.2; },()=>{ ball.visible=false; endHole(strokes); });
