@@ -112,6 +112,9 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 .tile.selected{border-color:#ffd54a;background:rgba(255,213,74,.14);}
 .tile img.ball3d{width:100%;aspect-ratio:1;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45));}
 .tile .label{font-size:.68rem;color:#ddd3ee;margin-top:5px;}
+.jump{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;}
+.jump button{padding:7px 0;border:1px solid #3d3058;border-radius:7px;background:#1d1630;color:#ddd3ee;font-size:.8rem;font-weight:700;cursor:pointer;}
+.jump button:active{background:#ffd54a;color:#181000;}
 .toggle{width:100%;padding:11px;border:1px solid #3d3058;border-radius:9px;background:#1d1630;color:#ddd3ee;font-size:.9rem;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .12s;}
 .toggle:hover{border-color:#6a5a90;}
 .toggle.on{background:#ffd54a;color:#181000;border-color:#ffd54a;}
@@ -172,6 +175,9 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <button class="toggle" id="setDraw"></button>
     <button class="toggle" id="setOpt"></button>
     <button class="toggle" id="newGameBtn">New Game</button>
+    <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
+      <div class="jump" id="jumpGrid"></div>
+    </div>
     <div class="stats"><div><b id="stBest">–</b>Best</div><div><b id="stGames">0</b>Rounds</div><div><b id="stAces">0</b>Birdies+</div><div><b id="stTix">0</b>Tickets</div></div>
   </div>
 </div>
@@ -1186,14 +1192,16 @@ function aimDefault(){
   if(toPin()<=reach*1.02){ aimAtPin(); return; }
   const [x,z]=routePoint(R.s+reach); aim=Math.atan2(x-ball.p.x,z-ball.p.z);
 }
-function newGame(){ clearGame(); anims=[]; scores=[]; holeIdx=0; startHole(); }
+let testRound=false;
+function newGame(){ clearGame(); testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
+function jumpTo(i){ clearGame(); testRound=true; anims=[]; scores=HOLES.slice(0,i).map(h=>h.par); holeIdx=i; startHole(); }
 // the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
 let resumeSave=null;
-function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justgolf_game',JSON.stringify({holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind})); }catch(e){} }
+function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justgolf_game',JSON.stringify({holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound})); }catch(e){} }
 function loadGame(){ try{ const g=JSON.parse(sessionStorage.getItem('justgolf_game')||'null'); return g&&Array.isArray(g.scores)&&g.holeIdx<HOLES.length?g:null; }catch(e){ return null; } }
 function clearGame(){ try{ sessionStorage.removeItem('justgolf_game'); }catch(e){} }
 function resumeGame(g){
-  anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
+  testRound=!!g.test; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
   if(g.strokes>0){ strokes=g.strokes; const [x,z]=g.p; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=g.lie||surfAt(x,z); ball.last=g.last||[x,z]; buildTufts(); suggestClub(); aimDefault(); }
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
@@ -1253,12 +1261,12 @@ function holed(){
 function endHole(sc){
   phase='sunk'; scores.push(sc); saveGame(true); const rel=sc-H.par;
   const term=sc===1?'HOLE IN ONE!':rel<=-3?'ALBATROSS!':rel===-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':rel===2?'DOUBLE BOGEY':'+'+rel;
-  if(rel<0){ celebrate(term,rel<=-2?'pink':'gold'); sfxChime('great'); stats.aces++; saveStats(); } else if(rel===0){ celebrate(term,'green'); sfxChime('par'); } else { showMsg(term,1.6); sfxChime('over'); }
+  if(rel<0){ celebrate(term,rel<=-2?'pink':'gold'); sfxChime('great'); if(!testRound){ stats.aces++; saveStats(); } } else if(rel===0){ celebrate(term,'green'); sfxChime('par'); } else { showMsg(term,1.6); sfxChime('over'); }
   buildHUD(); tween(0.01,()=>{},()=>{ holeIdx++; if(holeIdx>=HOLES.length) roundOver(); else startHole(); },2.4);
 }
 function roundOver(){
-  clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=HOLES.reduce((a,h)=>a+h.par,0), rel=s-par, newBest=!stats.best||s<stats.best;
-  const tix=Math.max(1,(par+2-s)*4+2); stats.games++; stats.tickets+=tix; if(newBest) stats.best=s; saveStats(); buildHUD();
+  clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=HOLES.reduce((a,h)=>a+h.par,0), rel=s-par, newBest=!testRound&&(!stats.best||s<stats.best);
+  const tix=Math.max(1,(par+2-s)*4+2); if(!testRound){ stats.games++; stats.tickets+=tix; if(newBest) stats.best=s; saveStats(); } buildHUD();
   const ov=document.getElementById('ov'); ov.querySelector('h2').textContent=`🏌️ ${s} (${rel===0?'E':rel>0?'+'+rel:rel})`;
   ov.querySelector('p').innerHTML=`<table><tr><th>Hole</th>${HOLES.map((h,i)=>`<th>${i+1}</th>`).join('')}<th>Tot</th></tr><tr><th>Par</th>${HOLES.map(h=>`<td>${h.par}</td>`).join('')}<td>${par}</td></tr><tr><th>You</th>${scores.map(v=>`<td>${v}</td>`).join('')}<td><b>${s}</b></td></tr></table><br>`
     +(newBest?'<b>New best!</b><br>':'')+`You won <b>${tix}</b> ticket${tix===1?'':'s'} 🎟️ &nbsp;·&nbsp; Best ${stats.best}`;
@@ -1620,6 +1628,8 @@ function setupSettings(){
   pick('sens','power'); pick('msp','meter'); pick('tod','tod');
   document.querySelectorAll('input[name="tod"]').forEach(r=>r.addEventListener('change',()=>applyTOD()));
   document.getElementById('sensLbl').textContent='Putting sensitivity';
+    { const jg=document.getElementById('jumpGrid');                                   // testing: start a round at any hole (earlier holes count as par; stats untouched)
+    for(let i=0;i<HOLES.length;i++){ const b=document.createElement('button'); b.textContent=i+1; b.addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); jumpTo(i); }); jg.appendChild(b); } }
   document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); newGame(); });
 }
 document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('startbtn').textContent='START'; });

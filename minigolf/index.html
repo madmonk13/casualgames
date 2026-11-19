@@ -88,6 +88,9 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 .tile.selected{border-color:#ffd54a;background:rgba(255,213,74,.14);}
 .tile img.ball3d{width:100%;aspect-ratio:1;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45));}
 .tile .label{font-size:.68rem;color:#ddd3ee;margin-top:5px;}
+.jump{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;}
+.jump button{padding:7px 0;border:1px solid #3d3058;border-radius:7px;background:#1d1630;color:#ddd3ee;font-size:.8rem;font-weight:700;cursor:pointer;}
+.jump button:active{background:#ffd54a;color:#181000;}
 .toggle{width:100%;padding:11px;border:1px solid #3d3058;border-radius:9px;background:#1d1630;color:#ddd3ee;font-size:.9rem;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .12s;}
 .toggle:hover{border-color:#6a5a90;}
 .toggle.on{background:#ffd54a;color:#181000;border-color:#ffd54a;}
@@ -140,6 +143,9 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <button class="toggle" id="setGuide"></button>
     <button class="toggle" id="setOpt"></button>
     <button class="toggle" id="newGameBtn">New Game</button>
+    <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
+      <div class="jump" id="jumpGrid"></div>
+    </div>
     <div class="stats"><div><b id="stBest">–</b>Best</div><div><b id="stGames">0</b>Rounds</div><div><b id="stAces">0</b>Aces</div><div><b id="stTix">0</b>Tickets</div></div>
   </div>
 </div>
@@ -1207,8 +1213,7 @@ function buildHole(){
   H.pts.forEach((p,i)=>{ const j=(i+1)%np, q=H.pts[j];
     edges.push({a:p,b:q,n:ON[i],skirt:true,inA:[p[0]-MIT[i][0],p[1]-MIT[i][1]],inB:[q[0]-MIT[j][0],q[1]-MIT[j][1]],outA:[p[0]+MIT[i][0],p[1]+MIT[i][1]],outB:[q[0]+MIT[j][0],q[1]+MIT[j][1]]});
     SEGS.push({a:p,b:q,r:BALL_R+RAIL_T/2,e:E_RAIL,kind:'rail'}); });
-  for(const f of H.feat) if(f.t==='cone'){ buildPieceMats(); const cone=add(diskGeom(f.x,f.z,f.r,0.04,14,CUP_R+3.6),M.rock,false); cone.receiveShadow=!PERF;
-    const lip=add(new THREE.TorusGeometry(CUP_R+5,0.7,8,48),M.stone); lip.rotation.x=Math.PI/2; lip.position.set(f.x,BASE_Y+hAt(f.x+CUP_R+5,f.z)+0.2,f.z); }
+  for(const f of H.feat) if(f.t==='cone'){ buildPieceMats(); const cone=add(diskGeom(f.x,f.z,f.r,0.04,14,CUP_R+3.6),M.rock,false); cone.receiveShadow=!PERF; }
   for(const o of H.obst){
     if(o.t==='wall'){ edges.push({a:o.a,b:o.b,n:null,skirt:false,h:o.h}); SEGS.push({a:o.a,b:o.b,r:BALL_R+RAIL_T/2,e:E_RAIL,kind:'rail'}); }
     else if(o.t==='post'){ const m=add(new THREE.CylinderGeometry(o.r,o.r,RAIL_H+1.5,24),M.white); m.position.set(o.x,BASE_Y+hAt(o.x,o.z)+(RAIL_H+1.5)/2,o.z);
@@ -1351,16 +1356,18 @@ let rollStart=0;
 function relStr(n){ return n===0?'E':(n>0?'+'+n:String(n)); }
 function totals(){ const s=scores.reduce((a,b)=>a+b,0), p=PLAY.slice(0,scores.length).reduce((a,h)=>a+h.par,0); return {s,rel:s-p}; }
 function setCourse(c){ PLAY=c==='front'?HOLES.slice(0,9):c==='back'?HOLES.slice(9):HOLES; HOLE_NO0=c==='back'?9:0; }
+let testRound=false;
 function newGame(){
-  clearGame(); setCourse(settings.course); roundCourse=settings.course;
+  clearGame(); setCourse(settings.course); roundCourse=settings.course; testRound=false;
   anims=[]; scores=[]; holeIdx=0; startHole(); }
+function jumpTo(i){ clearGame(); setCourse('all'); roundCourse='all'; testRound=true; anims=[]; scores=PLAY.slice(0,i).map(h=>h.par); holeIdx=i; startHole(); }
 // the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
 let roundCourse='all', resumeSave=null;
-function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justputt_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,bx:ball.x,bz:ball.z,lastPos})); }catch(e){} }
+function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justputt_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,bx:ball.x,bz:ball.z,lastPos,test:testRound})); }catch(e){} }
 function loadGame(){ try{ const g=JSON.parse(sessionStorage.getItem('justputt_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; setCourse(g.course); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
 function clearGame(){ try{ sessionStorage.removeItem('justputt_game'); }catch(e){} }
 function resumeGame(g){
-  setCourse(g.course); roundCourse=g.course; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole();
+  setCourse(g.course); roundCourse=g.course; testRound=!!g.test; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole();
   if(g.strokes>0){ strokes=g.strokes; ball.x=g.bx; ball.z=g.bz; lastPos=g.lastPos||[g.bx,g.bz]; buildHUD(); saveGame(); }
 }
 function startHole(){
@@ -1392,7 +1399,7 @@ function sinkBall(){
 function endHole(sc){
   phase='sunk'; scores.push(sc); saveGame(true);
   const rel=sc-H.par, term=sc===1?'HOLE IN ONE!':rel<=-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':rel===2?'DOUBLE BOGEY':'+'+rel;
-  if(sc===1){ celebrate(term,'pink'); sfxChime('ace'); stats.aces++; saveStats(); }
+  if(sc===1){ celebrate(term,'pink'); sfxChime('ace'); if(!testRound){ stats.aces++; saveStats(); } }
   else if(rel<0){ celebrate(term,'gold'); sfxChime('under'); }
   else if(rel===0){ celebrate(term,'green'); sfxChime('par'); }
   else { showMsg(term,1.4); sfxChime('over'); }
@@ -1401,8 +1408,8 @@ function endHole(sc){
 }
 function roundOver(){
   clearGame(); phase='over'; const {s,rel}=totals(), aces=scores.filter(v=>v===1).length;
-  const tix=Math.max(1,aces*5+Math.max(0,(parTotal()+Math.ceil(PLAY.length/2)-s))*2), newBest=!stats.best||s<stats.best;
-  stats.games++; stats.tickets+=tix; if(newBest) stats.best=s; saveStats(); sfxRoundOver(); buildHUD();
+  const tix=Math.max(1,aces*5+Math.max(0,(parTotal()+Math.ceil(PLAY.length/2)-s))*2), newBest=!testRound&&(!stats.best||s<stats.best);
+  if(!testRound){ stats.games++; stats.tickets+=tix; if(newBest) stats.best=s; saveStats(); } sfxRoundOver(); buildHUD();
   const ov=document.getElementById('ov');
   ov.querySelector('h2').textContent=`⛳ ${s} (${relStr(rel)})`;
   let tbl=''; for(let a=0;a<PLAY.length;a+=9){ const hs=PLAY.slice(a,a+9), sc=scores.slice(a,a+9);
@@ -1739,6 +1746,8 @@ function setupSettings(){
   const tr=[...document.querySelectorAll('input[name="tod"]')]; tr.forEach(r=>{ r.checked=(+r.value===settings.tod); r.addEventListener('change',()=>{ if(r.checked){ settings.tod=+r.value; saveSettings(); applyTOD(); } }); });
   const cr=[...document.querySelectorAll('input[name="course"]')];
   cr.forEach(r=>{ r.checked=(r.value===settings.course); r.addEventListener('change',()=>{ if(r.checked){ settings.course=r.value; saveSettings(); if(phase!=='menu'&&phase!=='over') showMsg('Takes effect next round',1.4); } }); });
+    { const jg=document.getElementById('jumpGrid');                                   // testing: start a round at any hole (earlier holes count as par; stats untouched)
+    for(let i=0;i<HOLES.length;i++){ const b=document.createElement('button'); b.textContent=i+1; b.addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); jumpTo(i); }); jg.appendChild(b); } }
   document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); newGame(); });
 }
 document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('startbtn').textContent='START'; });
