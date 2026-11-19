@@ -1221,7 +1221,7 @@ function strike(power,acc){                        // power 0..1, acc -1..1 (lef
   showMsg(Math.abs(acc)<0.06?'Pure!':acc<0?(acc<-0.35?'Hook!':'Draw'):(acc>0.35?'Slice!':'Fade'),1.0);
 }
 function putt(dirx,dirz,pow){
-  lastPuttFrom=toPin(); const v=7.2*Math.pow(pow,1.4)*settings.power; ball.last=[ball.p.x,ball.p.z]; ball.v.set(dirx*v,0,dirz*v); ball.mode='roll'; ball.t=0;
+  lastPuttFrom=toPin(); const v=7.2*Math.pow(pow,1.15)*settings.power; ball.last=[ball.p.x,ball.p.z]; ball.v.set(dirx*v,0,dirz*v); ball.mode='roll'; ball.t=0;
   strokes++; phase='flight'; camMode='putt'; sfxPutt(pow); buildHUD(); updateUI();
 }
 let lastPuttFrom=null;
@@ -1402,6 +1402,12 @@ function updateCamera(dt){
 //  INPUT — drag to aim; on the green, pull back & release to putt
 // ═══════════════════════════════════════════════════════
 let dragging=false, dragX=0, aimPx=null, aimStart=null, aimDir=new THREE.Vector2(0,1), puttPow=0;
+// putt power: a full-strength pull is ~42% of the short screen side (150–330px), and the release uses where the finger was
+// held ~70ms before lift-off, so the little slide a fingertip makes as it leaves the glass doesn't change the putt
+const pullFull=r=>clamp(Math.min(r.width,r.height)*0.42,150,330);
+let pullHist=[];
+function pullNote(pow,dx,dz){ const t=performance.now(); pullHist.push([t,pow,dx,dz]); while(pullHist.length>2&&t-pullHist[1][0]>400) pullHist.shift(); }
+function pullRelease(){ const t=performance.now(); for(let i=pullHist.length-1;i>=0;i--) if(t-pullHist[i][0]>=70) return pullHist[i]; return pullHist[pullHist.length-1]||null; }
 const _hit=V3(), groundPlane=new THREE.Plane(V3(0,1,0),0);
 function planePt(e){
   const r=renderer.domElement.getBoundingClientRect(); groundPlane.constant=-ball.p.y;
@@ -1423,16 +1429,17 @@ function pdown(e){
   if(phase!=='aim') return; e.preventDefault(); getAC(); initSfx(); startAmbient();
   if(clubIdx===PUTTER&&!onBall(e)) return;                                       // a putt has to start on the ball
   try{ renderer.domElement.setPointerCapture(e.pointerId); }catch(_){}
-  dragging=true; dragX=e.clientX; aimPx=[e.clientX,e.clientY]; aimStart=planePt(e); puttPow=0;
+  dragging=true; dragX=e.clientX; aimPx=[e.clientX,e.clientY]; aimStart=planePt(e); puttPow=0; pullHist=[];
 }
 function pmove(e){
   if(!dragging) return; e.preventDefault();
   if(clubIdx===PUTTER){ const p=planePt(e); if(!p||!aimStart) return; const dx=aimStart[0]-p[0], dz=aimStart[1]-p[1], l=Math.hypot(dx,dz);
-    const r=renderer.domElement.getBoundingClientRect(); puttPow=clamp(Math.hypot(e.clientX-aimPx[0],e.clientY-aimPx[1])/(Math.min(r.width,r.height)*0.3),0,1); if(l>0.01){ aimDir.set(dx/l,dz/l); } return; }
+    const r=renderer.domElement.getBoundingClientRect(); puttPow=clamp(Math.hypot(e.clientX-aimPx[0],e.clientY-aimPx[1])/pullFull(r),0,1); if(l>0.01){ aimDir.set(dx/l,dz/l); } pullNote(puttPow,aimDir.x,aimDir.y); return; }
   const dx=e.clientX-dragX; dragX=e.clientX; aim-=dx*0.0035*(viewOn?2:1); updateUI();
 }
 function pup(e){
   if(!dragging) return; dragging=false;
+  if(clubIdx===PUTTER){ const h=pullRelease(); if(h){ puttPow=h[1]; aimDir.set(h[2],h[3]); } pullHist=[]; }
   if(clubIdx===PUTTER&&phase==='aim'&&puttPow>0.03){ aim=Math.atan2(aimDir.x,aimDir.y); putt(aimDir.x,aimDir.y,puttPow); }
   puttPow=0;
 }

@@ -1372,7 +1372,7 @@ function startHole(){
   buildHUD(); saveGame();
 }
 function putt(dirx,dirz,pow){
-  puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.35)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
+  puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.15)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
   if(SPIN&&Math.hypot(ball.x-SPIN.x,ball.z-SPIN.z)<SPIN.r){ ball.vx+=-SPIN.w*(ball.z-SPIN.z); ball.vz+=SPIN.w*(ball.x-SPIN.x); }
   strokes++; phase='roll'; rollStart=clock; sfxPutt(pow); startRoll(); buildHUD();
 }
@@ -1474,6 +1474,12 @@ function segBox(p,q,mn,mx){ let t0=0,t1=1; for(const ax of ['x','y','z']){ const
 //  INPUT — touch the ball, pull back, release to putt
 // ═══════════════════════════════════════════════════════
 let aiming=false, tapPx=null, aimStart=null, aimPx=null, aimDir=new THREE.Vector2(0,1), aimPow=0;
+// putt power: a full-strength pull is ~42% of the short screen side (150–330px), and the release uses where the finger was
+// held ~70ms before lift-off, so the little slide a fingertip makes as it leaves the glass doesn't change the putt
+const pullFull=r=>clamp(Math.min(r.width,r.height)*0.42,150,330);
+let pullHist=[];
+function pullNote(pow,dx,dz){ const t=performance.now(); pullHist.push([t,pow,dx,dz]); while(pullHist.length>2&&t-pullHist[1][0]>400) pullHist.shift(); }
+function pullRelease(){ const t=performance.now(); for(let i=pullHist.length-1;i>=0;i--) if(t-pullHist[i][0]>=70) return pullHist[i]; return pullHist[pullHist.length-1]||null; }
 const _hit=new THREE.Vector3(), aimPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0);
 function planePt(e){
   const r=renderer.domElement.getBoundingClientRect(); aimPlane.constant=-(BASE_Y+hAt(ball.x,ball.z)+BALL_R);
@@ -1493,18 +1499,19 @@ function pdown(e){
   if(phase==='intro'){ camMode=viewOn?'overview':'aim'; phase='aim'; return; }     // tap skips the fly-over
   if(phase!=='aim') return; e.preventDefault(); getAC(); initSfx(); startAmbient();
   tapPx=null; if(!onBall(e)){ tapPx=[e.clientX,e.clientY]; return; }          // a putt has to start on the ball; elsewhere is only a tap (to place the ball on the tee mat)
-  const p=planePt(e); if(!p) return; aiming=true; aimStart=p; aimPx=[e.clientX,e.clientY]; aimPow=0; stage.classList.add('aiming');
+  const p=planePt(e); if(!p) return; aiming=true; aimStart=p; aimPx=[e.clientX,e.clientY]; aimPow=0; pullHist=[]; stage.classList.add('aiming');
   try{ renderer.domElement.setPointerCapture(e.pointerId); }catch(_){}
 }
 function pmove(e){
   if(!aiming) return; e.preventDefault(); const p=planePt(e); if(!p) return;
   const dx=aimStart[0]-p[0], dz=aimStart[1]-p[1], l=Math.hypot(dx,dz);
-  const r=renderer.domElement.getBoundingClientRect(), full=Math.min(r.width,r.height)*0.3, px=Math.hypot(e.clientX-aimPx[0],e.clientY-aimPx[1]);
-  aimPow=clamp(px/full,0,1); if(l>0.3) aimDir.set(dx/l,dz/l);
+  const r=renderer.domElement.getBoundingClientRect(), full=pullFull(r), px=Math.hypot(e.clientX-aimPx[0],e.clientY-aimPx[1]);
+  aimPow=clamp(px/full,0,1); if(l>0.3) aimDir.set(dx/l,dz/l); pullNote(aimPow,aimDir.x,aimDir.y);
 }
 function pup(e){
   const tap=tapPx&&Math.hypot(e.clientX-tapPx[0],e.clientY-tapPx[1])<12; tapPx=null;
   if(!aiming&&!tap) return; e.preventDefault(); aiming=false; stage.classList.remove('aiming');
+  { const h=pullRelease(); if(h){ aimPow=h[1]; aimDir.set(h[2],h[3]); } } pullHist=[];
   if(aimPow>0.04&&phase==='aim') putt(aimDir.x,aimDir.y,aimPow);
   else if(phase==='aim'&&strokes===0){ const p=planePt(e), mx=TEE_W/2-BALL_R-0.3, mz=TEE_D/2-BALL_R-0.3;      // a tap on the tee mat places the ball
     if(p&&Math.abs(p[0]-H.tee[0])<TEE_W/2+2&&Math.abs(p[1]-H.tee[1])<TEE_D/2+2){ ball.x=H.tee[0]+clamp(p[0]-H.tee[0],-mx,mx); ball.z=H.tee[1]+clamp(p[1]-H.tee[1],-mz,mz); } }
