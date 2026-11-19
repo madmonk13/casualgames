@@ -161,6 +161,13 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
         <label><input type="radio" name="msp" value="1.3"><span>Fast</span></label>
       </div>
     </div>
+    <div class="sec"><div class="sec-label" id="todLbl">Time of day</div>
+      <div class="seg" role="radiogroup" aria-labelledby="todLbl">
+        <label><input type="radio" name="tod" value="0"><span>Morning</span></label>
+        <label><input type="radio" name="tod" value="1"><span>Midday</span></label>
+        <label><input type="radio" name="tod" value="2"><span>Golden hour</span></label>
+      </div>
+    </div>
     <button class="toggle" id="setGuide"></button>
     <button class="toggle" id="setDraw"></button>
     <button class="toggle" id="setOpt"></button>
@@ -363,6 +370,269 @@ const _sfxLast={};
 function gate(k,gap){ const t=_ac.currentTime; if(_sfxLast[k]!=null&&t-_sfxLast[k]<gap) return -1; _sfxLast[k]=t; return t; }   // -1 = too soon after the last one
 // ball bouncing on the hardwood/asphalt ramp: leather slap + the ball's hollow air "pong" + floor thump
 function bell(f,t,vol,dur){ const b=chimeBus||master; tone('sine',f,t,dur,vol,null,b); tone('sine',f*2.01,t,dur*0.6,vol*0.35,null,b); tone('sine',f*3.02,t,dur*0.35,vol*0.18,null,b); }
+// ═══════════════════════════════════════════════════════
+//  ENVIRONMENT (shared by Just Putt and Just Golf): leaf-card trees, wind sway, cloud shadows,
+//  mirror-reflecting water, splashes / sprays, grass tufts and time-of-day lighting.
+//  Templates are built in metres; callers pass U = world units per metre.
+// ═══════════════════════════════════════════════════════
+const ENV={
+  t:{value:0}, wind:{value:new THREE.Vector2(0.5,0.2)}, cloudOff:{value:new THREE.Vector2()}, cloudTex:{value:null},
+  cloudScale:{value:1/400}, cloudAmt:{value:0.42}, U:1, parts:[], mirror:null, tpl:{}, mats:{}, drift:new THREE.Vector2(1,0.35),
+};
+// ── textures ──
+function envCloudCanvas(){                         // tileable cover map: 1 = under a cloud
+  const S=256, c=mkCanvas(S,S), g=c.getContext('2d'), img=g.createImageData(S,S), d=img.data;
+  for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const n=NZ.fbm(x/S*4,y/S*4,5,4,4), v=smooth(clamp((n-0.5)/0.16,0,1)), i=(y*S+x)*4; d[i]=d[i+1]=d[i+2]=v*255; d[i+3]=255; }
+  g.putImageData(img,0,0); return c;
+}
+function envLeafCanvas(kind){                      // a cluster of leaves (or pine needles) with see-through gaps
+  const S=256, c=mkCanvas(S,S), g=c.getContext('2d'); g.clearRect(0,0,S,S);
+  const rnd=NZ.rnd;
+  if(kind==='needle'){
+    for(let k=0;k<26;k++){ const cx=S/2+(rnd()-0.5)*150, cy=S/2+(rnd()-0.5)*150; if(Math.hypot(cx-S/2,cy-S/2)>96) continue;
+      g.strokeStyle='rgba(60,40,24,.9)'; g.lineWidth=2.4; const a0=rnd()*6.28; g.beginPath(); g.moveTo(cx-Math.cos(a0)*30,cy-Math.sin(a0)*30); g.lineTo(cx+Math.cos(a0)*30,cy+Math.sin(a0)*30); g.stroke();
+      for(let i=0;i<34;i++){ const t=(i/34-0.5)*58, bx=cx+Math.cos(a0)*t, by=cy+Math.sin(a0)*t, a=a0+(i&1?1:-1)*(0.7+rnd()*0.4), L=13+rnd()*9, l=26+rnd()*22;
+        g.strokeStyle=`hsl(${128+rnd()*16},${38+rnd()*14}%,${l}%)`; g.lineWidth=1.6; g.beginPath(); g.moveTo(bx,by); g.lineTo(bx+Math.cos(a)*L,by+Math.sin(a)*L); g.stroke(); } }
+  } else {
+    for(let k=0;k<110;k++){ const r=Math.sqrt(rnd())*104, a=rnd()*6.28, x=S/2+Math.cos(a)*r, y=S/2+Math.sin(a)*r, rot=rnd()*6.28, len=11+rnd()*7, w=len*(0.42+rnd()*0.12);
+      const l=24+rnd()*24+(r<50?-6:0); g.save(); g.translate(x,y); g.rotate(rot);
+      g.fillStyle=`hsl(${92+rnd()*26},${42+rnd()*18}%,${l}%)`; g.beginPath(); g.moveTo(-len,0); g.quadraticCurveTo(0,-w*1.25,len,0); g.quadraticCurveTo(0,w*1.25,-len,0); g.fill();
+      g.strokeStyle=`hsla(${80+rnd()*20},40%,${l+14}%,.55)`; g.lineWidth=1; g.beginPath(); g.moveTo(-len*0.9,0); g.lineTo(len*0.85,0); g.stroke(); g.restore(); }
+  }
+  return c;
+}
+function envBarkCanvas(){
+  return shade(64,256,(x,y,o)=>{ const n=NZ.fbm(x/64*3,y/256*18,4,3,18), s=NZ.n2(x/64*14,y/256*3,14,3), k=0.55+n*0.4+s*0.25;
+    o[0]=clamp(92*k,0,255); o[1]=clamp(74*k,0,255); o[2]=clamp(58*k,0,255); },false).color;
+}
+// ── shader patch: wind sway, cloud shadows, soft canopy normals, mirror reflections ──
+function envPatch(m,o){
+  if(m.userData.envP) return m; m.userData.envP=true;
+  const prev=m.onBeforeCompile; m.defines=Object.assign(m.defines||{},o.sway?{ENV_SWAY:''}:{},o.cloud?{ENV_CLOUD:''}:{},o.refl?{ENV_REFL:''}:{},o.soft?{ENV_SOFT:''}:{},o.wear?{ENV_WEAR:''}:{},o.detail?{ENV_DETAIL:''}:{});
+  const swayH={value:o.swayH||1}, swayK={value:o.swayK||0};
+  m.userData.swayH=swayH; m.userData.swayK=swayK;
+  m.onBeforeCompile=(sh,r)=>{ if(prev) prev(sh,r);
+    Object.assign(sh.uniforms,{envT:ENV.t,envWind:ENV.wind,envCloud:ENV.cloudTex,envCloudOff:ENV.cloudOff,envCloudScale:ENV.cloudScale,envCloudAmt:ENV.cloudAmt,envSwayH:swayH,envSwayK:swayK});
+    if(o.wear) Object.assign(sh.uniforms,{envWear:{value:o.wear},envWearF:{value:o.wearF||1/(0.8*ENV.U)}});
+    if(o.detail) Object.assign(sh.uniforms,{envDetail:{value:o.detail.tex},envDetailF:{value:o.detail.f},envDetailAmt:{value:o.detail.amt}});
+    if(o.refl) Object.assign(sh.uniforms,{envRefl:o.refl.tex,envTexMat:o.refl.mat,envRipF:{value:1/ENV.U},envRip:{value:0.009}});
+    sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nuniform float envT, envSwayH, envSwayK; uniform vec2 envWind; varying vec2 vEnvW; varying vec3 vEnvWP;\n#ifdef ENV_REFL\nuniform mat4 envTexMat; varying vec4 vEnvR;\n#endif')
+      .replace('#include <project_vertex>',`vec4 envP=vec4(transformed,1.0); vec3 envO=vec3(0.0);
+#ifdef USE_INSTANCING
+envP=instanceMatrix*envP; envO=instanceMatrix[3].xyz;
+#endif
+envP=modelMatrix*envP;
+#ifdef ENV_SWAY
+{ vec3 wo=(modelMatrix*vec4(envO,1.0)).xyz; float hh=max(envP.y-wo.y,0.0)/envSwayH; float ph=envT*1.6+wo.x*0.37/envSwayH+wo.z*0.29/envSwayH;
+  float gw=(0.62+0.38*sin(ph))*hh*hh*envSwayK; envP.xz+=envWind*gw;
+  envP.xyz+=vec3(sin(ph*2.7+position.x*7.0),0.5*sin(ph*3.1+position.y*5.0),cos(ph*2.3+position.z*7.0))*0.05*hh*envSwayK*(0.6+length(envWind)); }
+#endif
+vEnvW=envP.xz; vEnvWP=envP.xyz;
+#ifdef ENV_REFL
+vEnvR=envTexMat*envP;
+#endif
+vec4 mvPosition=viewMatrix*envP;
+gl_Position=projectionMatrix*mvPosition;`);
+    sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform float envT, envCloudScale, envCloudAmt; uniform vec2 envCloudOff; uniform sampler2D envCloud; varying vec2 vEnvW; varying vec3 vEnvWP;\n#ifdef ENV_REFL\nuniform sampler2D envRefl; uniform float envRipF, envRip; varying vec4 vEnvR;\n#endif\n#ifdef ENV_WEAR\nuniform float envWear, envWearF;\n#endif\n#ifdef ENV_DETAIL\nuniform sampler2D envDetail; uniform float envDetailF, envDetailAmt;\n#endif')
+      .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef ENV_WEAR\n{ float w1=texture2D(envCloud,vEnvW*envWearF+vec2(0.37,0.11)).r, w2=step(0.93,texture2D(envCloud,vEnvW*envWearF*6.1+vec2(0.71,0.29)).r); diffuseColor.rgb*=1.0-envWear*(0.55*w1+0.45*w2); }\n#endif\n#ifdef ENV_DETAIL\n{ float dd=texture2D(envDetail,vEnvW*envDetailF).r; diffuseColor.rgb*=mix(1.0,dd*2.0,envDetailAmt); }\n#endif')
+      .replace('#include <normal_fragment_begin>','#include <normal_fragment_begin>\n#ifdef ENV_SOFT\nnormal=normalize(vNormal);\n#endif')
+      .replace('#include <aomap_fragment>','#ifdef ENV_CLOUD\n{ float cc=texture2D(envCloud,vEnvW*envCloudScale+envCloudOff).r; float cs=1.0-envCloudAmt*cc; reflectedLight.directDiffuse*=cs; reflectedLight.directSpecular*=cs; }\n#endif\n#include <aomap_fragment>')
+      .replace('#include <tonemapping_fragment>',`#ifdef ENV_REFL
+{ vec2 q=vEnvW*envRipF; vec2 rip=vec2(sin(q.x*2.3+envT*1.4)+sin(q.y*3.1-envT*1.1+q.x*0.7), cos(q.y*2.7+envT*1.2)+sin((q.x+q.y)*1.9+envT*1.7))*envRip;
+  vec4 ru=vEnvR; ru.xy+=rip*ru.w; vec3 refl=texture2DProj(envRefl,ru).rgb;
+  vec3 V=normalize(cameraPosition-vEnvWP); float fr=0.08+0.92*pow(1.0-clamp(V.y,0.0,1.0),4.0);
+  gl_FragColor.rgb=mix(gl_FragColor.rgb,refl,clamp(fr+0.22,0.0,0.92)); }
+#endif
+#include <tonemapping_fragment>`);
+  };
+  m.customProgramCacheKey=()=>'env'+(o.sway?1:0)+(o.cloud?1:0)+(o.refl?1:0)+(o.soft?1:0)+(o.wear?1:0)+(o.detail?1:0)+(prev?prev.toString().length:0);
+  return m;
+}
+function envFiberCanvas(){                         // carpet / turf grain: per-pixel fibres, a little stretched (tiles seamlessly)
+  const S=128, c=mkCanvas(S,S), g=c.getContext('2d'), img=g.createImageData(S,S), d=img.data, v=new Float32Array(S*S);
+  for(let i=0;i<S*S;i++) v[i]=Math.random();
+  for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const a=v[y*S+x], b=v[((y+1)%S)*S+x], c2=v[((y+2)%S)*S+(x+1)%S], k=0.5+((a*0.5+b*0.3+c2*0.2)-0.5)*0.75, i=(y*S+x)*4; d[i]=d[i+1]=d[i+2]=clamp(k*255,0,255); d[i+3]=255; }
+  g.putImageData(img,0,0); return c;
+}
+function envCloudAll(M){                             // cloud shadows on every lit material in a table (skips ones already patched)
+  for(const k in M){ const m=M[k]; if(m&&(m.isMeshStandardMaterial||m.isMeshPhysicalMaterial)&&!m.userData.envP) envPatch(m,{cloud:true}); }
+}
+// ── geometry helpers ──
+function envCyl(r0,r1,h,seg,from,dir){
+  const g=new THREE.CylinderGeometry(r1,r0,h,seg,1,true); g.translate(0,h/2,0);
+  g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize()))); g.translate(from.x,from.y,from.z); return g;
+}
+function envMerge(geos){
+  let n=0; const parts=geos.map(g=>{ const ng=g.index?g.toNonIndexed():g; n+=ng.attributes.position.count; return ng; });
+  const pos=new Float32Array(n*3), nor=new Float32Array(n*3), uv=new Float32Array(n*2), col=new Float32Array(n*3); let o=0;
+  for(const g of parts){ const c=g.attributes.position.count; pos.set(g.attributes.position.array,o*3);
+    if(g.attributes.normal) nor.set(g.attributes.normal.array,o*3); if(g.attributes.uv) uv.set(g.attributes.uv.array,o*2);
+    if(g.attributes.color) col.set(g.attributes.color.array,o*3); else col.fill(1,o*3,(o+c)*3); o+=c; }
+  const out=new THREE.BufferGeometry(); out.setAttribute('position',new THREE.BufferAttribute(pos,3)); out.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  out.setAttribute('uv',new THREE.BufferAttribute(uv,2)); out.setAttribute('color',new THREE.BufferAttribute(col,3)); out.computeBoundingSphere(); return out;
+}
+// cards: [{p:[x,y,z], s, n:[x,y,z] (lighting normal), k (brightness)}] → randomly oriented textured quads
+function envCards(cards,flat){
+  const N=cards.length, pos=new Float32Array(N*18), nor=new Float32Array(N*18), uv=new Float32Array(N*12), col=new Float32Array(N*18);
+  const a=new THREE.Vector3(), b=new THREE.Vector3(), r=new THREE.Vector3(), rnd=NZ.rnd, U2=[[0,0],[1,0],[1,1],[0,0],[1,1],[0,1]], C=[[-1,-1],[1,-1],[1,1],[-1,-1],[1,1],[-1,1]];
+  cards.forEach((cd,i)=>{
+    if(flat){ a.set(rnd()-0.5,0,rnd()-0.5).normalize(); b.set(-a.z,0,a.x); b.y=-0.5-rnd()*0.4; b.normalize(); }    // needle sprays hang outward & down
+    else { a.set(rnd()-0.5,rnd()-0.5,rnd()-0.5).normalize(); r.set(rnd()-0.5,rnd()-0.5,rnd()-0.5); b.crossVectors(a,r).normalize(); }
+    const tint=0.9+rnd()*0.2;
+    for(let v=0;v<6;v++){ const j=i*6+v; pos[j*3]=cd.p[0]+(a.x*C[v][0]+b.x*C[v][1])*cd.s; pos[j*3+1]=cd.p[1]+(a.y*C[v][0]+b.y*C[v][1])*cd.s; pos[j*3+2]=cd.p[2]+(a.z*C[v][0]+b.z*C[v][1])*cd.s;
+      nor[j*3]=cd.n[0]; nor[j*3+1]=cd.n[1]; nor[j*3+2]=cd.n[2]; uv[j*2]=U2[v][0]; uv[j*2+1]=U2[v][1];
+      col[j*3]=cd.k*tint*(0.96+rnd()*0.02); col[j*3+1]=cd.k*tint; col[j*3+2]=cd.k*tint*0.95; } });
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  g.setAttribute('uv',new THREE.BufferAttribute(uv,2)); g.setAttribute('color',new THREE.BufferAttribute(col,3)); g.computeBoundingSphere(); return g;
+}
+function envRandDir(){ let x,y,z,l; do{ x=NZ.rnd()*2-1; y=NZ.rnd()*2-1; z=NZ.rnd()*2-1; l=x*x+y*y+z*z; }while(l>1||l<0.01); l=Math.sqrt(l); return [x/l,y/l,z/l]; }
+function envLobeCards(out,lobes,centre,total,size){
+  const sum=lobes.reduce((s,L)=>s+L.r*L.r,0);
+  for(const L of lobes){ const n=Math.round(total*L.r*L.r/sum);
+    for(let i=0;i<n;i++){ const d=envRandDir(), f=0.42+0.58*Math.sqrt(NZ.rnd()), p=[L.c[0]+d[0]*L.r*f,L.c[1]+d[1]*L.r*f*(L.sy||0.85),L.c[2]+d[2]*L.r*f*(L.sz||1)];
+      let nx=p[0]-centre[0], ny=p[1]-centre[1]+0.6, nz=p[2]-centre[2]; const nl=Math.hypot(nx,ny,nz)||1; nx/=nl; ny/=nl; nz/=nl;
+      const k=0.5+0.42*f+0.12*clamp((p[1]-centre[1])/L.r,-1,1); out.push({p,s:size*(0.8+NZ.rnd()*0.45),n:[nx,ny,nz],k}); } }
+}
+// species templates (metres, trunk base at the origin). canopy: {cy, r} for ball collisions
+function envTemplate(sp){
+  if(ENV.tpl[sp]) return ENV.tpl[sp];
+  const q=PERF?0.55:1, up=new THREE.Vector3(0,1,0), V=(x,y,z)=>new THREE.Vector3(x,y,z), wood=[], cards=[]; let T;
+  if(sp==='oak'){
+    wood.push(envCyl(0.34,0.2,4.4,9,V(0,0,0),up));
+    for(let i=0;i<5;i++){ const a=i/5*6.28+NZ.rnd(), y=2.4+NZ.rnd()*1.4; wood.push(envCyl(0.13,0.05,2.6,5,V(0,y,0),V(Math.cos(a)*0.8,1,Math.sin(a)*0.8))); }
+    const lobes=[{c:[0,6.1,0],r:2.6}]; for(let i=0;i<5;i++){ const a=i/5*6.28+0.4, d=1.5+NZ.rnd()*0.4; lobes.push({c:[Math.cos(a)*d,5.0+NZ.rnd()*1.5,Math.sin(a)*d],r:1.7+NZ.rnd()*0.5}); }
+    envLobeCards(cards,lobes,[0,5.6,0],Math.round(170*q),1.25); T={leaf:'leaf',h:8.8,cy:5.9,r:3.1,trunkR:0.3,trunkH:4.4,flat:false};
+  } else if(sp==='pine'){
+    wood.push(envCyl(0.3,0.06,13,8,V(0,0,0),up));
+    for(let y=2.3;y<12.9;y+=0.5){ const f=(y-2.3)/10.6, R=2.7*Math.pow(1-f,0.9)+0.3, n=Math.round((4+R*4.2)*q);
+      for(let i=0;i<n;i++){ const a=NZ.rnd()*6.28, d=R*(0.45+0.55*NZ.rnd()), p=[Math.cos(a)*d,y+NZ.rnd()*0.35-d*0.18,Math.sin(a)*d];
+        cards.push({p,s:0.95*(0.8+NZ.rnd()*0.4)*(0.7+0.3*(1-f)),n:[Math.cos(a)*0.75,0.65,Math.sin(a)*0.75],k:0.5+0.5*(d/R)*0.8+f*0.15}); } }
+    T={leaf:'needle',h:13.4,cy:6.2,r:2.5,trunkR:0.28,trunkH:13,flat:true};
+  } else if(sp==='poplar'){
+    wood.push(envCyl(0.24,0.08,10,7,V(0,0,0),up));
+    envLobeCards(cards,[{c:[0,7.2,0],r:1.75,sy:3.0},{c:[0,4.6,0],r:1.55,sy:1.4}],[0,7,0],Math.round(150*q),1.0); T={leaf:'leaf',h:12.8,cy:7,r:1.8,trunkR:0.22,trunkH:3.2,flat:false};
+  } else {                                          // shrub: a low dome of leaf cards
+    envLobeCards(cards,[{c:[0,0.55,0],r:0.95,sy:0.7},{c:[0.45,0.45,0.2],r:0.6,sy:0.7},{c:[-0.4,0.42,-0.25],r:0.6,sy:0.7}],[0,0.3,0],Math.round(64*q),0.55);
+    T={leaf:'leaf',h:1.3,cy:0.5,r:1,trunkR:0,trunkH:0,flat:false};
+  }
+  T.wood=wood.length?envMerge(wood):null; T.leaves=envCards(cards,T.flat); if(T.wood) T.wood.userData.shared=true; T.leaves.userData.shared=true; return ENV.tpl[sp]=T;
+}
+const ENV_LEAF={oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e};
+function envMaterials(sp,heightW){                  // per species: leaves + bark, both swaying with the wind
+  const key=sp+'|'+heightW.toFixed(1); if(ENV.mats[key]) return ENV.mats[key];
+  if(!ENV.leafTex){ ENV.leafTex=toTex(envLeafCanvas('leaf')); ENV.needleTex=toTex(envLeafCanvas('needle')); ENV.barkTex=toTex(envBarkCanvas(),{repeat:[2,3]}); }
+  const T=envTemplate(sp), map=T.leaf==='needle'?ENV.needleTex:ENV.leafTex, K=(sp==='shrub'?0.05:0.3)*ENV.U;
+  const leaf=envPatch(new THREE.MeshStandardMaterial({map,color:ENV_LEAF[sp],alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.82}),{sway:true,cloud:true,soft:true,swayH:heightW,swayK:K});
+  leaf.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map,alphaTest:0.5});
+  const bark=envPatch(new THREE.MeshStandardMaterial({map:ENV.barkTex,color:sp==='poplar'?0xd8d2c4:0xffffff,roughness:0.95}),{sway:true,cloud:true,swayH:heightW,swayK:K});
+  return ENV.mats[key]={leaf,bark};
+}
+// trees: [{x,y,z,s,sp,rot}] (s = scale, metres → world via ENV.U) → instanced meshes added to parent
+function envForest(trees,parent){
+  const out=[], m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sv=new THREE.Vector3(), pv=new THREE.Vector3(), up=new THREE.Vector3(0,1,0);
+  for(const sp of ['oak','pine','poplar','shrub']){ const list=trees.filter(t=>t.sp===sp); if(!list.length) continue;
+    const T=envTemplate(sp), avg=list.reduce((a,t)=>a+t.s,0)/list.length, M2=envMaterials(sp,T.h*avg*ENV.U);
+    for(const [geo,mt] of [[T.leaves,M2.leaf],[T.wood,M2.bark]]){ if(!geo) continue;
+      const im=new THREE.InstancedMesh(geo,mt,list.length);
+      list.forEach((t,i)=>{ pv.set(t.x,t.y,t.z); q.setFromAxisAngle(up,t.rot!=null?t.rot:t.x*1.7+t.z); const s=t.s*ENV.U; sv.set(s,s*(t.sy||1),s); m4.compose(pv,q,sv); im.setMatrixAt(i,m4); });
+      if(!PERF){ im.castShadow=true; im.receiveShadow=geo===T.leaves; } im.frustumCulled=false; parent.add(im); out.push(im); } }
+  return out;
+}
+// grass tufts: [{x,y,z,s,c:THREE.Color}] → one instanced mesh of crossed blades
+function envTuftGeo(){
+  if(ENV.tuftGeo) return ENV.tuftGeo; const pos=[], nor=[], col=[];
+  for(let i=0;i<9;i++){ const a=NZ.rnd()*6.28, r=NZ.rnd()*0.035, x=Math.cos(a)*r, z=Math.sin(a)*r, h=0.07+NZ.rnd()*0.09, w=0.006+NZ.rnd()*0.004, la=NZ.rnd()*6.28, lean=0.02+NZ.rnd()*0.05;
+    const tx=x+Math.cos(la)*lean, tz=z+Math.sin(la)*lean, px=-Math.sin(la)*w, pz=Math.cos(la)*w;
+    pos.push(x-px,0,z-pz, x+px,0,z+pz, tx,h,tz); for(let k=0;k<3;k++) nor.push(Math.cos(la)*0.3,1,Math.sin(la)*0.3); col.push(0.42,0.42,0.42, 0.42,0.42,0.42, 1.12,1.12,1.0); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3)); g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  g.userData.shared=true; return ENV.tuftGeo=g;
+}
+function envTufts(list,parent){
+  if(!list.length) return null;
+  if(!ENV.tuftMat) ENV.tuftMat=envPatch(new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.9,side:THREE.DoubleSide}),{sway:true,cloud:true,soft:true,swayH:0.16*ENV.U,swayK:0.025*ENV.U});
+  const im=new THREE.InstancedMesh(envTuftGeo(),ENV.tuftMat,list.length), m4=new THREE.Matrix4(), q=new THREE.Quaternion(), up=new THREE.Vector3(0,1,0), sv=new THREE.Vector3(), pv=new THREE.Vector3();
+  list.forEach((t,i)=>{ pv.set(t.x,t.y,t.z); q.setFromAxisAngle(up,(t.x*13.7+t.z*7.1)%6.28); sv.setScalar(t.s*ENV.U); m4.compose(pv,q,sv); im.setMatrixAt(i,m4); im.setColorAt(i,t.c); });
+  im.instanceColor.needsUpdate=true; im.frustumCulled=false; if(!PERF) im.receiveShadow=true; parent.add(im); return im;
+}
+// ── water that mirrors the sky and trees (one planar reflection, at the level of the water nearest the camera) ──
+function envMirrorInit(){
+  if(PERF||ENV.mirror) return ENV.mirror;
+  const rt=new THREE.WebGLRenderTarget(512,512,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat});
+  ENV.mirror={rt,tex:{value:rt.texture},mat:{value:new THREE.Matrix4()},cam:new THREE.PerspectiveCamera(),plane:new THREE.Plane(new THREE.Vector3(0,1,0),0),waters:[],hide:[],level:0,on:false};
+  return ENV.mirror;
+}
+function envWaterMat(base){                         // base: a MeshStandardMaterial; returns it patched to show the reflection
+  const R=envMirrorInit(); return envPatch(base,{cloud:true,refl:R?{tex:R.tex,mat:R.mat}:null});
+}
+function envMirrorRender(renderer,scene,camera){    // call just before the main render
+  const R=ENV.mirror; if(!R) return; R.on=false;
+  let best=null, bd=1e9; for(const w of R.waters){ if(!w.parent) continue; const d=Math.hypot(w.userData.cx-camera.position.x,w.userData.cz-camera.position.z)-w.userData.rad; if(d<bd){ bd=d; best=w; } }
+  if(!best||bd>300*ENV.U) return;                       // nothing nearby to reflect
+  const h=best.userData.level; R.level=h; R.on=true;
+  const sz=new THREE.Vector2(); renderer.getDrawingBufferSize(sz); const w=Math.max(256,(sz.x/2)|0), hh=Math.max(256,(sz.y/2)|0);
+  if(R.rt.width!==w||R.rt.height!==hh) R.rt.setSize(w,hh);
+  const mc=R.cam; mc.copy(camera); mc.position.y=2*h-camera.position.y;
+  const dir=new THREE.Vector3(); camera.getWorldDirection(dir); dir.y=-dir.y; mc.up.set(0,1,0); mc.lookAt(mc.position.x+dir.x,mc.position.y+dir.y,mc.position.z+dir.z);
+  mc.projectionMatrix.copy(camera.projectionMatrix); mc.updateMatrixWorld();
+  R.mat.value.set(0.5,0,0,0.5, 0,0.5,0,0.5, 0,0,0.5,0.5, 0,0,0,1).multiply(mc.projectionMatrix).multiply(mc.matrixWorldInverse);
+  R.plane.set(new THREE.Vector3(0,1,0),-h);
+  const vis=R.waters.concat(R.hide).map(o=>[o,o.visible]); vis.forEach(([o])=>o.visible=false);
+  const tm=renderer.toneMapping, au=renderer.shadowMap.autoUpdate, cp=renderer.clippingPlanes;
+  renderer.toneMapping=THREE.NoToneMapping; renderer.shadowMap.autoUpdate=false; renderer.clippingPlanes=[R.plane];
+  renderer.setRenderTarget(R.rt); renderer.clear(); renderer.render(scene,mc); renderer.setRenderTarget(null);
+  renderer.toneMapping=tm; renderer.shadowMap.autoUpdate=au; renderer.clippingPlanes=cp; vis.forEach(([o,v])=>o.visible=v);
+}
+function envAddWater(mesh,level){                   // register a water mesh (world-space level) for reflections
+  if(!ENV.mirror) return; mesh.geometry.computeBoundingSphere(); const bs=mesh.geometry.boundingSphere.clone().applyMatrix4(mesh.matrixWorld);
+  mesh.userData.level=level; mesh.userData.cx=bs.center.x; mesh.userData.cz=bs.center.z; mesh.userData.rad=bs.radius; ENV.mirror.waters.push(mesh);
+}
+function envClearWater(){ if(ENV.mirror){ ENV.mirror.waters=[]; } }
+// ── particle bursts (splash droplets, sand spray) and expanding rings ──
+function envBurst(parent,x,y,z,o){
+  const n=o.n||40, pos=new Float32Array(n*3), vel=new Float32Array(n*3), U=ENV.U;
+  for(let i=0;i<n;i++){ const a=NZ.rnd()*6.28, sp=(o.spd||2)*(0.3+NZ.rnd()*0.7)*U, up=(o.up||3)*(0.5+NZ.rnd()*0.7)*U;
+    pos[i*3]=x; pos[i*3+1]=y; pos[i*3+2]=z; vel[i*3]=Math.cos(a)*sp+(o.dx||0)*U; vel[i*3+1]=up; vel[i*3+2]=Math.sin(a)*sp+(o.dz||0)*U; }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const p=new THREE.Points(g,new THREE.PointsMaterial({color:o.col||0xffffff,size:(o.size||0.05)*U,transparent:true,opacity:o.op||0.9,depthWrite:false}));
+  p.frustumCulled=false; parent.add(p); ENV.parts.push({obj:p,vel,life:o.life||0.9,t:0,g:(o.g==null?9.8:o.g)*U,floor:y-0.02*U,op:o.op||0.9}); return p;
+}
+function envRing(parent,x,y,z,r0,r1,life,col){
+  const m=new THREE.Mesh(new THREE.RingGeometry(0.8,1,40),new THREE.MeshBasicMaterial({color:col||0xffffff,transparent:true,opacity:0.7,depthWrite:false,side:THREE.DoubleSide}));
+  m.rotation.x=-Math.PI/2; m.position.set(x,y,z); m.scale.setScalar(r0); parent.add(m); ENV.parts.push({obj:m,ring:true,r0,r1,life,t:0,op:0.7}); return m;
+}
+function envSplash(parent,x,y,z,big){               // droplets, a crown and a few rings
+  const k=big||1;
+  envBurst(parent,x,y,z,{n:Math.round(60*k),col:0xf4fbff,spd:1.6*k,up:3.4*k,size:0.045*k,life:1.1});
+  envBurst(parent,x,y,z,{n:Math.round(26*k),col:0xd8eef8,spd:0.6*k,up:5*k,size:0.07*k,life:1.2,op:0.75});
+  for(let i=0;i<3;i++) setTimeout(()=>{ if(parent.parent) envRing(parent,x,y+0.01*ENV.U,z,0.08*k*ENV.U,(0.9+i*0.5)*k*ENV.U,1.3+i*0.3); },i*180);
+}
+// ── per-frame ──
+function envStep(dt,windX,windZ,strength){
+  ENV.t.value+=dt; const w=ENV.wind.value, l=Math.hypot(windX,windZ)||1, s=strength==null?0.6:strength;
+  w.x+=(windX/l*s-w.x)*Math.min(1,dt*2); w.y+=(windZ/l*s-w.y)*Math.min(1,dt*2);
+  ENV.cloudOff.value.x-=windX/l*dt*(0.004+s*0.006); ENV.cloudOff.value.y-=windZ/l*dt*(0.004+s*0.006);
+  for(let i=ENV.parts.length-1;i>=0;i--){ const P=ENV.parts[i]; P.t+=dt; const u=P.t/P.life;
+    if(u>=1||!P.obj.parent){ if(P.obj.parent) P.obj.parent.remove(P.obj); P.obj.geometry.dispose(); P.obj.material.dispose(); ENV.parts.splice(i,1); continue; }
+    if(P.ring){ P.obj.scale.setScalar(P.r0+(P.r1-P.r0)*(1-Math.pow(1-u,2))); P.obj.material.opacity=P.op*(1-u); continue; }
+    const a=P.obj.geometry.attributes.position, v=P.vel;
+    for(let j=0;j<a.count;j++){ v[j*3+1]-=P.g*dt; let y=a.getY(j)+v[j*3+1]*dt; if(y<P.floor){ y=P.floor; v[j*3]*=0.3; v[j*3+2]*=0.3; v[j*3+1]=0; }
+      a.setXYZ(j,a.getX(j)+v[j*3]*dt,y,a.getZ(j)+v[j*3+2]*dt); }
+    a.needsUpdate=true; P.obj.material.opacity=P.op*(1-u*u); }
+}
+// ── time of day ──
+const ENV_TOD=[
+  {name:'Morning',  el:20, az:-0.9, sun:0xffe0bc, sunI:1.0, sky:0xcfe0ff, gnd:0x51683a, hemiI:0.62, exp:1.02, tint:0xfff2e6, fog:0xdbe5ef},
+  {name:'Midday',   el:58, az:0.75, sun:0xfff3e0, sunI:1.12,sky:0xcfe8ff, gnd:0x5a7838, hemiI:0.58, exp:1.0,  tint:0xffffff, fog:0xcfe2f2},
+  {name:'Golden hour',el:13,az:2.3, sun:0xffb870, sunI:1.25,sky:0xffd8b4, gnd:0x4e5530, hemiI:0.5,  exp:1.06, tint:0xffd6b0, fog:0xf0d6bc},
+];
+function envSunDir(i){ const T=ENV_TOD[i]||ENV_TOD[1], e=T.el*Math.PI/180; return new THREE.Vector3(Math.cos(e)*Math.sin(T.az),Math.sin(e),Math.cos(e)*Math.cos(T.az)); }
+function envApplyTOD(i,refs){                       // refs: {sun, hemi, renderer, sky, pano, fog}
+  const T=ENV_TOD[i]||ENV_TOD[1];
+  refs.sun.color.set(T.sun); refs.sun.intensity=T.sunI; refs.hemi.color.set(T.sky); refs.hemi.groundColor.set(T.gnd); refs.hemi.intensity=T.hemiI;
+  refs.renderer.toneMappingExposure=T.exp; if(refs.sky) refs.sky.material.color.set(T.tint); if(refs.pano) refs.pano.material.color.set(T.tint).lerp(new THREE.Color(0xffffff),0.25);
+  if(refs.fog) refs.fog.color.set(T.fog); ENV.cloudAmt.value=i===2?0.32:0.42;
+}
+
 
 // ═══════════════════════════════════════════════════════
 //  JUST GOLF — full-size golf. World units are metres (shown in yards).
@@ -416,7 +686,7 @@ const HOLES=[
 HOLES.forEach(h=>{ h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
   let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; });
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, drawSwing:false };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, drawSwing:false, tod:1 };
 const stats={ best:0, games:0, aces:0, tickets:0 };
 
 // ═══════════════════════════════════════════════════════
@@ -486,21 +756,25 @@ function sandGrain(){ const S=256; return shade(S,S,(x,y,o)=>{ const g=NZ.n2(x*0
 function waterTexG(){ const S=128; return shade(S,S,(x,y,o)=>{ const n=NZ.fbm(x/S*4,y/S*4,4,4,4), r=0.5+0.5*Math.sin((x/S*2+n*1.4)*Math.PI*4);
   o[0]=clamp(36+r*30+n*24,0,255); o[1]=clamp(92+r*40+n*26,0,255); o[2]=clamp(118+r*40+n*20,0,255); },false).color; }
 const SURF_COL={tee:[92,170,72],fairway:[86,168,64],fringe:[80,170,70],green:[104,198,86],rough:[62,128,46],deep:[50,106,38],sand:[226,206,160],water:[60,84,70],ob:[56,112,42]};
+function wetK(x,z){ let k=1; for(const W of H.water){ const r=ellR(W,x,z); if(r<1.45) k=Math.min(k,0.6+0.4*smooth(clamp((r-1.02)/0.4,0,1))); } return k; }   // darker, damp ground at the water's edge
 function surfPixel(x,z,out){                      // sRGB surface colour for the course texture: stripes, a first cut beside fairways, rough tufts
   const s=surfAt(x,z), c=SURF_COL[s]; let k=1;
-  if(s==='fairway'||s==='tee'){ const F=fairInfo(x,z); k=(Math.floor(F.s/9)&1)?1.07:0.94; }
-  else if(s==='green'){ k=(Math.floor((x*0.8+z*0.6)/2.4)&1)?1.05:0.96; }
+  if(s==='tee'){ k=((Math.floor(x/1.5)+Math.floor(z/1.5))&1)?1.03:0.97; }
+  else if(s==='fairway'){ const F=fairInfo(x,z); k=(Math.floor(F.s/9)&1)?1.09:0.92; }
+  else if(s==='green'){ k=1+((Math.floor((x*0.8+z*0.6)/2.2)&1)?0.035:-0.035)+((Math.floor((z*0.8-x*0.6)/2.2)&1)?0.035:-0.035); }
   else if(s==='fringe') k=1.0;
   else if(s==='rough'){ const F=fairInfo(x,z), e=F.d-F.hw; k=(e<2.6&&e>-1)?1.12:0.9+NZ.n2(x*0.15,z*0.15)*0.2; }
   else if(s==='deep'||s==='ob') k=0.88+NZ.n2(x*0.15,z*0.15)*0.2;
-  else if(s==='sand') k=0.95+NZ.n2(x*2.1,z*2.1)*0.08;
-  const n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.05; out[0]=clamp(c[0]*k*n,0,255); out[1]=clamp(c[1]*k*n,0,255); out[2]=clamp(c[2]*k*n,0,255); return out;
+  else if(s==='sand'){ let r=0; for(const B of H.bunkers) r=Math.max(r,ellR(B,x,z)<1?ellR(B,x,z):0); k=(0.95+NZ.n2(x*2.1,z*2.1)*0.08)*(0.8+0.2*smooth(clamp((0.98-r)/0.2,0,1))); }   // shaded face under the lip
+  if(s!=='water'&&s!=='green') k*=wetK(x,z);
+  const n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.05; out[0]=clamp(c[0]*k*n,0,255); out[1]=clamp(c[1]*k*n,0,255); out[2]=clamp(c[2]*k*n,0,255); out[3]=s==='sand'?128:255; return out;
 }
 function surfColor(x,z,out){
   const s=surfAt(x,z), c=SURF_COL[s]; let k=1;
   if(s==='fairway'||s==='tee'){ const F=fairInfo(x,z); k=(Math.floor(F.s/9)&1)?1.07:0.94; }                                  // mowing stripes
   else if(s==='green'){ k=(Math.floor((x*0.8+z*0.6)/2.4)&1)?1.05:0.96; }
   else if(s==='rough'||s==='deep'||s==='ob') k=0.9+NZ.n2(x*0.15,z*0.15)*0.2;
+  if(s!=='water') k*=wetK(x,z);
   out[0]=Math.pow(c[0]*k/255,2.2); out[1]=Math.pow(c[1]*k/255,2.2); out[2]=Math.pow(c[2]*k/255,2.2); return out;   // vertex colours are linear
 }
 
@@ -562,7 +836,7 @@ function skyCanvas(){
   g.fillStyle=gr; g.fillRect(0,0,W,Hh);
   const img=g.getImageData(0,0,W,Hh), d=img.data;                       // soft fair-weather clouds, thicker toward the horizon
   for(let y=0;y<Hh*0.5;y++) for(let x=0;x<W;x++){ const v=y/(Hh*0.5), n=NZ.fbm(x/W*10,y/Hh*12,5,10,0), a=clamp((n-0.52+v*0.06)*4,0,1)*(0.4+v*0.6)*0.9;
-    if(a<=0) continue; const i=(y*W+x)*4, sh=1-clamp((n-0.6)*1.5,0,0.25); d[i]=mix(d[i],255*sh,a); d[i+1]=mix(d[i+1],255*sh,a); d[i+2]=mix(d[i+2],255*sh,a); }
+    if(a<=0) continue; const i=(y*W+x)*4, sh=1-clamp((n-0.6)*1.5,0,0.1); d[i]=mix(d[i],255*sh,a); d[i+1]=mix(d[i+1],255*sh,a); d[i+2]=mix(d[i+2],255*sh,a); }
   g.putImageData(img,0,0); return c;
 }
 
@@ -590,11 +864,11 @@ function buildMaterials(){
   const detailed=m=>{ m.onBeforeCompile=sh=>{ sh.uniforms.detailMap={value:M.detail};
       sh.vertexShader=sh.vertexShader.replace('#include <common>','#include <common>\nvarying vec2 vWXZ;').replace('#include <begin_vertex>','#include <begin_vertex>\nvWXZ=(modelMatrix*vec4(position,1.0)).xz;');
       sh.fragmentShader=sh.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D detailMap; varying vec2 vWXZ;')
-        .replace('#include <map_fragment>','#include <map_fragment>\n vec3 dd=texture2D(detailMap,vWXZ/1.3).rgb; float dc=texture2D(detailMap,vWXZ/9.0).r; diffuseColor.rgb*=dd*dd*1.22*(0.82+dc*dc*0.3);   // detail is sRGB: square ≈ linear'); }; return m; };
+        .replace('#include <map_fragment>','#include <map_fragment>\n#ifdef USE_MAP\n { float sm=1.0-step(0.75,texelColor.a); float rk=sin(dot(vWXZ,vec2(0.8,0.6))*24.0+sin(vWXZ.x*0.55+vWXZ.y*0.4)*2.5); float fd=clamp(1.0-length(cameraPosition.xz-vWXZ)/45.0,0.0,1.0); diffuseColor.rgb*=1.0-sm*fd*0.17*smoothstep(0.1,1.0,rk); diffuseColor.a=1.0; }\n#endif\n vec3 dd=texture2D(detailMap,vWXZ/1.3).rgb; float dc=texture2D(detailMap,vWXZ/9.0).r; diffuseColor.rgb*=dd*dd*1.22*(0.82+dc*dc*0.3);   // detail is sRGB: square ≈ linear'); }; return m; };
   M.ground=detailed(new THREE.MeshStandardMaterial({roughness:0.95}));            // inner course: crisp surface map
   M.groundFar=detailed(new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95}));   // beyond it: vertex-coloured rough
   M.sandDetail=toTex(sg.color,{repeat:[1,1]});
-  M.water=new THREE.MeshStandardMaterial({map:toTex(waterTexG(),{repeat:[1,1]}),color:0xbfe0ff,roughness:0.08,metalness:0.1,transparent:true,opacity:0.88,envMapIntensity:1.5});
+  M.water=envWaterMat(new THREE.MeshStandardMaterial({map:toTex(waterTexG(),{repeat:[1,1]}),color:0xbfe0ff,roughness:0.08,metalness:0.1,transparent:true,opacity:0.88,envMapIntensity:1.5}));
   M.trunk=new THREE.MeshStandardMaterial({color:0x5e4128,roughness:0.9});
   M.leaf=[0x3a7428,0x4a8630,0x2e6424,0x568f36].map(c=>new THREE.MeshStandardMaterial({color:c,roughness:0.85,flatShading:true}));
   M.white=new THREE.MeshStandardMaterial({color:0xf4f2ec,roughness:0.6});
@@ -602,6 +876,13 @@ function buildMaterials(){
   M.cup=new THREE.MeshBasicMaterial({color:0x0a0a0a});
   M.stake=new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.5});
   M.marker=new THREE.MeshStandardMaterial({color:0x2a5ad8,roughness:0.4});
+  M.wood=new THREE.MeshStandardMaterial({color:0x8a6240,roughness:0.8}); M.metal=new THREE.MeshStandardMaterial({color:0x2b4a35,roughness:0.5,metalness:0.5});
+  M.capR=new THREE.MeshStandardMaterial({color:0xd8262c,roughness:0.5}); M.capB=new THREE.MeshStandardMaterial({color:0x2a5ad8,roughness:0.5}); M.capW=M.white; M.handle=new THREE.MeshStandardMaterial({color:0xf2c21a,roughness:0.5});
+  { const c=mkCanvas(64,64), g=c.getContext('2d'), rg=g.createRadialGradient(32,32,4,32,32,31); rg.addColorStop(0,'rgba(70,48,28,.95)'); rg.addColorStop(0.7,'rgba(92,66,40,.8)'); rg.addColorStop(1,'rgba(92,66,40,0)'); g.fillStyle=rg; g.fillRect(0,0,64,64);
+    M.divot=new THREE.MeshStandardMaterial({map:toTex(c),transparent:true,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-4});
+    const p=mkCanvas(64,64), pg=p.getContext('2d'); pg.strokeStyle='rgba(40,70,30,.75)'; pg.lineWidth=7; pg.beginPath(); pg.arc(32,32,20,0,7); pg.stroke(); pg.fillStyle='rgba(60,90,40,.45)'; pg.beginPath(); pg.arc(32,32,15,0,7); pg.fill();
+    M.pitch=new THREE.MeshStandardMaterial({map:toTex(p),transparent:true,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-4}); }
+  for(const m of [M.ground,M.groundFar]) envPatch(m,{cloud:true}); envCloudAll(M);
 }
 // wrap-around backdrop: hazy mountain ranges, green foothills and a distant tree line (tiles seamlessly round 360°)
 function panoramaCanvas(){
@@ -616,6 +897,7 @@ function panoramaCanvas(){
   for(let x=0;x<W;x+=3){ const h=14+NZ.fbm(x/W*90,2,3,90,0)*34+(NZ.n2(x*0.7,1)>0.7?10:0);           // the tree line
     g.fillStyle=NZ.n2(x*0.13,3)>0.5?'#2f5a2a':'#3a6a30'; g.beginPath(); g.arc(x,base-h*0.55,h*0.55,0,7); g.fill(); }
   g.fillStyle='#2f5a26'; g.fillRect(0,base-6,W,Hh-base+6);
+  g.globalCompositeOperation='source-atop'; g.fillStyle='rgba(207,220,234,.34)'; g.fillRect(0,0,W,Hh); g.globalCompositeOperation='source-over';   // the same haze the fog puts on the far fields
   return c;
 }
 function buildEnvironmentOutdoor(){
@@ -624,14 +906,15 @@ function buildEnvironmentOutdoor(){
   const pm=new THREE.PMREMGenerator(renderer); scene.environment=pm.fromScene(es,0.04).texture; pm.dispose();
 }
 function initScene(){
-  PERF=!!settings.optimized;
+  PERF=!!settings.optimized; ENV.U=1; ENV.cloudScale.value=1/400;
   renderer=new THREE.WebGLRenderer({antialias:!PERF,powerPreference:PERF?'low-power':'high-performance'});
   renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
   if(!PERF){ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; }
   ANISO=Math.min(8,renderer.capabilities.getMaxAnisotropy());
   applyQuality(); stage.appendChild(renderer.domElement);
-  scene=new THREE.Scene(); scene.background=new THREE.Color(0xbcdcf4); scene.fog=new THREE.Fog(0xcfe2f2,900,4200);   // light haze; the backdrop supplies the distance
+  scene=new THREE.Scene(); scene.background=new THREE.Color(0xbcdcf4); scene.fog=new THREE.FogExp2(0xcfe2f2,0.00045);   // aerial perspective: distant trees and hills fade into the haze
   camera=new THREE.PerspectiveCamera(55,1,0.05,5000);
+  { const ct=toTex(envCloudCanvas(),{srgb:false,repeat:[1,1]}); ct.wrapS=ct.wrapT=THREE.RepeatWrapping; ENV.cloudTex.value=ct; }
   buildMaterials();
   const sky=new THREE.Mesh(new THREE.SphereGeometry(3000,32,16),new THREE.MeshBasicMaterial({map:toTex(skyCanvas()),side:THREE.BackSide,fog:false,toneMapped:false})); scene.add(sky); M.skyMesh=sky;
   buildEnvironmentOutdoor();
@@ -640,6 +923,7 @@ function initScene(){
     M.pano.renderOrder=-1; scene.add(M.pano); }
   L.hemi=new THREE.HemisphereLight(0xcfe8ff,0x5a7838,0.55); scene.add(L.hemi);
   L.sun=new THREE.DirectionalLight(0xfff1d6,1.1); scene.add(L.sun); scene.add(L.sun.target);
+  applyTOD();
   if(!PERF){ L.sun.castShadow=true; const c=L.sun.shadow.camera; c.left=c.bottom=-45; c.right=c.top=45; c.near=1; c.far=400; L.sun.shadow.mapSize.set(2048,2048); L.sun.shadow.bias=-0.0006; L.sun.shadow.normalBias=0.04; }
   buildBall(); buildAimBits();
   raycaster=new THREE.Raycaster();
@@ -674,10 +958,10 @@ function buildAimBits(){
 }
 
 // ── build the hole: terrain mesh, water, trees, tee markers, pin ──
-function disposeGroup(g){ g.traverse(o=>{ if(o.geometry) o.geometry.dispose(); }); scene.remove(g); }
+function disposeGroup(g){ g.traverse(o=>{ if(o.geometry&&!o.geometry.userData.shared) o.geometry.dispose(); }); scene.remove(g); }
 function buildHole(){
   if(holeGroup) disposeGroup(holeGroup);
-  holeGroup=new THREE.Group(); scene.add(holeGroup);
+  holeGroup=new THREE.Group(); scene.add(holeGroup); envClearWater(); TUFTS=null;
   G0=baseH(H.green.c[0],H.green.c[1]);
   // terrain: fine grid near the hole corridor, coarser beyond
   let rx0=1e9,rx1=-1e9,rz1=-1e9; for(const [x,z] of H.route){ rx0=Math.min(rx0,x); rx1=Math.max(rx1,x); rz1=Math.max(rz1,z); }
@@ -688,8 +972,15 @@ function buildHole(){
   // surface texture over the playing corridor (0.4 m per pixel), so fairway / rough / green / sand edges stay sharp
   const SX0=rx0-H.ob-24, SX1=rx1+H.ob+24, SZ0=-46, SZ1=rz1+44; let res=PERF?0.8:0.4; while((SX1-SX0)/res>4096||(SZ1-SZ0)/res>4096) res*=1.25;
   const SW=Math.ceil((SX1-SX0)/res), SH=Math.ceil((SZ1-SZ0)/res), scv=mkCanvas(SW,SH), sg=scv.getContext('2d'), simg=sg.createImageData(SW,SH), sd=simg.data;
-  for(let py=0;py<SH;py++) for(let px=0;px<SW;px++){ const x=SX0+(px+0.5)*res, z=SZ1-(py+0.5)*res, i=(py*SW+px)*4; surfPixel(x,z,c3); sd[i]=c3[0]; sd[i+1]=c3[1]; sd[i+2]=c3[2]; sd[i+3]=255; }
-  sg.putImageData(simg,0,0); if(M.ground.map) M.ground.map.dispose(); M.ground.map=toTex(scv); M.ground.map.anisotropy=ANISO; M.ground.needsUpdate=true;
+  for(let py=0;py<SH;py++) for(let px=0;px<SW;px++){ const x=SX0+(px+0.5)*res, z=SZ1-(py+0.5)*res, i=(py*SW+px)*4; surfPixel(x,z,c3); sd[i]=c3[0]; sd[i+1]=c3[1]; sd[i+2]=c3[2]; sd[i+3]=c3[3]==null?255:c3[3]; c3[3]=255; }
+  // anti-alias: wherever neighbouring pixels differ (surface edges, mowing stripes), re-shade from a 4×4 grid of sub-samples
+  { const edge=new Uint8Array(SW*SH), dif=(i,j)=>Math.abs(sd[i]-sd[j])+Math.abs(sd[i+1]-sd[j+1])+Math.abs(sd[i+2]-sd[j+2])+Math.abs(sd[i+3]-sd[j+3])>9;
+    for(let py=0;py<SH;py++) for(let px=0;px<SW;px++){ const k=py*SW+px, i=k*4; if(px+1<SW&&dif(i,i+4)){ edge[k]=1; edge[k+1]=1; } if(py+1<SH&&dif(i,i+SW*4)){ edge[k]=1; edge[k+SW]=1; } }
+    const acc=[0,0,0,0], N=4;
+    for(let k=0;k<SW*SH;k++){ if(!edge[k]) continue; const px=k%SW, py=(k/SW)|0; acc[0]=acc[1]=acc[2]=acc[3]=0;
+      for(let a=0;a<N;a++) for(let b=0;b<N;b++){ surfPixel(SX0+(px+(a+0.5)/N)*res,SZ1-(py+(b+0.5)/N)*res,c3); acc[0]+=c3[0]; acc[1]+=c3[1]; acc[2]+=c3[2]; acc[3]+=c3[3]==null?255:c3[3]; c3[3]=255; }
+      const i=k*4; sd[i]=acc[0]/16; sd[i+1]=acc[1]/16; sd[i+2]=acc[2]/16; sd[i+3]=acc[3]/16; } }
+  sg.putImageData(simg,0,0); drawCartPath(sg,SX0,SZ1,res); if(M.ground.map) M.ground.map.dispose(); M.ground.map=toTex(scv); M.ground.map.anisotropy=ANISO; M.ground.needsUpdate=true;
   for(let k=0;k<nx*nz;k++){ uv[k*2]=(pos[k*3]-SX0)/(SX1-SX0); uv[k*2+1]=(pos[k*3+2]-SZ0)/(SZ1-SZ0); }
   const inR=k=>pos[k*3]>=SX0&&pos[k*3]<=SX1&&pos[k*3+2]>=SZ0&&pos[k*3+2]<=SZ1, inner=[], outer=[];
   for(let t=0;t<idx.length;t+=3){ const a=idx[t], b=idx[t+1], c=idx[t+2]; (inR(a)&&inR(b)&&inR(c)?inner:outer).push(a,b,c); }
@@ -698,12 +989,13 @@ function buildHole(){
   tg.setIndex(idx); tg.computeVertexNormals();
   const gIn=tg.clone(); gIn.setIndex(inner); const gOut=tg.clone(); gOut.setIndex(outer); tg.dispose();
   for(const [geo,m] of [[gIn,M.ground],[gOut,M.groundFar]]){ const o=new THREE.Mesh(geo,m); o.receiveShadow=!PERF; holeGroup.add(o); }
+  buildOuterLand(gOut);
   // far fields so the horizon isn't empty
-  const far=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshBasicMaterial({color:0x2f5a26,fog:false})); far.rotation.x=-Math.PI/2; far.position.y=-6; holeGroup.add(far);   // no haze, so it meets the backdrop's green base
+  const far=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshBasicMaterial({color:0x2f5a26})); far.rotation.x=-Math.PI/2; far.position.y=-6; holeGroup.add(far);   // hazed like the backdrop's base
   // water
-  for(const W of H.water){ const g=new THREE.CircleGeometry(1,64); g.rotateX(-Math.PI/2); const w=new THREE.Mesh(g,M.water); w.scale.set(W.rx*1.25,1,W.rz*1.25); w.rotation.y=-W.rot; w.position.set(W.c[0],waterLevel(W),W.c[1]); holeGroup.add(w); }
+  for(const W of H.water){ const g=new THREE.CircleGeometry(1,64); g.rotateX(-Math.PI/2); const w=new THREE.Mesh(g,M.water); w.scale.set(W.rx*1.25,1,W.rz*1.25); w.rotation.y=-W.rot; w.position.set(W.c[0],waterLevel(W),W.c[1]); holeGroup.add(w); w.updateMatrixWorld(); envAddWater(w,waterLevel(W)); }
   // tee markers, yardage posts, OB stakes
-  const [tx,tz]=H.tee; for(const s of [-1,1]){ const m=new THREE.Mesh(new THREE.SphereGeometry(0.11,14,10),M.marker); m.position.set(tx+s*3,hAt(tx+s*3,tz+2)+0.1,tz+2); holeGroup.add(m); }
+  const [tx,tz]=H.tee; buildFurniture();
   for(let s=0;s<H.len+20;s+=22) for(const side of [-1,1]){ const [px,pz,dx,dz]=routePoint(s), o=H.ob+NZ.n2(s*0.02,1)*4, x=px-dz*o*side, z=pz+dx*o*side; if(Math.hypot(x-H.tee[0],z-H.tee[1])<30) continue; const st=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1,6),M.stake); st.position.set(x,hAt(x,z)+0.5,z); holeGroup.add(st); }
   // pin, cup and flag
   const [px,pz]=H.pin, py=hAt(px,pz);
@@ -713,6 +1005,34 @@ function buildHole(){
   const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,2.13,8),M.white); pole.position.y=1.065; pinMesh.add(pole); if(!PERF) pole.castShadow=true;
   const fg=new THREE.PlaneGeometry(0.5,0.34,10,1); fg.translate(0.25,0,0); flagCloth=new THREE.Mesh(fg,M.flag); flagCloth.position.y=1.95; flagCloth.userData.base=fg.attributes.position.array.slice(); pinMesh.add(flagCloth);
   buildTrees(); buildGreenAids();
+}
+// rolling, wooded hills beyond the playing area: rings of terrain grown outward from the course terrain's own edge (so the two meet exactly)
+function hillsAt(x,z,d){ const r=smooth(clamp(d/320,0,1)), A=16+75*smooth(clamp((d-260)/900,0,1)); return r*A*(0.25+NZ.fbm(x*0.0032+5,z*0.0032+9,4)*0.9); }
+function buildOuterLand(gOut){
+  const {X0,Z0,cs,nx,nz,pos}=TER, X1=X0+(nx-1)*cs, Z1=Z0+(nz-1)*cs, cx=(X0+X1)/2, cz=(Z0+Z1)/2, nIn=gOut.attributes.normal, cIn=gOut.attributes.color;
+  const ring=[]; for(let i=0;i<nx;i++) ring.push(i); for(let j=1;j<nz;j++) ring.push(j*nx+nx-1); for(let i=nx-2;i>=0;i--) ring.push((nz-1)*nx+i); for(let j=nz-2;j>=1;j--) ring.push(j*nx);
+  const step=PERF?4:2, base=ring.filter((_,k)=>k%step===0), N=base.length, D=[0,6,16,32,56,90,135,195,270,360,470,600,760,950,1180,1450,1750], R=D.length;
+  const P=new Float32Array(N*R*3), C=new Float32Array(N*R*3), c3=[0,0,0], fc=new THREE.Color();
+  for(let k=0;k<N;k++){ const b=base[k], bx=pos[b*3], by=pos[b*3+1], bz=pos[b*3+2]; let dx=bx-cx, dz=bz-cz; const l=Math.hypot(dx,dz)||1; dx/=l; dz/=l;
+    for(let j=0;j<R;j++){ const v=(j*N+k)*3, x=bx+dx*D[j], z=bz+dz*D[j], dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1));
+      P[v]=x; P[v+1]=j?baseH(x,z)+hillsAt(x,z,dOut):by; P[v+2]=z;
+      if(!j){ C[v]=cIn.getX(b); C[v+1]=cIn.getY(b); C[v+2]=cIn.getZ(b); continue; }
+      surfColor(x,z,c3); const f=NZ.fbm(x*0.006+2,z*0.006+7,3), wood=smooth(clamp((f-0.48)/0.12,0,1))*smooth(clamp(dOut/60,0,1)), t=smooth(clamp(dOut/200,0,1));
+      fc.setRGB(mix(c3[0],0.035,wood*0.85),mix(c3[1],0.075,wood*0.85),mix(c3[2],0.025,wood*0.85)); fc.lerp(new THREE.Color(0.06,0.12,0.04),t*0.25*(1-wood));
+      C[v]=fc.r; C[v+1]=fc.g; C[v+2]=fc.b; } }
+  const idx=[]; for(let j=0;j<R-1;j++) for(let k=0;k<N;k++){ const k2=(k+1)%N, a=j*N+k, b=j*N+k2, c=(j+1)*N+k, d=(j+1)*N+k2; idx.push(a,b,c,b,d,c); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('color',new THREE.BufferAttribute(C,3)); g.setIndex(idx); g.computeVertexNormals();
+  { const nn=g.attributes.normal; let flip=0; for(let k=0;k<N;k++) flip+=nn.getY(N+k)<0?1:0; if(flip>N/2){ for(let t=0;t<idx.length;t+=3){ const q=idx[t+1]; idx[t+1]=idx[t+2]; idx[t+2]=q; } g.setIndex(idx); g.computeVertexNormals(); }
+    for(let k=0;k<N;k++){ const b=base[k]; g.attributes.normal.setXYZ(k,nIn.getX(b),nIn.getY(b),nIn.getZ(b)); } }   // share the course edge's normals: no lighting seam
+  const o=new THREE.Mesh(g,M.groundFar); o.receiveShadow=!PERF; holeGroup.add(o);
+  // woods on the near hills
+  if(PERF) return; const list=[]; for(let i=0;i<4000&&list.length<260;i++){ const k=(NZ.rnd()*N)|0, j=1+NZ.rnd()*7.5, j0=Math.floor(j), t=j-j0, dd=mix(D[j0],D[j0+1],t), b=base[k];
+    let dx=pos[b*3]-cx, dz=pos[b*3+2]-cz; const l=Math.hypot(dx,dz)||1; const x=pos[b*3]+dx/l*dd, z=pos[b*3+2]+dz/l*dd;
+    if(NZ.fbm(x*0.006+2,z*0.006+7,3)<0.47&&NZ.rnd()<0.85) continue;
+    const dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1)); if(dOut<8) continue;
+    const v=(j0*N+k)*3, v2=((j0+1)*N+k)*3, y=mix(P[v+1],P[v2+1],t)-0.6, kk=NZ.rnd();
+    list.push({x,y,z,s:0.8+NZ.rnd()*0.6,sp:kk<0.45?'pine':kk<0.85?'oak':'poplar'}); }
+  envForest(list,holeGroup);
 }
 // putting aids: a grid draped over the green (shows the lay of the land) and dots that drift downhill
 function buildGreenAids(){
@@ -739,21 +1059,16 @@ function stepGreenAids(dt){
 // trees: instanced trunks + canopies lining the hole and in clumps, kept off fairway, greens, tees and water
 let TREES=[];
 function buildTrees(){
-  TREES=[]; const want=Math.round((PERF?110:200)*(H.dense||1)*clamp(H.len/350,0.6,1.4)), rnd=NZ.rnd;
+  TREES=[]; const want=Math.round((PERF?100:180)*(H.dense||1)*clamp(H.len/350,0.6,1.4)), rnd=NZ.rnd;
   for(let tries=0;TREES.length<want&&tries<6000;tries++){
     const [rpx,rpz,rdx,rdz]=routePoint(-40+rnd()*(H.len+90)), side=rnd()<0.5?-1:1, off=(H.dense?16:24)+rnd()*(H.ob+30), x=rpx-rdz*off*side, z=rpz+rdx*off*side, s=surfAt(x,z);
     if(s==='fairway'||s==='green'||s==='fringe'||s==='tee'||s==='water'||s==='sand') continue;
     const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
-    if(TREES.some(t=>Math.hypot(t.x-x,t.z-z)<4.5)) continue;
-    const sc=0.8+rnd()*0.7; TREES.push({x,z,y:hAt(x,z),trunkR:0.25*sc,h:4.2*sc,cr:2.8*sc,ch:(4.2+2.8*0.3)*sc,var:(rnd()*M.leaf.length)|0});
+    if(TREES.some(t=>Math.hypot(t.x-x,t.z-z)<4.5)||onCart(x,z)||onCart(x+2,z)||onCart(x-2,z)) continue;
+    const k=rnd(), sp=k<(H.dense?0.3:0.5)?'oak':k<(H.dense?0.85:0.78)?'pine':'poplar', T=envTemplate(sp), sc=0.75+rnd()*0.55;
+    TREES.push({x,z,y:hAt(x,z)-0.1,s:sc,sp,trunkR:T.trunkR*sc,h:T.trunkH*sc,cr:T.r*sc,ch:(T.cy-T.r*0.3)*sc});
   }
-  const trunkG=new THREE.CylinderGeometry(0.7,1,1,7); trunkG.translate(0,0.5,0);
-  const trunks=new THREE.InstancedMesh(trunkG,M.trunk,TREES.length); const m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sv=V3(1,1,1), pv=V3();
-  TREES.forEach((t,i)=>{ pv.set(t.x,t.y-0.2,t.z); sv.set(t.trunkR*1.4,t.h+t.cr*0.5,t.trunkR*1.4); m4.compose(pv,q,sv); trunks.setMatrixAt(i,m4); }); holeGroup.add(trunks); if(!PERF) trunks.castShadow=true;
-  for(let v=0;v<M.leaf.length;v++){ const list=TREES.filter(t=>t.var===v); if(!list.length) continue;
-    const geo=blob(1,1,0.35,v*7.7), im=new THREE.InstancedMesh(geo,M.leaf[v],list.length*2);
-    let k=0; for(const t of list){ for(const [oy,s] of [[0,1],[1,0.72]]){ pv.set(t.x+(oy?0.35:0),t.y+t.ch+oy*t.cr*0.75,t.z); q.setFromAxisAngle(UPV,t.x); sv.set(t.cr*s,t.cr*s*0.95,t.cr*s); m4.compose(pv,q,sv); im.setMatrixAt(k++,m4); } }
-    if(!PERF){ im.castShadow=true; im.receiveShadow=true; } holeGroup.add(im); }
+  envForest(TREES,holeGroup);
 }
 const UPV=V3(0,1,0);
 
@@ -818,7 +1133,7 @@ function flightStep(dt){
     _tmp.copy(V).addScaledVector(_n,-vn);                                                  // tangential part
     const spinCheck=clamp(ball.rpm/8500,0,1)*(s==='green'||s==='fringe'?0.8:s==='fairway'?0.4:0.25);   // backspin bites (most on greens)
     _tmp.multiplyScalar(Math.max(0,1-S2.grip*0.6-spinCheck));
-    V.copy(_tmp).addScaledVector(_n,-vn*S2.e); ball.rpm*=0.45; sfxLand(-vn,s);
+    V.copy(_tmp).addScaledVector(_n,-vn*S2.e); ball.rpm*=0.45; sfxLand(-vn,s); landMarks(s,-vn,P);
     if(-vn*S2.e<1.1||s==='sand'){ V.y=0; ball.mode='roll'; ball.lie=s; trailFade(); }
   }
 }
@@ -870,17 +1185,27 @@ function aimDefault(){
   if(toPin()<=reach*1.02){ aimAtPin(); return; }
   const [x,z]=routePoint(R.s+reach); aim=Math.atan2(x-ball.p.x,z-ball.p.z);
 }
-function newGame(){ anims=[]; scores=[]; holeIdx=0; startHole(); }
+function newGame(){ clearGame(); anims=[]; scores=[]; holeIdx=0; startHole(); }
+// the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
+let resumeSave=null;
+function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justgolf_game',JSON.stringify({holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind})); }catch(e){} }
+function loadGame(){ try{ const g=JSON.parse(sessionStorage.getItem('justgolf_game')||'null'); return g&&Array.isArray(g.scores)&&g.holeIdx<HOLES.length?g:null; }catch(e){ return null; } }
+function clearGame(){ try{ sessionStorage.removeItem('justgolf_game'); }catch(e){} }
+function resumeGame(g){
+  anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
+  if(g.strokes>0){ strokes=g.strokes; const [x,z]=g.p; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=g.lie||surfAt(x,z); ball.last=g.last||[x,z]; buildTufts(); suggestClub(); aimDefault(); }
+  updateUI(); buildHUD(); drawMap(true); saveGame();
+}
 function startHole(){
   H=HOLES[holeIdx]; strokes=0; buildHole();
   const [tx,tz]=H.tee; ball.p.set(tx,meshH(tx,tz)+BALL_R+0.03,tz); ball.v.set(0,0,0); ball.mode='rest'; ball.lie='tee'; ball.visible=true; ball.sink=0; ball.last=[tx,tz];
   const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14); wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};
-  suggestClub(); aimDefault(); phase='intro'; camMode='intro'; introT=0;
+  buildTufts(); suggestClub(); aimDefault(); phase='intro'; camMode='intro'; introT=0;
   showMsg(`HOLE ${holeIdx+1} · ${H.name.toUpperCase()}<small>PAR ${H.par} · ${Math.round(H.len*YD)} YARDS</small>`,3);
-  updateUI(); buildHUD(); drawMap(true);
+  updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function nextShot(){
-  ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); updateUI(); buildHUD();
+  buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); updateUI(); buildHUD(); saveGame();
 }
 function strike(power,acc){                        // power 0..1, acc -1..1 (left = hook, right = slice)
   const c=CLUBS[clubIdx], lm=lieMul(), S2=SURF[ball.lie]||SURF.fairway;
@@ -890,8 +1215,8 @@ function strike(power,acc){                        // power 0..1, acc -1..1 (lef
   ball.rpm=c.rpm*S2.spin*(0.82+0.18*power);
   ball.spinAxis.crossVectors(ball.v,UPV).normalize();                                       // pure backspin axis
   ball.spinAxis.applyAxisAngle(V3(Math.sin(dir),0,Math.cos(dir)),acc*0.55);                 // tilted axis → curve (right for a slice, left for a hook)
-  ball.mode='fly'; ball.t=0; ball.inTree=false; strokes++; phase='flight'; camMode='flight'; flightPts=0; trail.geometry.setDrawRange(0,0);
-  sfxStrike(clubIdx,power); buildHUD(); updateUI();
+  ball.mode='fly'; ball.t=0; ball.inTree=false; ball.marked=false; strokes++; phase='flight'; camMode='flight'; flightPts=0; trail.geometry.setDrawRange(0,0);
+  shotMarks(dir,power); sfxStrike(clubIdx,power); buildHUD(); updateUI();
   showMsg(Math.abs(acc)<0.06?'Pure!':acc<0?(acc<-0.35?'Hook!':'Draw'):(acc>0.35?'Slice!':'Fade'),1.0);
 }
 function putt(dirx,dirz,pow){
@@ -910,7 +1235,7 @@ function ballStopped(){
 function penalty(kind){
   ball.mode='rest'; phase='penalty'; strokes++; const P=ball.p; lastPuttFrom=null;
   missHint.count('pen',3,'Water and out-of-bounds are adding up.<br>Tap the <b>map button</b> to see the whole hole, and check the <b>landing ring</b> sits somewhere safe before you swing. A shorter club to lay up is often the smart play.');
-  if(kind==='water'){ sfxSplash(); ball.visible=false;
+  if(kind==='water'){ sfxSplash(); ball.visible=false; { let lv=P.y; for(const W of H.water) if(ellR(W,P.x,P.z)<1.3) lv=waterLevel(W); envSplash(holeGroup,P.x,lv+0.02,P.z,1.6); }
     // drop: back along the line toward where it was hit, two clubs-lengths clear of the hazard
     let x=P.x, z=P.z; const dx=ball.last[0]-x, dz=ball.last[1]-z, l=Math.hypot(dx,dz)||1;
     for(let i=0;i<400&&(surfAt(x,z)==='water'||surfAt(x,z)==='sand');i++){ x+=dx/l*0.5; z+=dz/l*0.5; } x+=dx/l*2; z+=dz/l*2;
@@ -925,13 +1250,13 @@ function holed(){
   tween(0.3,u=>{ ball.p.x=fx+(H.pin[0]-fx)*u; ball.p.z=fz+(H.pin[1]-fz)*u; ball.sink=u*0.06; },()=>{ ball.visible=false; endHole(strokes); });
 }
 function endHole(sc){
-  phase='sunk'; scores.push(sc); const rel=sc-H.par;
+  phase='sunk'; scores.push(sc); saveGame(true); const rel=sc-H.par;
   const term=sc===1?'HOLE IN ONE!':rel<=-3?'ALBATROSS!':rel===-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':rel===2?'DOUBLE BOGEY':'+'+rel;
   if(rel<0){ celebrate(term,rel<=-2?'pink':'gold'); sfxChime('great'); stats.aces++; saveStats(); } else if(rel===0){ celebrate(term,'green'); sfxChime('par'); } else { showMsg(term,1.6); sfxChime('over'); }
   buildHUD(); tween(0.01,()=>{},()=>{ holeIdx++; if(holeIdx>=HOLES.length) roundOver(); else startHole(); },2.4);
 }
 function roundOver(){
-  phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=HOLES.reduce((a,h)=>a+h.par,0), rel=s-par, newBest=!stats.best||s<stats.best;
+  clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=HOLES.reduce((a,h)=>a+h.par,0), rel=s-par, newBest=!stats.best||s<stats.best;
   const tix=Math.max(1,(par+2-s)*4+2); stats.games++; stats.tickets+=tix; if(newBest) stats.best=s; saveStats(); buildHUD();
   const ov=document.getElementById('ov'); ov.querySelector('h2').textContent=`🏌️ ${s} (${rel===0?'E':rel>0?'+'+rel:rel})`;
   ov.querySelector('p').innerHTML=`<table><tr><th>Hole</th>${HOLES.map((h,i)=>`<th>${i+1}</th>`).join('')}<th>Tot</th></tr><tr><th>Par</th>${HOLES.map(h=>`<td>${h.par}</td>`).join('')}<td>${par}</td></tr><tr><th>You</th>${scores.map(v=>`<td>${v}</td>`).join('')}<td><b>${s}</b></td></tr></table><br>`
@@ -1061,7 +1386,7 @@ function updateCamera(dt){
     _tp.set(-trackDir.x*back,up,-trackDir.y*back); _tl.set(trackDir.x*ahead,fly?-0.5:-0.1,trackDir.y*ahead);
     const kk=1-Math.exp(-dt*3); camOff.lerp(_tp,kk); lookOff.lerp(_tl,kk); camPos.copy(P).add(camOff); camLook.copy(P).add(lookOff);
     const gy2=meshH(camPos.x,camPos.z)+0.5; if(camPos.y<gy2) camPos.y=gy2;
-    camera.position.copy(camPos); camera.lookAt(camLook); L.sun.position.set(P.x+60,P.y+120,P.z-70); L.sun.target.position.copy(P); return; }
+    camera.position.copy(camPos); camera.lookAt(camLook); placeSun(P); return; }
   else if(phase==='sunk'){ const putting=camMode==='putt';
     _tp.set(P.x-d[0]*(putting?3.2:10),hAt(P.x,P.z)+(putting?1.4:4),P.z-d[1]*(putting?3.2:10)); _tl.set(P.x,P.y,P.z); k=1-Math.exp(-dt*(putting?3:2)); }
   else { const putting=clubIdx===PUTTER, back=putting?2.6:7, up=putting?1.15:3.4, ahead=putting?3:70;
@@ -1069,7 +1394,7 @@ function updateCamera(dt){
   tracking=false; camPos.lerp(_tp,k); camLook.lerp(_tl,k);
   const gy=meshH(camPos.x,camPos.z)+0.4; if(camPos.y<gy) camPos.y=gy;
   camera.position.copy(camPos); camera.lookAt(camLook);
-  L.sun.position.set(P.x+60,P.y+120,P.z-70); L.sun.target.position.copy(P);                    // shadows follow the action
+  placeSun(P);                                                                                // shadows follow the action
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1179,14 +1504,76 @@ function loop(t){
         pinMesh.rotation.y=Math.atan2(wind.x,wind.z)-Math.PI/2; pinMesh.visible=!(ball.lie==='green'&&toPin()<1.2&&ball.mode!=='rest'); }
       if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').innerHTML=''; }
       if(M.water.map) M.water.map.offset.x+=dt*0.01;
+      envStep(dt,wind.x||0.4,wind.z||0.15,0.25+(wind.mph||0)/11); if(M.skyMesh) M.skyMesh.rotation.y+=dt*0.002*(1+(wind.mph||0)/8);
       birdT-=dt; if(birdT<0){ birdT=5+Math.random()*12; birdChirp(); }
       if(renderer){ syncBall(); updateCamera(dt); if(M.pano) M.pano.position.set(camera.position.x,-6-660*(24/1024)+330,camera.position.z); syncAim(); if(greenGrid) stepGreenAids(dt); mapT-=dt; if(mapT<0){ mapT=0.1; drawMap(false); } }
     }
-    if(renderer) renderer.render(scene,camera);
+    if(renderer){ envMirrorRender(renderer,scene,camera); renderer.render(scene,camera); }
   }catch(err){ showFatal(err); }
   requestAnimationFrame(loop);
 }
 
+// ═══════════════════════════════════════════════════════
+//  ENVIRONMENT DETAIL: time of day, course furniture, cart path, grass tufts, divots & pitch marks
+// ═══════════════════════════════════════════════════════
+function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); if(ball&&ball.p) placeSun(ball.p); }
+const _sd=V3();
+function placeSun(P){ _sd.copy(envSunDir(settings.tod)).multiplyScalar(150); L.sun.position.set(P.x+_sd.x,P.y+_sd.y,P.z+_sd.z); L.sun.target.position.copy(P); }
+// cart path: a concrete ribbon down one side of the hole, broken where it would cross sand, water, greens or tees
+function cartLine(){
+  const side=(H.name.length&1)?1:-1, out=[], P=H.route;
+  for(let s=-25;s<H.len+25;s+=4){ const [px,pz,dx,dz]=routePoint(Math.max(0,Math.min(H.len,s))), F=fairInfo(px,pz), o=(F.hw||12)+9+NZ.n2(s*0.01,4)*5, ex=s<0?s:s>H.len?s-H.len:0;
+    out.push([px-dz*o*side+dx*ex,pz+dx*o*side+dz*ex]); }
+  return out;
+}
+function drawCartPath(g,SX0,SZ1,res){
+  const L=cartLine(), ok=([x,z])=>{ const s=surfAt(x,z); return s!=='water'&&s!=='sand'&&s!=='green'&&s!=='fringe'&&s!=='tee'&&s!=='ob'; }, px=([x,z])=>[(x-SX0)/res,(SZ1-z)/res];
+  for(const [w,col] of [[2.9,'#8f8b7f'],[2.3,'#bdb8aa']]){ g.strokeStyle=col; g.lineWidth=w/res; g.lineCap='round'; g.lineJoin='round'; g.beginPath(); let on=false;
+    for(const p of L){ if(!ok(p)){ on=false; continue; } const [x,y]=px(p); if(on) g.lineTo(x,y); else { g.moveTo(x,y); on=true; } } g.stroke(); }
+  H.cart=L;
+}
+function onCart(x,z){ if(!H.cart) return false; for(let i=0;i<H.cart.length-1;i++){ const a=H.cart[i], b=H.cart[i+1], dx=b[0]-a[0], dz=b[1]-a[1], t=clamp(((x-a[0])*dx+(z-a[1])*dz)/(dx*dx+dz*dz||1),0,1); if(Math.hypot(x-a[0]-dx*t,z-a[1]-dz*t)<2) return true; } return false; }
+function buildFurniture(){
+  const add=(geo,m,x,y,z,ry)=>{ const o=new THREE.Mesh(geo,m); o.position.set(x,y,z); if(ry) o.rotation.y=ry; if(!PERF){ o.castShadow=true; o.receiveShadow=true; } holeGroup.add(o); return o; };
+  const [tx,tz]=H.tee, T=H.teeBox, tg=hAt(tx,tz+2);
+  // tee markers: painted blocks either side of the teeing ground
+  for(const s of [-1,1]){ const x=tx+s*3, y=hAt(x,tz+2); add(new THREE.BoxGeometry(0.24,0.12,0.14),M.marker,x,y+0.06,tz+2); add(new THREE.SphereGeometry(0.075,12,8,0,Math.PI*2,0,Math.PI/2),M.marker,x,y+0.12,tz+2); }
+  // bench and ball washer beside the tee
+  const bx=tx+T.w/2+3.2, bz=tz-2, by=hAt(bx,bz);
+  add(new THREE.BoxGeometry(0.42,0.05,1.6),M.wood,bx,by+0.45,bz); add(new THREE.BoxGeometry(0.05,0.36,1.6),M.wood,bx+0.2,by+0.72,bz);
+  for(const dz of [-0.65,0.65]) add(new THREE.BoxGeometry(0.4,0.45,0.06),M.metal,bx,by+0.22,bz+dz);
+  const wx=bx-0.2, wz=bz+1.7, wy=hAt(wx,wz); add(new THREE.CylinderGeometry(0.035,0.04,0.9,8),M.metal,wx,wy+0.45,wz);
+  add(new THREE.BoxGeometry(0.2,0.24,0.14),M.metal,wx,wy+1.0,wz); add(new THREE.CylinderGeometry(0.012,0.012,0.22,6),M.handle,wx,wy+1.2,wz);
+  // yardage posts (200 blue, 150 white, 100 red) at the fairway's edge
+  const [gx,gz]=H.green.c;
+  for(const [yd,cap] of [[200,M.capB],[150,M.capW],[100,M.capR]]){ const want=yd/YD; if(want>H.len-15) continue;
+    let best=-1, bd=1e9; for(let s=0;s<H.len;s+=1){ const [px,pz]=routePoint(s), d=Math.abs(Math.hypot(px-gx,pz-gz)-want); if(d<bd){ bd=d; best=s; } }
+    if(bd>4) continue; const [px,pz,dx,dz]=routePoint(best), F=fairInfo(px,pz), o=F.hw+1.6, side=(H.name.length&1)?-1:1, x=px-dz*o*side, z=pz+dx*o*side, y=hAt(x,z);
+    if(surfAt(x,z)==='water'||surfAt(x,z)==='sand') continue;
+    add(new THREE.CylinderGeometry(0.06,0.07,0.6,10),M.white,x,y+0.3,z); add(new THREE.CylinderGeometry(0.065,0.065,0.12,10),cap,x,y+0.62,z); }
+}
+let TUFTS=null;
+function buildTufts(){
+  if(TUFTS){ holeGroup.remove(TUFTS); TUFTS.dispose&&TUFTS.dispose(); TUFTS=null; } if(PERF) return;
+  const P=ball.p, list=[], R=14, c=new THREE.Color();
+  for(let i=0;i<9000&&list.length<4200;i++){ const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*R, x=P.x+Math.cos(a)*r, z=P.z+Math.sin(a)*r;
+    const dB=Math.hypot(x-P.x,z-P.z); if(dB<0.45) continue; const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue;
+    const col=SURF_COL[s], kk=0.95+NZ.rnd()*0.25; c.setRGB(Math.pow(col[0]*kk/255,2.2)*1.6,Math.pow(col[1]*kk/255,2.2)*1.6,Math.pow(col[2]*kk/255,2.2)*1.6);
+    list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7)*(dB<1.3?0.45:1),c:c.clone()}); }
+  TUFTS=envTufts(list,holeGroup);
+}
+function decal(m,x,z,w,l,rot){ const g=new THREE.PlaneGeometry(w,l); g.rotateX(-Math.PI/2); const o=new THREE.Mesh(g,m); o.position.set(x,meshH(x,z)+0.012,z); o.rotation.y=rot||0; o.renderOrder=2; holeGroup.add(o); return o; }
+function shotMarks(dir,power){
+  const c=CLUBS[clubIdx], P=ball.p;
+  if(ball.lie==='sand'){ envBurst(holeGroup,P.x,P.y,P.z,{n:90,col:0xe2d2a6,spd:1.2,up:3.2,size:0.05,life:1.2,dx:Math.sin(dir)*2.5,dz:Math.cos(dir)*2.5}); return; }
+  if(c.putter||c.n==='Driver'||c.n.includes('Wood')||ball.lie==='tee'||ball.lie==='green') return;
+  const x=P.x+Math.sin(dir)*0.18, z=P.z+Math.cos(dir)*0.18; decal(M.divot,x,z,0.11,0.26,dir);
+  envBurst(holeGroup,x,P.y,z,{n:14,col:0x5a7a34,spd:0.6,up:2.4,size:0.04,life:0.9,dx:Math.sin(dir)*2,dz:Math.cos(dir)*2});
+}
+function landMarks(s,vn,P){
+  if((s==='green'||s==='fringe')&&vn>3&&!ball.marked){ ball.marked=true; decal(M.pitch,P.x,P.z,0.13,0.13,0); }
+  if(s==='sand'&&vn>2) envBurst(holeGroup,P.x,P.y,P.z,{n:40,col:0xe2d2a6,spd:1,up:1.8,size:0.045,life:1.0});
+}
 // ═══════════════════════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
@@ -1222,17 +1609,19 @@ function setupSettings(){
   optBtn.addEventListener('click',()=>{ settings.optimized=!settings.optimized; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); });
   const pick=(name,key)=>{ const rs=[...document.querySelectorAll(`input[name="${name}"]`)], vals=rs.map(r=>+r.value); settings[key]=vals.reduce((a,b)=>Math.abs(b-settings[key])<Math.abs(a-settings[key])?b:a,vals[0]);
     rs.forEach(r=>{ r.checked=(+r.value===settings[key]); r.addEventListener('change',()=>{ if(r.checked){ settings[key]=+r.value; saveSettings(); } }); }); };
-  pick('sens','power'); pick('msp','meter');
+  pick('sens','power'); pick('msp','meter'); pick('tod','tod');
+  document.querySelectorAll('input[name="tod"]').forEach(r=>r.addEventListener('change',()=>applyTOD()));
   document.getElementById('sensLbl').textContent='Putting sensitivity';
   document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); newGame(); });
 }
-document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); newGame(); });
+document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('startbtn').textContent='START'; });
 function boot(){
   setupSettings();
   document.querySelector('#ov p').innerHTML='<b>Drag sideways to aim</b>, then tap <b>SWING</b> three times: once to start, once to set power, and once on the white zone for a straight shot (early hooks, late slices). Pick clubs with ‹ ›; the ring shows where a full shot lands.<br>On the green, <b>touch the ball, pull back &amp; release</b> to putt. Watch the wind, the water and the bunkers.';
   initScene(); bindInput();
   H=HOLES[0]; buildHole(); ball.p.set(H.tee[0],hAt(H.tee[0],H.tee[1])+BALL_R,H.tee[1]); aimAtPin(); phase='menu'; camMode='aim';
-  try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
+  resumeSave=loadGame(); if(resumeSave) document.getElementById('startbtn').textContent='CONTINUE ROUND';
+  try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
   buildHUD(); drawMap(true);
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
 }
