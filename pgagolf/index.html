@@ -955,10 +955,10 @@ function updateUI(){
   // wind arrow relative to the way you're aiming
   const rel=Math.atan2(wind.x,wind.z)-aim; document.getElementById('iWind').textContent=wind.mph?ARROWS[((Math.round(rel/(Math.PI/4))%8)+8)%8]+' '+wind.mph+' mph':'calm';
   const c=CLUBS[clubIdx]; document.getElementById('clubName').textContent=c.n;
-  document.getElementById('clubCarry').textContent=c.putter?'pull back to putt':Math.round(carryOf(clubIdx,lieMul())*YD)+' yd carry';
+  document.getElementById('clubCarry').textContent=c.putter?'pull back from the ball':Math.round(carryOf(clubIdx,lieMul())*YD)+' yd carry';
   const putting=c.putter; document.getElementById('meter').style.visibility=putting||settings.drawSwing?'hidden':'visible';
   if(!putting&&phase==='aim'){ const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))), pw=document.getElementById('mpow'); pw.style.left=((IMPACT+(1-IMPACT)*p)*100)+'%'; pw.style.display=p<0.97?'block':'none'; pw.style.background='rgba(255,213,74,.9)'; } document.getElementById('swing').style.display=putting?'none':'';
-  let ht=''; if(phase==='aim'){ if(putting) ht='Pull back anywhere and release to putt'; else { const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))); ht=settings.drawSwing?(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
+  let ht=''; if(phase==='aim'){ if(putting) ht='Touch the ball, pull back and release to putt'; else { const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))); ht=settings.drawSwing?(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
   hint(ht);
 }
 function powerFor(ci,d){ let lo=0.2, hi=1; if(carryOf(ci,lieMul())<d) return 1; for(let i=0;i<14;i++){ const m=(lo+hi)/2; if(carryOf(ci,lieMul()*m)<d) lo=m; else hi=m; } return (lo+hi)/2; }
@@ -1082,10 +1082,20 @@ function planePt(e){
   raycaster.setFromCamera({x:((e.clientX-r.left)/r.width)*2-1,y:-((e.clientY-r.top)/r.height)*2+1},camera);
   return raycaster.ray.intersectPlane(groundPlane,_hit)?[_hit.x,_hit.z]:null;
 }
+// does this pointer start on the ball? (a finger-sized circle round it on screen, never smaller than 40px)
+const _obA=new THREE.Vector3(), _obB=new THREE.Vector3();
+function onBall(e){
+  if(!ballMesh||!ballMesh.visible) return false;
+  const r=renderer.domElement.getBoundingClientRect(); ballMesh.getWorldPosition(_obA); const d=camera.position.distanceTo(_obA);
+  _obB.copy(_obA).project(camera); const sx=r.left+(_obB.x+1)/2*r.width, sy=r.top+(1-_obB.y)/2*r.height;
+  const pxR=BALL_R*ballMesh.scale.x/(d*Math.tan(camera.fov*Math.PI/360))*r.height/2;
+  return Math.hypot(e.clientX-sx,e.clientY-sy)<Math.max(40,pxR*2.5);
+}
 function pdown(e){
   if(phase==='intro'){ phase='aim'; camMode='aim'; updateUI(); return; }
   if(phase==='swing'){ swingClick(); return; }                                    // the meter can be tapped anywhere too
   if(phase!=='aim') return; e.preventDefault(); getAC(); initSfx(); startAmbient();
+  if(clubIdx===PUTTER&&!onBall(e)) return;                                       // a putt has to start on the ball
   try{ renderer.domElement.setPointerCapture(e.pointerId); }catch(_){}
   dragging=true; dragX=e.clientX; aimPx=[e.clientX,e.clientY]; aimStart=planePt(e); puttPow=0;
 }
@@ -1219,7 +1229,7 @@ function setupSettings(){
 document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); newGame(); });
 function boot(){
   setupSettings();
-  document.querySelector('#ov p').innerHTML='<b>Drag sideways to aim</b>, then tap <b>SWING</b> three times: once to start, once to set power, and once on the white zone for a straight shot (early hooks, late slices). Pick clubs with ‹ ›; the ring shows where a full shot lands.<br>On the green, <b>pull back &amp; release</b> to putt. Watch the wind, the water and the bunkers.';
+  document.querySelector('#ov p').innerHTML='<b>Drag sideways to aim</b>, then tap <b>SWING</b> three times: once to start, once to set power, and once on the white zone for a straight shot (early hooks, late slices). Pick clubs with ‹ ›; the ring shows where a full shot lands.<br>On the green, <b>touch the ball, pull back &amp; release</b> to putt. Watch the wind, the water and the bunkers.';
   initScene(); bindInput();
   H=HOLES[0]; buildHole(); ball.p.set(H.tee[0],hAt(H.tee[0],H.tee[1])+BALL_R,H.tee[1]); aimAtPin(); phase='menu'; camMode='aim';
   try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
