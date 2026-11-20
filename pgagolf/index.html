@@ -825,6 +825,8 @@ function meshH(x,z){                               // height of the drawn terrai
   return u+w<=1? Y(0,0)+(Y(1,0)-Y(0,0))*u+(Y(0,1)-Y(0,0))*w : Y(1,1)+(Y(0,1)-Y(1,1))*(1-u)+(Y(1,0)-Y(1,1))*(1-w);
 }
 function grad(x,z){ const e=0.25; return [(hAt(x+e,z)-hAt(x-e,z))/(2*e),(hAt(x,z+e)-hAt(x,z-e))/(2*e)]; }
+// in the water: the pond itself, or its sunken bank where the ground is below the water line (the same test the flight uses)
+function inWater(x,z){ return surfAt(x,z)==='water'||H.water.some(W=>ellR(W,x,z)<1.18&&meshH(x,z)+BALL_R<=waterLevel(W)+0.05); }   // (the water surface is drawn out to 1.25× the pond, wherever the ground dips below it)
 function waterBed(W){ if(W.bed==null){ let lo=1e9; const c=Math.cos(W.rot), sn=Math.sin(W.rot); for(let a=0;a<6.28;a+=0.3) for(const k of [0,0.4,0.8,1.1]){ const u=Math.cos(a)*W.rx*k, w=Math.sin(a)*W.rz*k; lo=Math.min(lo,baseH(W.c[0]+u*c+w*sn,W.c[1]-u*sn+w*c)); } W.bed=lo-2.2; } return W.bed; }
 const waterLevel=W=>W.bed!=null&&W.lvl!=null?W.lvl:(W.lvl=waterBed(W)+1.5);   // surface 0.7 m+ below the surrounding ground
 
@@ -1221,7 +1223,7 @@ function flightStep(dt){
 }
 function rollStep(dt){
   const P=ball.p, V=ball.v, s=surfAt(P.x,P.z), S2=SURF[s]; ball.lie=s;
-  if(s==='water'){ penalty('water'); return; }
+  if(s==='water'||inWater(P.x,P.z)){ penalty('water'); return; }
   const [gx,gz]=grad(P.x,P.z), slopeA=(5/7)*G*Math.hypot(gx,gz), sp0=Math.hypot(V.x,V.z);
   if(sp0<0.04&&slopeA<S2.roll*0.98){ V.set(0,0,0); ballStopped(); return; }
   V.x-=(5/7)*G*gx*dt; V.z-=(5/7)*G*gz*dt;
@@ -1239,9 +1241,10 @@ function physStep(dt){ if(ball.mode==='fly') flightStep(dt); else if(ball.mode==
 // expected carry for a club (no wind, centred strike) — used for club suggestions and the landing marker
 const carryCache={};
 function carryOf(ci,powMul){
-  const key=ci+'/'+(powMul||1).toFixed(2); if(carryCache[key]!=null) return carryCache[key];
+  // flown like strike() does from the current lie: rough and sand take spin off (lower, shorter flight); sand adds loft
+  const S2=SURF[ball.lie]||SURF.fairway, key=ci+'/'+(powMul||1).toFixed(2)+'/'+ball.lie; if(carryCache[key]!=null) return carryCache[key];
   const c=CLUBS[ci]; if(c.putter) return 0;
-  const v=c.v*(powMul||1), la=c.la*DEG; let px=0,py=0,vz=v*Math.cos(la),vy=v*Math.sin(la),rpm=c.rpm,t=0;
+  const v=c.v*(powMul||1), la=(c.la+(ball.lie==='sand'?4:0))*DEG; let px=0,py=0,vz=v*Math.cos(la),vy=v*Math.sin(la),rpm=c.rpm*(S2.spin||1)*(0.82+0.18*Math.min(1,powMul||1)),t=0;
   while(t<15){ const sp=Math.hypot(vz,vy), w=rpm*2*Math.PI/60, S=BALL_R*w/sp, Cd=0.22+0.3*Math.min(S,0.3), Cl=clamp(1.05*S+0.06,0.06,0.33), q=0.5*RHO*BALL_A*sp*sp/BALL_M, dt=1/120;
     const ax=-Cd*q*vz/sp-Cl*q*vy/sp, ay=-Cd*q*vy/sp+Cl*q*vz/sp-G; vz+=ax*dt; vy+=ay*dt; px+=vz*dt; py+=vy*dt; rpm*=Math.exp(-dt/22); t+=dt; if(py<0&&vy<0) break; }
   return carryCache[key]=px;
@@ -1253,6 +1256,25 @@ function carryOf(ci,powMul){
 const rollFrac=ci=>clamp(0.15-CLUBS[ci].rpm/75000,0.02,0.13);            // how much of a shot is roll-out, by club
 const toPin=()=>Math.hypot(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z);
 function lieMul(){ const s=SURF[ball.lie]||SURF.fairway, c=CLUBS[clubIdx]; let p=s.pow; if(ball.lie==='sand'&&c.n==='S Wedge') p=0.88; if(c.n==='Driver'&&ball.lie!=='tee') p*=0.92; return p; }
+// ── water-aware shot planning ──
+// the pond the line at angle a crosses between from..to metres out (its full extent along the line), or null
+function pondOnLine(a,from,to){ const P=ball.p, sx=Math.sin(a), sz=Math.cos(a), wet=s=>inWater(P.x+sx*s,P.z+sz*s); let s0=null;
+  for(let s=Math.max(1,from);s<=to;s+=1) if(wet(s)){ s0=s; break; } if(s0===null) return null;
+  let s1=s0; while(s0>1&&wet(s0-1)) s0--; while(s1<to+120&&wet(s1+1)) s1++; return [s0,s1]; }
+// the carry to aim for with club ci on the current line: the usual target (the pin, or a full shot down the route) — unless
+// that would land or roll out in water; then carry it if this club can, otherwise lay up short of it
+function shotTarget(ci){
+  const full=carryOf(ci,lieMul()), roll=rollFrac(ci), toP=toPin(), pinA=Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z);
+  const atPin=Math.abs(((aim-pinA)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI)<0.2;
+  const carry=atPin?Math.min(full,toP*(0.99-roll)):full, total=atPin?Math.max(carry,toP):carry*(1+roll);
+  const W=pondOnLine(aim,carry-4,total+3); if(!W) return {carry,kind:'normal'};
+  if(W[1]+5<=full) return {carry:W[1]+5,kind:'over'};
+  const lay=(W[0]-6)*(1-roll); return lay>4?{carry:Math.min(lay,full),kind:'lay'}:{carry,kind:'normal'};
+}
+// after picking the usual club: if it can only lay up short of water, see whether a longer one carries it
+function avoidWater(){ if(clubIdx===PUTTER||shotTarget(clubIdx).kind!=='lay') return; const keep=clubIdx;
+  for(let i=clubIdx-1;i>=0;i--){ if(CLUBS[i].tee&&ball.lie!=='tee') continue; clubIdx=i; aimDefault(); if(shotTarget(i).kind==='over') return; }
+  clubIdx=keep; aimDefault(); }
 function suggestClub(){
   if(ball.lie==='green'){ clubIdx=PUTTER; return; }
   const d=toPin(); let best=CLUBS.length-2;
@@ -1290,7 +1312,7 @@ function startHole(){
 }
 function nextShot(){
   if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }      // also catches penalty strokes
-  buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); updateUI(); buildHUD(); saveGame();
+  buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); avoidWater(); updateUI(); buildHUD(); saveGame();
 }
 function strike(power,acc){                        // power 0..1, acc -1..1 (left = hook, right = slice)
   const c=CLUBS[clubIdx], lm=lieMul(), S2=SURF[ball.lie]||SURF.fairway;
@@ -1323,7 +1345,12 @@ function penalty(kind){
   if(kind==='water'){ sfxSplash(); ball.visible=false; { let lv=P.y; for(const W of H.water) if(ellR(W,P.x,P.z)<1.3) lv=waterLevel(W); envSplash(holeGroup,P.x,lv+0.02,P.z,1.6); }
     // drop: back along the line toward where it was hit, two clubs-lengths clear of the hazard
     let x=P.x, z=P.z; const dx=ball.last[0]-x, dz=ball.last[1]-z, l=Math.hypot(dx,dz)||1;
-    for(let i=0;i<400&&(surfAt(x,z)==='water'||surfAt(x,z)==='sand');i++){ x+=dx/l*0.5; z+=dz/l*0.5; } x+=dx/l*2; z+=dz/l*2;
+    // (clear of the pond's sunken bank too: the flight check counts anything below the water level near a pond as wet)
+    const wetAt=inWater;
+    for(let i=0;i<400&&(wetAt(x,z)||surfAt(x,z)==='sand');i++){ x+=dx/l*0.5; z+=dz/l*0.5; } x+=dx/l*2; z+=dz/l*2;
+    // ponds are ringed by deep rough, which saps a quarter of the swing: keep going back along the line (up to 30 m, never past
+    // where it was hit) to the first rough/fairway, so the next shot has a fair chance of clearing the water
+    for(let k=0;k<30&&surfAt(x,z)==='deep'&&Math.hypot(ball.last[0]-x,ball.last[1]-z)>3;k++){ const nx=x+dx/l, nz=z+dz/l, ns=surfAt(nx,nz); if(wetAt(nx,nz)||ns==='sand'||ns==='ob') break; x=nx; z=nz; }   // …but never into another hazard
     showMsg('Splash!<small>1-STROKE PENALTY · DROP</small>',1.8);
     tween(0.01,()=>{},()=>{ ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); ball.visible=true; nextShot(); },1.8); }
   else { showMsg('Out of bounds<small>STROKE AND DISTANCE</small>',1.8);
@@ -1373,8 +1400,12 @@ function updateUI(){
   const c=CLUBS[clubIdx]; document.getElementById('clubName').textContent=c.n;
   document.getElementById('clubCarry').textContent=c.putter?'pull back from the ball':Math.round(carryOf(clubIdx,lieMul())*YD)+' yd carry';
   const putting=c.putter; document.getElementById('meter').style.visibility=putting||drawing()?'hidden':'visible';
-  if(!putting&&phase==='aim'){ const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))), pw=document.getElementById('mpow'); pw.style.left=((IMPACT+(1-IMPACT)*p)*100)+'%'; pw.style.display=p<0.97?'block':'none'; pw.style.background='rgba(255,213,74,.9)'; } document.getElementById('swing').style.display=putting?'none':'';
-  let ht=''; if(phase==='aim'){ if(putting) ht='Touch the ball, pull back and release to putt'; else { const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))); ht=drawing()?(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
+  const T=!putting&&phase==='aim'?shotTarget(clubIdx):null;
+  if(T){ const p=powerFor(clubIdx,T.carry), pw=document.getElementById('mpow'); pw.style.left=((IMPACT+(1-IMPACT)*p)*100)+'%'; pw.style.display=p<0.97||T.kind!=='normal'?'block':'none'; pw.style.background='rgba(255,213,74,.9)'; } document.getElementById('swing').style.display=putting?'none':'';
+  let ht=''; if(phase==='aim'){ if(putting) ht='Touch the ball, pull back and release to putt'; else { const p=powerFor(clubIdx,T.carry), pc=Math.round(p*100);
+    if(T.kind==='over') ht=`Carry the water: about ${pc}% power`+(drawing()?' · tap SWING and draw':' · tap SWING');
+    else if(T.kind==='lay') ht=`Lay up short of the water: about ${pc}% power`+(drawing()?' · tap SWING and draw':' · tap SWING');
+    else ht=drawing()?(p<0.97?`Pin needs about ${pc}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${pc}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
   hint(ht);
 }
 function powerFor(ci,d){ let lo=0.2, hi=1; if(carryOf(ci,lieMul())<d) return 1; for(let i=0;i<14;i++){ const m=(lo+hi)/2; if(carryOf(ci,lieMul()*m)<d) lo=m; else hi=m; } return (lo+hi)/2; }

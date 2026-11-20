@@ -50,6 +50,13 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 #stage{flex:1;width:100%;position:relative;cursor:grab;min-height:0;overflow:hidden;}
 #stage.throwing{cursor:grabbing;}
 #stage canvas{display:block;width:100%;height:100%;}
+#loader{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  background:radial-gradient(ellipse at center,#1d2a3a 0%,#06040c 100%);transition:opacity .45s;}
+#loader.done{opacity:0;pointer-events:none;}
+#loader h1{margin:0;font-size:clamp(2rem,9vw,3.4rem);letter-spacing:3px;color:#ffd54a;text-shadow:0 0 24px rgba(255,170,0,.5);font-family:'Segoe UI',Arial,sans-serif;}
+#loader .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
+#loader small{color:#a99bc6;font:600 .8rem 'Segoe UI',Arial,sans-serif;letter-spacing:2px;}
+@keyframes ldspin{to{transform:rotate(360deg)}}
 #ov{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:radial-gradient(ellipse at center, rgba(6,4,12,.3) 0%, rgba(6,4,12,.7) 100%);gap:12px;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s;padding:20px;}
 #ov.show{opacity:1;pointer-events:auto;}
@@ -154,7 +161,8 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 </div>
 <div id="stage"></div>
 
-<div id="ov" class="show">
+<div id="loader"><h1>🏀 JUST HOOP</h1><div class="spin"></div><small>LOADING</small></div>
+<div id="ov">
   <h2>🏀 JUST HOOP</h2>
   <p></p>
   <button id="startbtn">START</button>
@@ -2318,7 +2326,12 @@ function boot(){
   buildHUD();
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
 }
-try{ boot(); }catch(err){ showFatal(err); }
+// show the title + spinner first, then build the scene; the start card appears once the first frames have drawn
+// (that first render is where the shaders compile, so it's part of the wait)
+function bootDone(){ requestAnimationFrame(()=>requestAnimationFrame(()=>{ const L=document.getElementById('loader'); if(!L) return; L.classList.add('done'); setTimeout(()=>L.remove(),500);
+  const st=document.getElementById('settings'); if(!(st&&st.classList.contains('open'))) document.getElementById('ov').classList.add('show'); })); }
+function bootFail(err){ const L=document.getElementById('loader'); if(L) L.remove(); showFatal(err); }
+requestAnimationFrame(()=>setTimeout(()=>{ try{ boot(); bootDone(); }catch(err){ bootFail(err); } },0));
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
 </body>
