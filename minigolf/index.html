@@ -760,17 +760,52 @@ const HOLES=[
       // overshoot the cup and the ball drops into a channel along the end wall, and a tube carries it back to the start
       {t:'slot',rect:[64.5,27.6,95.5,32.5]},{t:'tunnel',rect:[64.5,27.6,95.5,32.5],exit:[0,-17],dir:[0,1],v:26,vis:false},
       {t:'tube',path:[[80,24.5],[80,12],[80,-38],[0,-38],[0,-30],[0,-25.5]]}]},
-  {name:'Loop-de-Loop',par:2,tee:[-9,0],cup:[6,256],
-    pts:rect(-18,-24,18,300),path:[[-9,0],[-9,140],[9,160],[6,256]],feat:[cupBowl(6,256)],
-    obst:[{t:'wall',a:[0,60],b:[0,126]},{t:'wall',a:[0,60],b:[18,60]},{t:'loop',x0:-9,z0:140,R:10,shift:18,half:8}]},
-  {name:"Clown's Mouth",par:3,tee:[0,0],cup:[0,262],
-    pts:rect(-24,-24,24,300),path:[[0,0],[0,196],[0,262]],
-    feat:[{t:'zstep',z0:205,z1:209,h:-5},cupBowl(0,262)],
-    // one way in, through the clown's mouth, behind a double gate whose doors swing open toward you together
-    obst:[{t:'wall',a:[-24,200],b:[-3.5,200],h:8},{t:'wall',a:[3.5,200],b:[24,200],h:8},
-      {t:'tunnel',x:0,z:201,r:3.4,mouth:true,exit:[0,248],dir:[0,1],v:16},
-      {t:'gate',hinge:[-7.5,190],len:7.5,a0:0,a1:-Math.PI/2,period:2.8},{t:'gate',hinge:[7.5,190],len:7.5,a0:Math.PI,a1:Math.PI*1.5,period:2.8},
-      {t:'clown',z:200}]},
+  // two spinning domes, then three ways on (+x is the player's left): the short middle runs a bumper field to a narrow
+  // bridge; the left goes round to its own bridge; the right stays dry but threads sand. All meet on a green with a trap.
+  {name:'Crossroads',par:3,tee:[0,0],cup:[0,262],
+    pts:[[18,-24],[18,50],[55,62],[55,300],[-55,300],[-55,62],[-18,50],[-18,-24]],
+    path:[[0,0],[0,60],[0,150],[0,262]],
+    alts:[[[46,92],[33,140],[33,206],[0,262]],[[-46,92],[-40,206],[0,262]]],
+    feat:[{t:'cone',x:19.5,z:90,r:18.75,h:4.4},{t:'cone',x:-19.5,z:90,r:18.75,h:4.4},   // two big domes almost touching: over one or round the outside
+     cupBowl(0,262),
+      {t:'sink',zone:{rect:[-25,158,53.5,198],except:[{rect:[-5,158,5,198]},{rect:[28,158,38,198]}]},d:2.4,e:1.6}],
+    obst:[{t:'spin',c:[19.5,90],r:18.75,w:1.1},{t:'spin',c:[-19.5,90],r:18.75,w:-1.1},
+      {t:'bumper',x:0,z:112,r:3.4},{t:'bumper',x:-8,z:120,r:3.4},{t:'bumper',x:8,z:120,r:3.4},{t:'bumper',x:-13,z:142,r:3.4},{t:'bumper',x:13,z:142,r:3.4},   // the front one closes the straight line to the middle bridge
+      {t:'water',rect:[-25,158,53.5,198],except:[{rect:[-5,158,5,198]},{rect:[28,158,38,198]}],level:-1.1,ring:false},
+      {t:'bridge',rect:[-5,158,5,198]},{t:'bridge',rect:[28,158,38,198]},
+      {t:'sand',c:[-40,170],r:9},{t:'sand',c:[-37,214],r:8},{t:'sand',c:[22,238],r:7}]},
+  // the finale, a par 5 with something from every hole (+x is the player's left):
+  //  opening lane — pinball posts, the windmill, a terrace climb
+  //  the bend — a sand trap, then a stream pushing the ball sideways
+  //  the bridge — a plank bridge along the rail crosses a sunken pit; fall off and the pit only lets out onto a side lane
+  //    that climbs back up past pop bumpers and a small volcano; stay on and face the swinging gate
+  //  the plaza — a domed turntable and another trap;  the last lane — a short maze, water with two bridges, a double
+  //  gate down to the green, and behind the cup a return channel that tubes overshoots back to the tee. The lighthouse stands in the bend.
+  {name:'Grand Finale',par:5,tee:[0,0],cup:[0,815],
+    pts:[[-24,-24],[24,-24],[24,240],[114,240],[114,370],[160,370],[160,590],[24,590],[24,840],[-24,840],[-24,520],[66,520],[66,300],[-24,300]],
+    path:[[0,0],[0,262],[90,282],[90,545],[0,575],[0,815]],
+    alts:[[[100,400],[137,420],[137,512],[90,550],[0,575],[0,815]]],
+    feat:[{t:'ramp',z0:160,z1:190,h:5},cupBowl(0,815),
+      {t:'pit',poly:[[76,370],[160,370],[160,512],[114,512],[114,430],[76,430]],d:4,e:3,ramp:[430,505]},
+      {t:'cone',x:137,z:493,r:8,h:2.5},{t:'cone',x:60,z:555,r:16,h:3.5},
+      {t:'sink',zone:{rect:[-24,680,24,712],except:[{rect:[-18,680,-6,712]},{rect:[6,680,18,712]}]},d:2.4,e:1.6}],
+    obst:[{t:'post',x:-12,z:48,r:2},{t:'post',x:12,z:48,r:2},
+      {t:'windmill',z:120,gap:12,depth:20,hw:24},
+      {t:'sand',c:[0,270],r:12},
+      {t:'current',rect:[66,318,114,338],ax:55,az:0},
+      {t:'bridge',rect:[66,370,76,430]},{t:'ledge',a:[76,370],b:[160,370],n:[0,1]},
+      {t:'wall',a:[76,430],b:[114,430]},{t:'wall',a:[114,430],b:[114,505]},
+      {t:'bumper',x:126,z:455,r:3.4},{t:'bumper',x:148,z:470,r:3.4},
+      {t:'block',x0:66,x1:78,z0:465,z1:475},{t:'block',x0:102,x1:114,z0:465,z1:475},{t:'gate',hinge:[78,470],len:24,a0:0,a1:-Math.PI/2,period:3.0},
+      {t:'spin',c:[60,555],r:16,w:1.2},{t:'sand',c:[18,568],r:8},
+      {t:'wall',a:[-24,620],b:[2,620]},{t:'wall',a:[24,648],b:[-2,648]},
+      {t:'water',rect:[-24,680,24,712],except:[{rect:[-18,680,-6,712]},{rect:[6,680,18,712]}],level:3.9,ring:false},
+      {t:'bridge',rect:[-18,680,-6,712]},{t:'bridge',rect:[6,680,18,712]},
+      {t:'wall',a:[-24,760],b:[-8,760]},{t:'wall',a:[8,760],b:[24,760]},                       // the double gate guards a wide opening down to the green
+      {t:'gate',hinge:[-8,756],len:8,a0:0,a1:-Math.PI/2,period:2.8},{t:'gate',hinge:[8,756],len:8,a0:Math.PI,a1:Math.PI*1.5,period:2.8},
+      {t:'slot',rect:[-22.5,833,22.5,838]},{t:'tunnel',rect:[-22.5,833,22.5,838],exit:[0,-17],dir:[0,1],v:26,vis:false},
+      {t:'tube',path:[[0,841.5],[0,852],[-42,852],[-42,-38],[0,-38],[0,-25.5]]},
+      {t:'lighthouse',c:[45,410]}]},
 ];
 let PLAY=HOLES, HOLE_NO0=0;                         // the holes being played this round (front 9 / back 9 / all 18)
 const parTotal=()=>PLAY.reduce((a,h)=>a+h.par,0);
@@ -977,7 +1012,7 @@ function nearPoly(x,z,r){ for(let i=0;i<H.pts.length;i++){ const a=H.pts[i], b=H
 // ═══════════════════════════════════════════════════════
 //  COURSE PIECES: zones (water, sand, stream, turntable), moving gates, tunnels, the loop, decor
 // ═══════════════════════════════════════════════════════
-let ZONES=[], GATES=[], TUNNELS=[], LOOP=null, SPIN=null, LIFTS=[], ANIMS3D=[], lastPos=[0,0], prevZ=0;
+let ZONES=[], GATES=[], TUNNELS=[], LOOP=null, SPINS=[], LIFTS=[], ANIMS3D=[], lastPos=[0,0], prevZ=0;
 const inShape=(s,x,z)=>s.rect?(x>=s.rect[0]&&x<=s.rect[2]&&z>=s.rect[1]&&z<=s.rect[3]):Math.hypot(x-s.c[0],z-s.c[1])<=s.r;
 const inZone=(Z,x,z)=>inShape(Z,x,z)&&!(Z.except||[]).some(e=>inShape(e,x,z));
 function pathS(x,z){                              // arc length along the hole's guide path at the nearest point
@@ -1067,13 +1102,7 @@ function buildPiece(o,add){
     for(let i=0;i<P.count;i++){ U.setXY(i,(P.getX(i)-cx)/(2*o.r)+0.5,0.5-(P.getZ(i)-cz)/(2*o.r)); } dg.translate(-cx,0,-cz);
     const d=add(dg,M.spin,false); d.position.set(cx,0,cz); d.receiveShadow=!PERF;
     const ring=add(new THREE.TorusGeometry(o.r,0.35,8,80),M.cap); ring.rotation.x=Math.PI/2; ring.position.set(cx,y+0.1,cz);
-    SPIN={x:o.c[0],z:o.c[1],r:o.r,w:o.w,mesh:d,ang:0,walls:[]};
-    if(o.walls){ const g=new THREE.Group(); g.position.set(o.c[0],y,o.c[1]); g.userData.occ=true; courseGroup.add(g); SPIN.g=g;   // short walls riding the rim (N, E, S, W)
-      const R=o.r-7.5, len=8;          // outer corners reach ~19.5 from centre: clear of the side rails' inner face (22.5) by more than a ball, so nothing pinches
-      for(let k=0;k<o.walls;k++){ const th=k*2*Math.PI/o.walls, wall=new THREE.Mesh(new THREE.BoxGeometry(len,2.6,1.2),M.gate);
-        wall.position.set(Math.cos(th)*R,1.4,Math.sin(th)*R); wall.rotation.y=-th-Math.PI/2; g.add(wall); if(!PERF) wall.castShadow=true;
-        const seg={a:[0,0],b:[0,0],r:BALL_R+0.6,e:0.5,kind:'gate',hx:o.c[0],hz:o.c[1],om:o.w}; SPIN.walls.push({th,R,len,seg}); SEGS.push(seg); }
-      spinWalls(); }
+    SPINS.push({x:o.c[0],z:o.c[1],r:o.r,w:o.w,mesh:d});
     return; }
   if(o.t==='gate'){ const [hx,hz]=o.hinge, y=BASE_Y+hAt(hx,hz), g=new THREE.Group(); g.position.set(hx,y,hz); g.userData.occ=true; courseGroup.add(g);
     const bar=new THREE.Mesh(new THREE.BoxGeometry(o.len,2.6,1.2),M.gate); bar.position.set(o.len/2,1.7,0); g.add(bar); if(!PERF) bar.castShadow=true;
@@ -1124,13 +1153,16 @@ function buildLighthouse(o,add){
   const gal=add(new THREE.CylinderGeometry(11,11,1.4,28),M.white); gal.position.set(x,72.7,z);
   const glass=add(new THREE.CylinderGeometry(6.5,6.5,9,20,1,true),new THREE.MeshStandardMaterial({color:0xfff2b0,emissive:0xffd860,emissiveIntensity:1.2,transparent:true,opacity:0.85,side:THREE.DoubleSide}),false); glass.position.set(x,78,z);
   const roof=add(new THREE.ConeGeometry(8,9,20),mat({color:0x2a2a2e,roughness:0.5})); roof.position.set(x,87,z);
+  // the lamp: a bright lens with a soft glow, revolving just outside the glass
   const beam=new THREE.Group(); beam.position.set(x,78,z); courseGroup.add(beam);
-  const bm=new THREE.MeshBasicMaterial({color:0xfff2a0,transparent:true,opacity:0.18,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});
-  for(const s of [1,-1]){ const cone=new THREE.Mesh(new THREE.ConeGeometry(14,140,24,1,true),bm); cone.rotation.z=s*Math.PI/2; cone.position.x=s*70; beam.add(cone); }
+  const gc=mkCanvas(64,64), gg=gc.getContext('2d'), rg=gg.createRadialGradient(32,32,0,32,32,32); rg.addColorStop(0,'rgba(255,250,215,1)'); rg.addColorStop(0.35,'rgba(255,226,130,.55)'); rg.addColorStop(1,'rgba(255,210,90,0)'); gg.fillStyle=rg; gg.fillRect(0,0,64,64);
+  const lens=new THREE.Mesh(new THREE.CircleGeometry(2.2,20),new THREE.MeshBasicMaterial({color:0xfff6d0,toneMapped:false}));
+  const glow=new THREE.Mesh(new THREE.PlaneGeometry(13,13),new THREE.MeshBasicMaterial({map:toTex(gc),transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,toneMapped:false}));
+  lens.position.set(0,0,6.75); glow.position.set(0,0,6.95); beam.add(lens); beam.add(glow);
   ANIMS3D.push({spin:beam,rate:0.9});
 }
 // ── clown face over the mouths on the last hole ──
-function buildClown(o,add){
+function buildClown(o,add){ const gy=BASE_Y+hAt(0,o.z-4);      // stands on the ground in front of its wall
   const c=mkCanvas(512,512), g=c.getContext('2d'), cx=256;
   g.fillStyle='#ff8a1a'; for(const s of [-1,1]) for(let i=0;i<7;i++){ g.beginPath(); g.arc(cx+s*(190+NZ.rnd()*30),150+i*40,44,0,7); g.fill(); }   // hair tufts
   g.fillStyle='#fbf6ee'; g.beginPath(); g.arc(cx,250,200,0,7); g.fill(); g.lineWidth=8; g.strokeStyle='#2a2a2a'; g.stroke();
@@ -1139,16 +1171,12 @@ function buildClown(o,add){
   g.strokeStyle='#d8202a'; g.lineWidth=30; g.lineCap='round'; g.beginPath(); g.arc(cx,250,130,0.2*Math.PI,0.8*Math.PI); g.stroke();
   g.fillStyle='#d8202a'; g.beginPath(); g.moveTo(cx-120,30); g.lineTo(cx,-60); g.lineTo(cx+120,30); g.closePath(); g.fill();
   const face=add(new THREE.CircleGeometry(24,48),new THREE.MeshStandardMaterial({map:toTex(c),roughness:0.6,transparent:true,alphaTest:0.1}),false);
-  face.position.set(0,BASE_Y+8+22,o.z+0.6); face.rotation.y=Math.PI;
-  const backer=add(new THREE.BoxGeometry(48,48,1.2),M.rail); backer.position.set(0,BASE_Y+8+22,o.z+2); backer.userData.occ=true;
-  const nose=add(new THREE.SphereGeometry(4,20,14),M.bumper); nose.position.set(0,BASE_Y+8+24,o.z-3);
-  const hat=add(new THREE.ConeGeometry(9,16,24),M.gate); hat.position.set(0,BASE_Y+8+52,o.z+2);
+  face.position.set(0,gy+8+22,o.z+0.6); face.rotation.y=Math.PI;
+  const backer=add(new THREE.BoxGeometry(48,48,1.2),M.rail); backer.position.set(0,gy+8+22,o.z+2); backer.userData.occ=true;
+  const nose=add(new THREE.SphereGeometry(4,20,14),M.bumper); nose.position.set(0,gy+8+24,o.z-3);
+  const hat=add(new THREE.ConeGeometry(9,16,24),M.gate); hat.position.set(0,gy+8+52,o.z+2);
 }
 // ── per-step physics for the pieces ──
-// turntable walls: rigid with the table, so they sweep the ball along at the table's speed (hitSeg uses om about hx,hz)
-function spinWalls(){ const S=SPIN; if(!S||!S.walls.length) return; S.g.rotation.y=-S.ang;
-  for(const W of S.walls){ const a=W.th+S.ang, cx=S.x+Math.cos(a)*W.R, cz=S.z+Math.sin(a)*W.R, tx=-Math.sin(a)*W.len/2, tz=Math.cos(a)*W.len/2;
-    W.seg.a=[cx-tx,cz-tz]; W.seg.b=[cx+tx,cz+tz]; } }
 function gateAngle(G,t){ return G.a0+(G.a1-G.a0)*(0.5-0.5*Math.cos(2*Math.PI*t/G.period)); }
 function updateGates(t){ for(const G of GATES){ const a=gateAngle(G,t), om=(G.a1-G.a0)*Math.PI/G.period*Math.sin(2*Math.PI*t/G.period);
   G.seg.b=[G.seg.hx+Math.cos(a)*G.len,G.seg.hz+Math.sin(a)*G.len]; G.seg.om=om; G.g.rotation.y=-a; } }
@@ -1306,7 +1334,7 @@ function buildHole(){
   if(courseGroup) disposeGroup(courseGroup);
   courseGroup=new THREE.Group(); scene.add(courseGroup);
   const [x0,z0,x1,z1]=bbox(H.pts); OFF.set(-(x0+x1)/2,0,-(z0+z1)/2); courseGroup.position.copy(OFF);
-  SEGS=[]; CIRCLES=[]; BLADES=null; OCCLUDERS=[]; ZONES=[]; GATES=[]; TUNNELS=[]; LOOP=null; SPIN=null; LIFTS=[]; ANIMS3D=[]; envClearWater();
+  SEGS=[]; CIRCLES=[]; BLADES=null; OCCLUDERS=[]; ZONES=[]; GATES=[]; TUNNELS=[]; LOOP=null; SPINS=[]; LIFTS=[]; ANIMS3D=[]; envClearWater();
   const add=(geo,m,shadow)=>{ const o=new THREE.Mesh(geo,m); courseGroup.add(o); if(!PERF&&shadow!==false){ o.castShadow=true; o.receiveShadow=true; } return o; };
   // felt + clean cup
   const felt=add(feltGeometry(),M.felt); felt.castShadow=false;
@@ -1346,7 +1374,7 @@ function buildHole(){
   courseGroup.traverse(o=>{ if(o.isMesh&&(o.material===M.water||o.material===M.stream)){ const a=o.geometry.attributes.position; let y=0; for(let i=0;i<a.count;i++) y+=a.getY(i); envAddWater(o,y/Math.max(1,a.count)+OFF.y); } });
 }
 function buildWindmill(o,add){
-  const zf=o.z-o.depth/2, zb=o.z+o.depth/2, gw=o.gap/2, hw=Math.abs(H.pts[1][0]);   // lane half-width
+  const zf=o.z-o.depth/2, zb=o.z+o.depth/2, gw=o.gap/2, hw=o.hw||Math.abs(H.pts[1][0]);   // lane half-width
   const tunnel=10, top=46, g=new THREE.Group(); g.userData.occ=true; courseGroup.add(g);
   const box=(x0,x1,y0,y1,m)=>{ const b=new THREE.Mesh(new THREE.BoxGeometry(x1-x0,y1-y0,zb-zf),m); b.position.set((x0+x1)/2,BASE_Y+(y0+y1)/2,o.z); if(!PERF){ b.castShadow=true; b.receiveShadow=true; } g.add(b); return b; };
   box(-hw,-gw,0,top,M.clap); box(gw,hw,0,top,M.clap); box(-gw,gw,tunnel,top,M.clap);
@@ -1437,7 +1465,7 @@ function bladeSegs(){
 }
 // a gate that swings into a resting ball pushes it: the ball starts rolling again (no stroke counted)
 function gateNudge(){
-  for(const S of GATES.map(G=>G.seg).concat(SPIN?SPIN.walls.map(W=>W.seg):[])){ const dx=S.b[0]-S.a[0], dz=S.b[1]-S.a[1], L2=dx*dx+dz*dz||1;
+  for(const S of GATES.map(G=>G.seg)){ const dx=S.b[0]-S.a[0], dz=S.b[1]-S.a[1], L2=dx*dx+dz*dz||1;
     let t=((ball.x-S.a[0])*dx+(ball.z-S.a[1])*dz)/L2; t=t<0?0:t>1?1:t;
     if(Math.hypot(ball.x-(S.a[0]+dx*t),ball.z-(S.a[1]+dz*t))>=S.r) continue;
     ball.vx=ball.vz=0; hitSeg(S);                                   // shoves the ball clear and gives it the gate's speed
@@ -1447,17 +1475,17 @@ function gateNudge(){
 function physStep(dt){
   if(BLADES){ BLADES.ang+=BLADES.omega*dt; }
   if(GATES.length) updateGates(clock);
-  if(SPIN&&SPIN.walls.length){ SPIN.ang+=SPIN.w*dt; spinWalls(); }
   // a ball that stops on the turntable stays put while you aim (the table turns under it)
-  if((phase==='aim'||phase==='pad')&&(GATES.length||(SPIN&&SPIN.walls.length))) gateNudge();
+  if((phase==='aim'||phase==='pad')&&GATES.length) gateNudge();
   if(phase!=='roll') return;
   if(LOOP&&LOOP.active){ stepLoop(dt); return; }
   prevZ=ball.z;
   const sand=ZONES.length&&zoneAt(ball.x,ball.z,'sand'), cur=ZONES.length&&zoneAt(ball.x,ball.z,'current');
+  const SPIN=SPINS.find(S=>Math.hypot(ball.x-S.x,ball.z-S.z)<S.r+BALL_R+0.3);                       // the turntable the ball is on (or still touching)
   const onSpin=SPIN&&Math.hypot(ball.x-SPIN.x,ball.z-SPIN.z)<SPIN.r, dvx=onSpin?-SPIN.w*(ball.z-SPIN.z):0, dvz=onSpin?SPIN.w*(ball.x-SPIN.x):0;
   const [gx,gz]=grad(ball.x,ball.z), rvx0=ball.vx-dvx, rvz0=ball.vz-dvz, sp0=Math.hypot(rvx0,rvz0), slopeA=(5/7)*G*Math.hypot(gx,gz);
   // at rest on a gentle slope? stays put (carpet holds it); steeper slopes keep it rolling; a stream keeps it moving unless it's pinned
-  const nearSpin=SPIN&&Math.hypot(ball.x-SPIN.x,ball.z-SPIN.z)<SPIN.r+BALL_R+0.3;     // any part of the ball still on the table
+  const nearSpin=!!SPIN;     // any part of the ball still on a table
   if(!nearSpin&&sp0<STOP_V&&slopeA<Math.max(STATIC,FRICTION*(sand?5:1)*0.98)&&(!cur||clock-rollStart>1)){   // rest wherever friction can out-hold the slope
     ball.vx=ball.vz=0; stopRoll(); ballStopped(); return; }
   ball.vx-=(5/7)*G*gx*dt; ball.vz-=(5/7)*G*gz*dt;
@@ -1680,6 +1708,13 @@ function buildAim(){
   const gg=new THREE.PlaneGeometry(0.8,1); gg.rotateX(-Math.PI/2); gg.translate(0,0,-0.5);
   guideMesh=new THREE.Mesh(gg,new THREE.MeshBasicMaterial({map:aimTex,transparent:true,depthWrite:false,depthTest:false,toneMapped:false,opacity:0.55})); guideMesh.renderOrder=9; scene.add(guideMesh);
 }
+// live preview of how far a putt goes: follows the aim line with the real speed, felt/sand friction and the slope along it
+// (not walls or bumpers), stopping at the water or the course edge
+function predictRoll(dx,dz,pow){ let v2=Math.pow(MAXV*Math.pow(pow,1.15)*settings.power,2), x=ball.x, z=ball.z, s=0;
+  while(s<700){ if(ZONES.length&&zoneAt(x,z,'water')) break; const sand=ZONES.length&&zoneAt(x,z,'sand'), [gx,gz]=grad(x,z);
+    v2-=2*(FRICTION*(sand?5:1)+(5/7)*G*(gx*dx+gz*dz)); if(v2<=0) break;
+    const nx=x+dx, nz=z+dz; if(!inPoly(nx,nz,H.pts)) break; x=nx; z=nz; s++; }
+  return s; }
 function syncAim(){
   const show=phase==='aim'&&aiming&&aimPow>0.02;
   aimMesh.visible=show; guideMesh.visible=show&&settings.guide; if(!show) return;
@@ -1688,7 +1723,9 @@ function syncAim(){
   aimMesh.position.set(ball.x+aimDir.x*(BALL_R+0.6),y,ball.z+aimDir.y*(BALL_R+0.6)).add(OFF); const ex=ball.x+aimDir.x*(BALL_R+0.6+len), ez=ball.z+aimDir.y*(BALL_R+0.6+len), tilt=Math.atan2(hAt(ex,ez)-hAt(ball.x,ball.z),len);
   aimMesh.rotation.set(0,ang+Math.PI,0,'YXZ'); aimMesh.rotation.x=tilt; aimMesh.scale.set(3.2,1,len);
   aimMat.color.setHSL(0.33*(1-pw),1,0.55);
-  const gl=70; guideMesh.position.set(ball.x+aimDir.x*(BALL_R+0.6+len),y,ball.z+aimDir.y*(BALL_R+0.6+len)).add(OFF); guideMesh.rotation.set(0,ang+Math.PI,0); guideMesh.scale.set(1,1,gl);
+  if(!settings.guide) return;
+  const d=predictRoll(aimDir.x,aimDir.y,pw), a0=BALL_R+0.6+len, gl=Math.max(0.01,d-a0);   // dotted line from the arrow's tip to about where it should stop
+  guideMesh.visible=d>a0; guideMesh.position.set(ball.x+aimDir.x*a0,y,ball.z+aimDir.y*a0).add(OFF); guideMesh.rotation.set(0,ang+Math.PI,0); guideMesh.scale.set(1,1,gl);
   aimTex.repeat.set(1,gl/6);
 }
 
@@ -1718,7 +1755,7 @@ function loop(t){
     if(H){
       const n=Math.max(1,Math.ceil(dt*1000)); for(let k=0;k<n;k++) physStep(dt/n);
       if(BLADES) BLADES.g.rotation.z=BLADES.ang;
-      if(SPIN) SPIN.mesh.rotation.y-=SPIN.w*dt;
+      for(const S of SPINS) S.mesh.rotation.y-=S.w*dt;
       for(const A of ANIMS3D){ if(A.tex){ A.tex.offset.x+=A.vx*dt; A.tex.offset.y+=A.vz*dt; } if(A.spin) A.spin.rotation.y+=A.rate*dt; }
       for(const C of CIRCLES) if(C.mesh){ C.flash=Math.max(0,(C.flash||0)-dt); C.mesh.scale.setScalar(1+C.flash*0.8); }
       if(M.pano) M.pano.position.set(camera.position.x,PANO_H/2-PANO_H*(24/1024),camera.position.z);   // tree line sits on the ground

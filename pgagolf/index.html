@@ -1551,6 +1551,12 @@ function bindInput(){ const el=renderer.domElement; el.addEventListener('pointer
   window.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); swingClick(); } }); }
 
 // aim aids: dotted line to the expected landing spot + a ring there; putting arrow length = power
+// live preview of how far a putt rolls: follows the aim line with the putt's speed, each surface's roll resistance and the
+// slope along it (not trees), stopping at water or after 40 m
+function predictPutt(dx,dz,pow){ let v2=Math.pow(7.2*Math.pow(pow,1.15)*settings.power,2), x=ball.p.x, z=ball.p.z, s=0; const ds=0.05;
+  while(s<40){ const sf=surfAt(x,z); if(sf==='water') break; const [gx,gz]=grad(x,z);
+    v2-=2*((SURF[sf]||SURF.fairway).roll+(5/7)*G*(gx*dx+gz*dz))*ds; if(v2<=0) break; x+=dx*ds; z+=dz*ds; s+=ds; }
+  return s; }
 function syncAim(){
   const show=settings.guide&&(phase==='aim'||phase==='swing'), putting=clubIdx===PUTTER, P=ball.p;
   landMark.visible=show&&!putting; aimLine.visible=show&&(!putting||puttPow>0.02);
@@ -1559,7 +1565,7 @@ function syncAim(){
     puttArrow.position.set(P.x+aimDir.x*0.05,y,P.z+aimDir.y*0.05); puttArrow.rotation.set(0,ang+Math.PI,0); puttArrow.scale.set(0.2,1,len); puttArrow.material.color.setHSL(0.33*(1-puttPow),1,0.55); }
   if(!aimLine.visible&&!landMark.visible) return;
   const dir=putting&&puttPow>0.02?[aimDir.x,aimDir.y]:[Math.sin(aim),Math.cos(aim)], pos=aimLine.geometry.attributes.position;
-  const reach=putting?0.15+puttPow*2.4+3:carryOf(clubIdx,lieMul()), n=putting?40:200, s0=putting?0.15+puttPow*2.4:0;
+  const reach=putting?predictPutt(dir[0],dir[1],puttPow):carryOf(clubIdx,lieMul()), s0=putting?Math.min(reach,0.15+puttPow*2.4):0, n=putting?clamp(Math.round((reach-s0)/0.3),1,200):200;   // putts: dots every 30 cm out to where it should stop
   for(let i=0;i<n;i++){ const s=s0+(reach-s0)*i/n, x=P.x+dir[0]*s, z=P.z+dir[1]*s; pos.setXYZ(i,x,hAt(x,z)+0.03,z); } aimLine.geometry.setDrawRange(0,n); pos.needsUpdate=true;
   aimLine.material.size=putting?5:3;
   if(landMark.visible){ const x=P.x+dir[0]*reach, z=P.z+dir[1]*reach, sc=Math.max(2.5,reach*0.035); landMark.position.set(x,hAt(x,z)+0.05,z); landMark.scale.set(sc,sc,1); }
@@ -1595,7 +1601,11 @@ function syncBall(){
   const onGround=ball.mode!=='fly', nest=onGround?({rough:0.3,deep:0.5,sand:0.25}[ball.lie]||0):0, gy0=meshH(P.x,P.z);
   let y=onGround?gy0+BALL_R*sc*(1-nest):Math.max(P.y,gy0+BALL_R*sc); y-=ball.sink;
   ballMesh.position.set(P.x,y,P.z);
+  const now=performance.now(), fdt=Math.min(0.05,(now-(syncBall.t||now))/1000); syncBall.t=now;
   if(ball.mode==='roll'){ const sp=Math.hypot(ball.v.x,ball.v.z); if(sp>1e-4) ballMesh.rotateOnWorldAxis(_tmp.set(ball.v.z,0,-ball.v.x).normalize(),sp/BALL_R/60); }
+  // in the air it spins about its spin axis (backspin, tilted for a draw/fade). Thousands of rpm would just strobe on screen,
+  // so it's shown at a readable 1.5–6 turns a second, faster for more spin, easing off as the spin decays
+  else if(ball.mode==='fly'&&ball.rpm>0) ballMesh.rotateOnWorldAxis(ball.spinAxis,clamp(ball.rpm/700,1.5,6)*2*Math.PI*fdt);
   const gy=meshH(P.x,P.z); shadowDisc.position.set(P.x,gy+0.006,P.z); shadowDisc.scale.setScalar(Math.max(1,dist/14)); shadowDisc.visible=ball.visible&&P.y-gy<3;
 }
 function loop(t){
