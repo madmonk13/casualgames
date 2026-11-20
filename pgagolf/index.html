@@ -164,6 +164,12 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
         <label><input type="radio" name="sens" value="1.5"><span>High<small>150%</small></span></label>
       </div>
     </div>
+    <div class="sec"><div class="sec-label" id="swingLbl">Swing</div>
+      <div class="seg" role="radiogroup" aria-labelledby="swingLbl">
+        <label><input type="radio" name="swing" value="meter"><span>Power meter<small>tap 3 times</small></span></label>
+        <label><input type="radio" name="swing" value="draw"><span>Draw to drive<small>swipe the swing</small></span></label>
+      </div>
+    </div>
     <div class="sec"><div class="sec-label" id="mspLbl">Swing meter speed</div>
       <div class="seg" role="radiogroup" aria-labelledby="mspLbl">
         <label><input type="radio" name="msp" value="0.8"><span>Slow</span></label>
@@ -193,8 +199,6 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
       </div>
     </div>
     <button class="toggle" id="setGuide"></button>
-    <button class="toggle" id="setDraw"></button>
-    <button class="toggle" id="setDrawPutt"></button>
     <button class="toggle" id="setOpt"></button>
     <button class="toggle" id="newGameBtn">New Game</button>
     <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
@@ -758,7 +762,7 @@ const HOLES=[
 HOLES.forEach(h=>{ h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
   let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; });
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, drawSwing:false, drawPutt:false, tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, swing:null, tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 let PLAY=HOLES.slice(0,9), HOLE_NO0=0, roundCourse='front';             // the holes being played this round (front 9 / back 9 / all 18)
@@ -1368,9 +1372,9 @@ function updateUI(){
   const rel=Math.atan2(wind.x,wind.z)-aim; document.getElementById('iWind').textContent=wind.mph?ARROWS[((Math.round(rel/(Math.PI/4))%8)+8)%8]+' '+wind.mph+' mph':'calm';
   const c=CLUBS[clubIdx]; document.getElementById('clubName').textContent=c.n;
   document.getElementById('clubCarry').textContent=c.putter?'pull back from the ball':Math.round(carryOf(clubIdx,lieMul())*YD)+' yd carry';
-  const putting=c.putter; document.getElementById('meter').style.visibility=putting||settings.drawSwing?'hidden':'visible';
-  if(!putting&&phase==='aim'){ const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))), pw=document.getElementById('mpow'); pw.style.left=((IMPACT+(1-IMPACT)*p)*100)+'%'; pw.style.display=p<0.97?'block':'none'; pw.style.background='rgba(255,213,74,.9)'; } { const sb=document.getElementById('swing'); sb.style.display=putting&&!settings.drawPutt?'none':''; sb.textContent=putting?'PUTT':'SWING'; }
-  let ht=''; if(phase==='aim'){ if(putting) ht=settings.drawPutt?'Touch the ball and drag back to aim · tap PUTT, then draw back and through':'Touch the ball, pull back and release to putt'; else { const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))); ht=settings.drawSwing?(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
+  const putting=c.putter; document.getElementById('meter').style.visibility=putting||drawing()?'hidden':'visible';
+  if(!putting&&phase==='aim'){ const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))), pw=document.getElementById('mpow'); pw.style.left=((IMPACT+(1-IMPACT)*p)*100)+'%'; pw.style.display=p<0.97?'block':'none'; pw.style.background='rgba(255,213,74,.9)'; } document.getElementById('swing').style.display=putting?'none':'';
+  let ht=''; if(phase==='aim'){ if(putting) ht='Touch the ball, pull back and release to putt'; else { const p=powerFor(clubIdx,toPin()*(0.99-rollFrac(clubIdx))); ht=drawing()?(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${Math.round(p*100)}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
   hint(ht);
 }
 function powerFor(ci,d){ let lo=0.2, hi=1; if(carryOf(ci,lieMul())<d) return 1; for(let i=0;i<14;i++){ const m=(lo+hi)/2; if(carryOf(ci,lieMul()*m)<d) lo=m; else hi=m; } return (lo+hi)/2; }
@@ -1380,15 +1384,15 @@ function hint(t){ document.getElementById('hint').textContent=t; }
 let meter={state:'idle',x:0,power:0};
 const IMPACT=0.12;
 function swingClick(){
-  if(phase==='aim'&&(clubIdx===PUTTER?settings.drawPutt:settings.drawSwing)){ getAC(); initSfx(); startAmbient(); openPad(); return; }
   if(clubIdx===PUTTER) return;
+  if(phase==='aim'&&drawing()){ getAC(); initSfx(); startAmbient(); openPad(); return; }
   if(phase!=='aim'&&meter.state==='idle') return; getAC(); initSfx(); startAmbient();
   if(meter.state==='idle'){ if(phase!=='aim') return; meter={state:'up',x:IMPACT,power:0}; phase='swing'; }
   else if(meter.state==='up'){ meter.power=clamp((meter.x-IMPACT)/(1-IMPACT),0.05,1); meter.state='down'; const pw=document.getElementById('mpow'); pw.style.left=(meter.x*100)+'%'; pw.style.display='block'; pw.style.background='#fff'; }
   else if(meter.state==='down'){ finishSwing(-(meter.x-IMPACT)/0.12); }      // early = hook (−), late = slice (+)
 }
 function finishSwing(accRaw){ const acc=clamp(accRaw,-1,1); meter.state='idle';
-  missHint.note(Math.abs(acc)<0.35,'swing',3,'Your last few swings went way off line.<br>Set <b>Swing meter speed</b> to <b>Slow</b> in <b>Settings</b> for more time to stop it on the white zone — or on a touch screen, try <b>Draw-to-swing</b>.'); document.getElementById('mfill').style.width='0'; strike(meter.power,acc); }
+  missHint.note(Math.abs(acc)<0.35,'swing',3,'Your last few swings went way off line.<br>Set <b>Swing meter speed</b> to <b>Slow</b> in <b>Settings</b> for more time to stop it on the white zone — or on a touch screen, try <b>Swing: Draw to drive</b>.'); document.getElementById('mfill').style.width='0'; strike(meter.power,acc); }
 function updateMeter(dt){
   if(meter.state==='idle') return; const sp=1.05*settings.meter;
   if(meter.state==='up'){ meter.x+=sp*dt; if(meter.x>=1){ meter.x=1; meter.power=1; meter.state='down'; } }
@@ -1397,7 +1401,7 @@ function updateMeter(dt){
   const f=document.getElementById('mfill'); f.style.left=(IMPACT*100)+'%'; f.style.width=Math.max(0,(meter.state==='up'?meter.x:meter.power*(1-IMPACT)+IMPACT)-IMPACT)*100+'%';
 }
 
-// ── experimental: draw to swing, like a real swing. Start at ADDRESS (centre), draw down for the backswing,
+// ── draw to drive (Settings → Swing), like a real swing. Start at ADDRESS (centre), draw down for the backswing,
 //    then sweep up through impact to FINISH. Backswing length caps the power, downswing speed sets it,
 //    where you cross impact pushes/pulls and the bend of the downswing draws/fades. ──
 const pad={cv:null,pts:[],on:false,turn:-1};
@@ -1414,7 +1418,7 @@ function drawPad(){
   g.strokeStyle='rgba(255,213,74,.7)'; g.setLineDash([5,6]); g.lineWidth=2; g.beginPath(); g.moveTo(10,Q.finY); g.lineTo(Q.W-10,Q.finY); g.stroke();
   g.strokeStyle='rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(10,Q.cy); g.lineTo(Q.W-10,Q.cy); g.stroke(); g.setLineDash([]);                                     // impact line
   g.font='800 12px "Segoe UI",Arial'; g.textAlign='center'; g.textBaseline='middle';
-  g.fillStyle='#ffd54a'; g.fillText('FINISH',Q.cx,Q.finY*0.5); g.fillStyle='#8fc4ff'; g.fillText(clubIdx===PUTTER?'BACKSTROKE':'BACKSWING',Q.cx,Q.Hh-18);
+  g.fillStyle='#ffd54a'; g.fillText('FINISH',Q.cx,Q.finY*0.5); g.fillStyle='#8fc4ff'; g.fillText('BACKSWING',Q.cx,Q.Hh-18);
   g.fillStyle='rgba(93,255,154,.2)'; g.strokeStyle='#5dff9a'; g.lineWidth=3; g.beginPath(); g.arc(Q.cx,Q.cy,Q.rad,0,7); g.fill(); g.stroke();
   g.fillStyle='#5dff9a'; g.fillText('ADDRESS',Q.cx,Q.cy);
   const P=pad.pts; if(P.length>1){ g.lineCap='round'; g.lineJoin='round';
@@ -1438,12 +1442,11 @@ function padUp(e){
   if(pad.turn<0) return retry('Swing back first, then through');
   if(end.y>Q.finY) return retry('Follow through into FINISH');
   const T=P[pad.turn], back=clamp((T.y-Q.cy)/(Q.backY-Q.cy),0,1);
-  if(back<(clubIdx===PUTTER?0.03:0.12)) return retry(clubIdx===PUTTER?'Take a bigger backstroke':'Take a bigger backswing');
+  if(back<0.12) return retry('Take a bigger backswing');
   // downswing speed from the top of the backswing to the finish line
   let k=pad.turn; while(k<P.length-1&&P[k].y>Q.finY) k++;
   let len=0; for(let i=pad.turn+1;i<=k;i++) len+=Math.hypot(P[i].x-P[i-1].x,P[i].y-P[i-1].y);
   const dt=Math.max(0.04,(P[k].t-T.t)/1000), speed=len/Q.Hh/dt;
-  if(clubIdx===PUTTER){ const h=padPutt(P,T,k,back,Q); padMsg(h.label); setTimeout(()=>{ closePad(); aim+=h.dev; aimDir.set(Math.sin(aim),Math.cos(aim)); putt(aimDir.x,aimDir.y,h.pow); },260); return; }
   const power=clamp(Math.min(speed/3.6,0.3+0.75*back),0.08,1);
   // where the club crosses impact (vs. address) and how the downswing bends
   let ix=Q.cx; for(let i=pad.turn+1;i<=k;i++) if(P[i-1].y>=Q.cy&&P[i].y<Q.cy){ const u=(P[i-1].y-Q.cy)/(P[i-1].y-P[i].y||1); ix=mix(P[i-1].x,P[i].x,u); break; }
@@ -1455,18 +1458,6 @@ function padUp(e){
   setTimeout(()=>{ closePad(); strike(power,acc); },260);
 }
 
-// draw-to-putt on the pad: backstroke length sets the distance, tempo nudges it (from the top of the backstroke to
-// impact, ~0.25s is neutral), and where you cross impact / how the stroke bends pushes or pulls it off the aim line
-function padPutt(P,T,k,back,Q){
-  let ti=P[k].t; for(let i=P.indexOf(T)+1;i<=k;i++) if(P[i-1].y>=Q.cy&&P[i].y<Q.cy){ ti=P[i].t; break; }
-  const tempo=clamp(0.25/Math.max(0.05,(ti-T.t)/1000),0.55,1.3), pow=clamp(back*Math.sqrt(tempo),0.03,1);
-  let ix=Q.cx; for(let i=P.indexOf(T)+1;i<=k;i++) if(P[i-1].y>=Q.cy&&P[i].y<Q.cy){ const u=(P[i-1].y-Q.cy)/(P[i-1].y-P[i].y||1); ix=mix(P[i-1].x,P[i].x,u); break; }
-  const dx=P[k].x-T.x, dy=P[k].y-T.y, L=Math.hypot(dx,dy)||1; let bow=0, n=0;
-  for(let i=P.indexOf(T);i<=k;i++){ bow+=-((P[i].x-T.x)*dy-(P[i].y-T.y)*dx)/L; n++; } bow/=Math.max(1,n)*Q.W;
-  const acc=clamp(bow*3.6+(ix-Q.cx)/Q.W*2.2,-1,1), dev=acc*0.1;
-  const line=Math.abs(acc)<0.08?'on line':acc>0?'pushed':'pulled', feel=tempo<0.75?' · slow':tempo>1.2?' · jabbed':'';
-  return {pow,dev,label:`Power ${Math.round(pow*100)}% · ${line}${feel}`};
-}
 
 // ═══════════════════════════════════════════════════════
 //  CAMERA
@@ -1541,13 +1532,11 @@ function pmove(e){
   if(!dragging) return; e.preventDefault();
   if(clubIdx===PUTTER){ const p=planePt(e); if(!p||!aimStart) return; const dx=aimStart[0]-p[0], dz=aimStart[1]-p[1], l=Math.hypot(dx,dz);
     const r=renderer.domElement.getBoundingClientRect();
-    if(settings.drawPutt){ if(l>0.01){ aim=Math.atan2(dx,dz); aimDir.set(dx/l,dz/l); } return; }   // draw-to-putt: dragging only aims; PUTT opens the pad
     puttPow=clamp(Math.hypot(e.clientX-aimPx[0],e.clientY-aimPx[1])/pullLen,0,1); if(l>0.01){ aimDir.set(dx/l,dz/l); } pullNote(puttPow,aimDir.x,aimDir.y); return; }
   const dx=e.clientX-dragX; dragX=e.clientX; aim-=dx*0.0035*(viewOn?2:1); updateUI();
 }
 function pup(e){
   if(!dragging) return; dragging=false;
-  if(clubIdx===PUTTER&&settings.drawPutt){ pullHist=[]; puttPow=0; return; }
   if(clubIdx===PUTTER){ const h=pullRelease(); if(h){ puttPow=h[1]; aimDir.set(h[2],h[3]); } pullHist=[]; }
   if(clubIdx===PUTTER&&phase==='aim'&&puttPow>0.03){ aim=Math.atan2(aimDir.x,aimDir.y); putt(aimDir.x,aimDir.y,puttPow); }
   puttPow=0;
@@ -1564,7 +1553,7 @@ function bindInput(){ const el=renderer.domElement; el.addEventListener('pointer
 // aim aids: dotted line to the expected landing spot + a ring there; putting arrow length = power
 function syncAim(){
   const show=settings.guide&&(phase==='aim'||phase==='swing'), putting=clubIdx===PUTTER, P=ball.p;
-  landMark.visible=show&&!putting; aimLine.visible=show&&(!putting||puttPow>0.02||settings.drawPutt);
+  landMark.visible=show&&!putting; aimLine.visible=show&&(!putting||puttPow>0.02);
   puttArrow.visible=putting&&phase==='aim'&&puttPow>0.02;
   if(puttArrow.visible){ const len=0.15+puttPow*2.4, ang=Math.atan2(aimDir.x,aimDir.y), y=hAt(P.x,P.z)+0.02;
     puttArrow.position.set(P.x+aimDir.x*0.05,y,P.z+aimDir.y*0.05); puttArrow.rotation.set(0,ang+Math.PI,0); puttArrow.scale.set(0.2,1,len); puttArrow.material.color.setHSL(0.33*(1-puttPow),1,0.55); }
@@ -1695,7 +1684,11 @@ function landMarks(s,vn,P){
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
 function saveSettings(){ try{ localStorage.setItem('justgolf',JSON.stringify(settings)); }catch(e){} }
-function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('justgolf')||'{}')); }catch(e){} if(!BALL_TYPES.some(b=>b.id===settings.ball)) settings.ball='white'; }
+function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('justgolf')||'{}')); }catch(e){} if(!BALL_TYPES.some(b=>b.id===settings.ball)) settings.ball='white';
+  // swing method: 'meter' (3-click power meter) or 'draw' (draw to drive). Until you pick one it's draw on a touch screen, the meter otherwise
+  if(settings.swing!=='meter'&&settings.swing!=='draw') settings.swing=settings.drawSwing?'draw':(window.matchMedia&&matchMedia('(pointer:coarse)').matches?'draw':'meter');
+  delete settings.drawSwing; delete settings.drawPutt; }
+const drawing=()=>settings.swing==='draw';
 function saveStats(){ try{ localStorage.setItem('justgolf_stats',JSON.stringify(stats)); }catch(e){} }
 function loadStats(){ try{ Object.assign(stats,JSON.parse(localStorage.getItem('justgolf_stats')||'{}')); }catch(e){} }
 function refreshStats(){ document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; document.getElementById('stTix').textContent=stats.tickets; }
@@ -1718,12 +1711,12 @@ function setupSettings(){
   document.getElementById('cog').addEventListener('click',()=>{ refreshStats(); modal.classList.add('open'); requestAnimationFrame(()=>scrollToSel(bg,false)); });
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });
-  const guideBtn=document.getElementById('setGuide'), optBtn=document.getElementById('setOpt'), drawBtn=document.getElementById('setDraw'), dpBtn=document.getElementById('setDrawPutt');
-  const refresh=()=>{ guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide & landing ring: '+(settings.guide?'On':'Off'); optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Low graphics: '+(settings.optimized?'On':'Off'); drawBtn.classList.toggle('on',settings.drawSwing); drawBtn.textContent='Draw-to-swing (experimental): '+(settings.drawSwing?'On':'Off'); dpBtn.classList.toggle('on',settings.drawPutt); dpBtn.textContent='Draw-to-putt (experimental): '+(settings.drawPutt?'On':'Off'); };
+  const guideBtn=document.getElementById('setGuide'), optBtn=document.getElementById('setOpt');
+  const refresh=()=>{ guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide & landing ring: '+(settings.guide?'On':'Off'); optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Low graphics: '+(settings.optimized?'On':'Off'); };
   refresh();
   guideBtn.addEventListener('click',()=>{ settings.guide=!settings.guide; saveSettings(); refresh(); });
-  drawBtn.addEventListener('click',()=>{ settings.drawSwing=!settings.drawSwing; saveSettings(); refresh(); if(H) updateUI(); });
-  dpBtn.addEventListener('click',()=>{ settings.drawPutt=!settings.drawPutt; saveSettings(); refresh(); if(H) updateUI(); });
+  { const sr=[...document.querySelectorAll('input[name="swing"]')];                                    // swing method, remembered once chosen
+    sr.forEach(r=>{ r.checked=(r.value===settings.swing); r.addEventListener('change',()=>{ if(r.checked){ settings.swing=r.value; saveSettings(); if(H) updateUI(); } }); }); }
   optBtn.addEventListener('click',()=>{ settings.optimized=!settings.optimized; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); });
   const pick=(name,key)=>{ const rs=[...document.querySelectorAll(`input[name="${name}"]`)], vals=rs.map(r=>+r.value); settings[key]=vals.reduce((a,b)=>Math.abs(b-settings[key])<Math.abs(a-settings[key])?b:a,vals[0]);
     rs.forEach(r=>{ r.checked=(+r.value===settings[key]); r.addEventListener('change',()=>{ if(r.checked){ settings[key]=+r.value; saveSettings(); } }); }); };
