@@ -178,6 +178,13 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
         <label><input type="radio" name="course" value="all"><span>All 18<small>full round</small></span></label>
       </div>
     </div>
+    <div class="sec"><div class="sec-label" id="maxLbl">Max over par</div>
+      <div class="seg" role="radiogroup" aria-labelledby="maxLbl">
+        <label><input type="radio" name="maxover" value="4"><span>+4</span></label>
+        <label><input type="radio" name="maxover" value="8"><span>+8</span></label>
+        <label><input type="radio" name="maxover" value="0"><span>No limit</span></label>
+      </div>
+    </div>
     <div class="sec"><div class="sec-label" id="todLbl">Time of day</div>
       <div class="seg" role="radiogroup" aria-labelledby="todLbl">
         <label><input type="radio" name="tod" value="0"><span>Morning</span></label>
@@ -751,7 +758,9 @@ const HOLES=[
 HOLES.forEach(h=>{ h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
   let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; });
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, drawSwing:false, drawPutt:false, tod:1, course:'front' };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, drawSwing:false, drawPutt:false, tod:1, course:'front', maxOver:4 };
+// max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
+const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 let PLAY=HOLES.slice(0,9), HOLE_NO0=0, roundCourse='front';             // the holes being played this round (front 9 / back 9 / all 18)
 function setCourse(c){ PLAY=c==='back'?HOLES.slice(9):c==='all'?HOLES:HOLES.slice(0,9); HOLE_NO0=c==='back'?9:0; }
 const bestKey=c=>c==='back'?'bestBack':c==='all'?'bestAll':'best';      // a best score per course (the front nine keeps the original 'best')
@@ -1276,6 +1285,7 @@ function startHole(){
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function nextShot(){
+  if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }      // also catches penalty strokes
   buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); updateUI(); buildHUD(); saveGame();
 }
 function strike(power,acc){                        // power 0..1, acc -1..1 (left = hook, right = slice)
@@ -1301,7 +1311,7 @@ function ballStopped(){
   if(ball.lie==='ob'){ penalty('ob'); return; }
   const yds=Math.round(Math.hypot(ball.p.x-ball.last[0],ball.p.z-ball.last[1])*YD);
   if(yds>3) showMsg(`${yds} yards<small>${SURF[ball.lie].label.toUpperCase()}</small>`,1.6);
-  tween(0.01,()=>{},()=>{ if(strokes>=10){ endHole(10); return; } nextShot(); },yds>3?1.4:0.5);
+  tween(0.01,()=>{},()=>nextShot(),yds>3?1.4:0.5);
 }
 function penalty(kind){
   ball.mode='rest'; phase='penalty'; strokes++; const P=ball.p; lastPuttFrom=null;
@@ -1717,7 +1727,7 @@ function setupSettings(){
   optBtn.addEventListener('click',()=>{ settings.optimized=!settings.optimized; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); });
   const pick=(name,key)=>{ const rs=[...document.querySelectorAll(`input[name="${name}"]`)], vals=rs.map(r=>+r.value); settings[key]=vals.reduce((a,b)=>Math.abs(b-settings[key])<Math.abs(a-settings[key])?b:a,vals[0]);
     rs.forEach(r=>{ r.checked=(+r.value===settings[key]); r.addEventListener('change',()=>{ if(r.checked){ settings[key]=+r.value; saveSettings(); } }); }); };
-  pick('sens','power'); pick('msp','meter'); pick('tod','tod');
+  pick('sens','power'); pick('msp','meter'); pick('tod','tod'); pick('maxover','maxOver');
   const cr=[...document.querySelectorAll('input[name="course"]')]; if(!['front','back','all'].includes(settings.course)) settings.course='front';
   cr.forEach(r=>{ r.checked=(r.value===settings.course); r.addEventListener('change',()=>{ if(r.checked){ settings.course=r.value; saveSettings(); refreshStats(); if(phase==='menu'||phase==='over') buildHUD(); else showMsg('Takes effect next round',1.4); } }); });
   document.querySelectorAll('input[name="tod"]').forEach(r=>r.addEventListener('change',()=>applyTOD()));

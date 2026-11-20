@@ -149,6 +149,13 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
         <label><input type="radio" name="course" value="all"><span>All 18<small>full round</small></span></label>
       </div>
     </div>
+    <div class="sec"><div class="sec-label" id="maxLbl">Max over par</div>
+      <div class="seg" role="radiogroup" aria-labelledby="maxLbl">
+        <label><input type="radio" name="maxover" value="4"><span>+4</span></label>
+        <label><input type="radio" name="maxover" value="8"><span>+8</span></label>
+        <label><input type="radio" name="maxover" value="0"><span>No limit</span></label>
+      </div>
+    </div>
     <div class="sec"><div class="sec-label" id="todLbl">Time of day</div>
       <div class="seg" role="radiogroup" aria-labelledby="todLbl">
         <label><input type="radio" name="tod" value="0"><span>Morning</span></label>
@@ -781,7 +788,9 @@ let PLAY=HOLES, HOLE_NO0=0;                         // the holes being played th
 const parTotal=()=>PLAY.reduce((a,h)=>a+h.par,0);
 
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, course:'all', tod:1, drawPutt:false };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, course:'all', tod:1, drawPutt:false, maxOver:4 };
+// max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
+const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 const stats={ best:0, games:0, aces:0, tickets:0 };
 
 // ═══════════════════════════════════════════════════════
@@ -1161,7 +1170,7 @@ function splash(){
   phase='splash'; stopRoll(); sfxSplash(); const sx=ball.x, sz=ball.z; ball.visible=false; strokes++; buildHUD();
   envSplash(courseGroup,sx,BASE_Y+hAt(sx,sz)+0.2,sz,0.45);
   showMsg('Splash!<small>+1 STROKE PENALTY</small>',1.5);
-  tween(0.01,()=>{},()=>{ if(strokes>=MAX_STROKES){ showMsg('Max strokes<small>SCORE '+(MAX_STROKES+1)+'</small>',1.6); endHole(MAX_STROKES+1); return; }
+  tween(0.01,()=>{},()=>{ if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }
     ball.x=lastPos[0]; ball.z=lastPos[1]; ball.vx=ball.vz=0; ball.visible=true; phase='aim'; camMode=viewOn?'overview':'aim'; saveGame(); },1.3);
 }
 function enterTunnel(T){
@@ -1525,7 +1534,7 @@ let puttFrom=1e9;
 function ballStopped(){
   if(phase!=='roll') return; stopRoll();
   if(puttFrom<=60) missHint.note(Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1])<24,'putt',3,'Short putts are rolling well past or stopping short.<br>Adjust <b>Sensitivity</b> in <b>Settings</b> — a lower setting gives finer control near the cup.');   // only judge putts from within 5 ft
-  if(strokes>=MAX_STROKES){ showMsg('Max strokes<small>SCORE '+(MAX_STROKES+1)+'</small>',1.6); endHole(MAX_STROKES+1); return; }
+  if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }
   phase='aim'; camMode=viewOn?'overview':'aim'; saveGame();
 }
 function sinkBall(){
@@ -1994,6 +2003,8 @@ function setupSettings(){
   const sens=[...document.querySelectorAll('input[name="sens"]')], SENS=sens.map(r=>+r.value);
   settings.power=SENS.reduce((a,b)=>Math.abs(b-settings.power)<Math.abs(a-settings.power)?b:a,SENS[0]);
   sens.forEach(r=>{ r.checked=(+r.value===settings.power); r.addEventListener('change',()=>{ if(r.checked){ settings.power=+r.value; saveSettings(); } }); });
+  const mr=[...document.querySelectorAll('input[name="maxover"]')]; if(![0,4,8].includes(settings.maxOver)) settings.maxOver=4;
+  mr.forEach(r=>{ r.checked=(+r.value===settings.maxOver); r.addEventListener('change',()=>{ if(r.checked){ settings.maxOver=+r.value; saveSettings(); } }); });
   const tr=[...document.querySelectorAll('input[name="tod"]')]; tr.forEach(r=>{ r.checked=(+r.value===settings.tod); r.addEventListener('change',()=>{ if(r.checked){ settings.tod=+r.value; saveSettings(); applyTOD(); } }); });
   const cr=[...document.querySelectorAll('input[name="course"]')];
   cr.forEach(r=>{ r.checked=(r.value===settings.course); r.addEventListener('change',()=>{ if(r.checked){ settings.course=r.value; saveSettings(); if(phase!=='menu'&&phase!=='over') showMsg('Takes effect next round',1.4); } }); });
@@ -2005,7 +2016,7 @@ document.getElementById('startbtn').addEventListener('click',()=>{ document.getE
 function boot(){
   setupSettings();
   document.querySelector('#ov p').innerHTML='<b>Pull back &amp; release.</b> Touch the ball and drag back to aim — the arrow shows direction and power — then let go to putt. Before your first putt, tap the dark tee mat to set your ball where you like.<br>'
-    +HOLES.length+' holes, par '+HOLES.reduce((a,h)=>a+h.par,0)+' — or play the front or back nine (Settings) · max '+MAX_STROKES+' strokes a hole. Water costs a stroke. The map button shows the whole hole.';
+    +HOLES.length+' holes, par '+HOLES.reduce((a,h)=>a+h.par,0)+' — or play the front or back nine (Settings) · a hole stops at 4 over par (change it in Settings). Water costs a stroke. The map button shows the whole hole.';
   initScene(); bindInput();
   H=HOLES[0]; buildHole(); envPrewarm(renderer,scene,camera); ball.x=H.tee[0]; ball.z=H.tee[1]; phase='menu'; camMode='overview';
   resumeSave=loadGame(); if(resumeSave) document.getElementById('startbtn').textContent='CONTINUE ROUND';
