@@ -57,8 +57,9 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 #ov.show{opacity:1;pointer-events:auto;}
 #ov h2{font-size:clamp(1.5rem,6vw,2.4rem);letter-spacing:2px;color:#ffd54a;text-shadow:0 0 20px rgba(255,170,0,.5);}
 #ov p{color:#ddd3ee;font-size:clamp(.82rem,2.4vw,1rem);line-height:1.6;max-width:420px;text-shadow:0 1px 6px #000;}
-#ov table{border-collapse:collapse;font-size:.9rem;color:#ddd3ee;}
-#ov td,#ov th{border:1px solid #3a2d50;padding:3px 9px;text-align:center;} #ov th{color:#a08cc0;font-weight:600;}
+#ov table{border-collapse:collapse;font-size:.9rem;color:#ddd3ee;table-layout:fixed;width:min(92vw,440px);margin:0 auto 6px;}   /* every nine's card is the same grid */
+#ov table th:first-child{width:3.4em;}
+#ov td,#ov th{border:1px solid #3a2d50;padding:3px 2px;text-align:center;} #ov th{color:#a08cc0;font-weight:600;}
 #startbtn{margin-top:6px;padding:11px 34px;background:#ffd54a;color:#181000;border:none;border-radius:8px;
   font-size:clamp(.95rem,2.6vw,1.15rem);font-weight:800;cursor:pointer;letter-spacing:1px;}
 #startbtn:hover{background:#ffe27a;}
