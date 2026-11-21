@@ -182,6 +182,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
         <label><input type="radio" name="tod" value="0"><span>Morning</span></label>
         <label><input type="radio" name="tod" value="1"><span>Midday</span></label>
         <label><input type="radio" name="tod" value="2"><span>Golden hour</span></label>
+        <label><input type="radio" name="tod" value="3"><span>Night</span></label>
       </div>
     </div>
     <button class="toggle" id="setGuide"></button>
@@ -668,8 +669,30 @@ const ENV_TOD=[
   {name:'Morning',  el:20, az:-0.9, sun:0xffe0bc, sunI:1.0, sky:0xcfe0ff, gnd:0x51683a, hemiI:0.62, exp:1.02, tint:0xfff2e6, fog:0xdbe5ef},
   {name:'Midday',   el:58, az:0.75, sun:0xfff3e0, sunI:1.12,sky:0xcfe8ff, gnd:0x5a7838, hemiI:0.58, exp:1.0,  tint:0xffffff, fog:0xcfe2f2},
   {name:'Golden hour',el:13,az:2.3, sun:0xffb870, sunI:1.25,sky:0xffd8b4, gnd:0x4e5530, hemiI:0.5,  exp:1.06, tint:0xffd6b0, fog:0xf0d6bc},
-  {name:'Night',    el:40, az:-2.2, sun:0x9db2ff, sunI:0.42,sky:0x40538a, gnd:0x141a12, hemiI:0.42, exp:1.0,  tint:0xffffff, fog:0x0d1322},   // moonlight (Just Putt only)
+  {name:'Night',    el:40, az:-2.2, sun:0xb4c6ff, sunI:0.72,sky:0x4d629c, gnd:0x1a2216, hemiI:0.56, exp:1.08, tint:0xffffff, fog:0x0d1322},   // bright moonlight: the course reads clearly under a dark, starry sky
 ];
+// ── night: a starry sky with the moon (swapped in for the day sky), its reflections, and the backdrop dimmed.
+//    refs: {M (needs skyMesh; pano optional), scene, renderer, perf}
+function envNightSkyCanvas(){
+  const W=2048, Hh=1024, c=mkCanvas(W,Hh), g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,Hh/2); gr.addColorStop(0,'#03060f'); gr.addColorStop(0.6,'#0a1430'); gr.addColorStop(1,'#1d2c50');
+  g.fillStyle=gr; g.fillRect(0,0,W,Hh/2); g.fillStyle='#1d2c50'; g.fillRect(0,Hh/2,W,Hh/2);
+  const rnd=NZ.rnd; for(let i=0;i<2600;i++){ const y=Math.pow(rnd(),1.6)*Hh*0.48, x=rnd()*W, r=rnd()<0.04?1.6:rnd()<0.3?1.0:0.6, a=0.35+rnd()*0.65*(1-y/Hh);
+    g.fillStyle=`rgba(${rnd()<0.2?'255,226,190':rnd()<0.2?'190,210,255':'255,255,255'},${a})`; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); }
+  const mx=W*0.62, my=Hh*0.2, glow=g.createRadialGradient(mx,my,10,mx,my,170); glow.addColorStop(0,'rgba(220,230,255,.55)'); glow.addColorStop(1,'rgba(220,230,255,0)');
+  g.fillStyle=glow; g.fillRect(mx-170,my-170,340,340);
+  g.fillStyle='#f6f3e6'; g.beginPath(); g.arc(mx,my,24,0,7); g.fill();
+  g.fillStyle='rgba(170,170,150,.35)'; for(const [dx,dy,r] of [[-7,-4,6],[6,5,4],[3,-9,3],[-3,9,3]]){ g.beginPath(); g.arc(mx+dx,my+dy,r,0,7); g.fill(); }
+  return c;
+}
+function envApplyNight(on,refs){
+  const M=refs.M, scene=refs.scene, sky=M.skyMesh.material;
+  if(on&&!M.nightSky){ M.daySky=sky.map; M.nightSky=toTex(envNightSkyCanvas()); M.dayEnv=scene.environment;
+    if(!refs.perf){ const es=new THREE.Scene(); es.add(new THREE.Mesh(new THREE.SphereGeometry(500,32,16),new THREE.MeshBasicMaterial({map:M.nightSky,side:THREE.BackSide})));
+      const pm=new THREE.PMREMGenerator(refs.renderer); M.nightEnv=pm.fromScene(es,0.04).texture; pm.dispose(); } }
+  if(M.nightSky){ sky.map=on?M.nightSky:M.daySky; sky.needsUpdate=true; if(!refs.perf&&M.nightEnv) scene.environment=on?M.nightEnv:M.dayEnv; }
+  if(on){ if(M.pano) M.pano.material.color.set(0x2c3854); scene.background.set(0x0a1226); } else scene.background.set(0xbcdcf4);
+}
 function envSunDir(i){ const T=ENV_TOD[i]||ENV_TOD[1], e=T.el*Math.PI/180; return new THREE.Vector3(Math.cos(e)*Math.sin(T.az),Math.sin(e),Math.cos(e)*Math.cos(T.az)); }
 function envApplyTOD(i,refs){                       // refs: {sun, hemi, renderer, sky, pano, fog}
   const T=ENV_TOD[i]||ENV_TOD[1];
@@ -1537,7 +1560,11 @@ function updateCamera(dt){
   else if(phase==='sunk'){ const putting=camMode==='putt';
     _tp.set(P.x-d[0]*(putting?3.2:10),hAt(P.x,P.z)+(putting?1.4:4),P.z-d[1]*(putting?3.2:10)); _tl.set(P.x,P.y,P.z); k=1-Math.exp(-dt*(putting?3:2)); }
   else { CAM_PUTT=camera.aspect>1.2?CAM_PUTT_WIDE:CAM_PUTT_TALL; const putting=clubIdx===PUTTER, back=putting?CAM_PUTT[0]:7, up=putting?CAM_PUTT[1]:3.4, ahead=putting?CAM_PUTT[2]:70;
-    _tp.set(P.x-d[0]*back,hAt(P.x-d[0]*back,P.z-d[1]*back)+up,P.z-d[1]*back); _tl.set(P.x+d[0]*ahead,hAt(P.x+d[0]*ahead,P.z+d[1]*ahead)+(putting?0:2.5),P.z+d[1]*ahead); }
+    // never below the ball (ground behind it can fall away — the bank of an island green, a ledge), and high enough that
+    // no ground between the camera and the ball blocks the view
+    const cx=P.x-d[0]*back, cz=P.z-d[1]*back, by=P.y; let cy=Math.max(hAt(cx,cz),by-BALL_R)+up;
+    for(let i=1;i<8;i++){ const u=i/8, x=mix(cx,P.x,u), z=mix(cz,P.z,u), need=hAt(x,z)+0.15; const lineY=mix(cy,by,u); if(lineY<need) cy+=(need-lineY)/(1-u); }
+    _tp.set(cx,cy,cz); _tl.set(P.x+d[0]*ahead,hAt(P.x+d[0]*ahead,P.z+d[1]*ahead)+(putting?0:2.5),P.z+d[1]*ahead); }
   tracking=false; camPos.lerp(_tp,k); camLook.lerp(_tl,k);
   const gy=meshH(camPos.x,camPos.z)+0.4; if(camPos.y<gy) camPos.y=gy;
   camera.position.copy(camPos); camera.lookAt(camLook);
@@ -1683,7 +1710,7 @@ function loop(t){
 // ═══════════════════════════════════════════════════════
 //  ENVIRONMENT DETAIL: time of day, course furniture, cart path, grass tufts, divots & pitch marks
 // ═══════════════════════════════════════════════════════
-function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); if(ball&&ball.p) placeSun(ball.p); }
+function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); envApplyNight(settings.tod===3,{M,scene,renderer,perf:PERF}); if(ball&&ball.p) placeSun(ball.p); }   // 3 = night: bright moonlight under a starry sky
 const _sd=V3();
 // the shadow box follows the ball, but centred on the ground under it (a ball high in the air used to drag the box off the
 // ground, so nearby shadows blinked out) and moved only in whole shadow-map texels, so shadow edges don't shimmer as it slides

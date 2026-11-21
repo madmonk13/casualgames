@@ -631,8 +631,30 @@ const ENV_TOD=[
   {name:'Morning',  el:20, az:-0.9, sun:0xffe0bc, sunI:1.0, sky:0xcfe0ff, gnd:0x51683a, hemiI:0.62, exp:1.02, tint:0xfff2e6, fog:0xdbe5ef},
   {name:'Midday',   el:58, az:0.75, sun:0xfff3e0, sunI:1.12,sky:0xcfe8ff, gnd:0x5a7838, hemiI:0.58, exp:1.0,  tint:0xffffff, fog:0xcfe2f2},
   {name:'Golden hour',el:13,az:2.3, sun:0xffb870, sunI:1.25,sky:0xffd8b4, gnd:0x4e5530, hemiI:0.5,  exp:1.06, tint:0xffd6b0, fog:0xf0d6bc},
-  {name:'Night',    el:40, az:-2.2, sun:0x9db2ff, sunI:0.42,sky:0x40538a, gnd:0x141a12, hemiI:0.42, exp:1.0,  tint:0xffffff, fog:0x0d1322},   // moonlight (Just Putt only)
+  {name:'Night',    el:40, az:-2.2, sun:0xb4c6ff, sunI:0.72,sky:0x4d629c, gnd:0x1a2216, hemiI:0.56, exp:1.08, tint:0xffffff, fog:0x0d1322},   // bright moonlight: the course reads clearly under a dark, starry sky
 ];
+// ── night: a starry sky with the moon (swapped in for the day sky), its reflections, and the backdrop dimmed.
+//    refs: {M (needs skyMesh; pano optional), scene, renderer, perf}
+function envNightSkyCanvas(){
+  const W=2048, Hh=1024, c=mkCanvas(W,Hh), g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,Hh/2); gr.addColorStop(0,'#03060f'); gr.addColorStop(0.6,'#0a1430'); gr.addColorStop(1,'#1d2c50');
+  g.fillStyle=gr; g.fillRect(0,0,W,Hh/2); g.fillStyle='#1d2c50'; g.fillRect(0,Hh/2,W,Hh/2);
+  const rnd=NZ.rnd; for(let i=0;i<2600;i++){ const y=Math.pow(rnd(),1.6)*Hh*0.48, x=rnd()*W, r=rnd()<0.04?1.6:rnd()<0.3?1.0:0.6, a=0.35+rnd()*0.65*(1-y/Hh);
+    g.fillStyle=`rgba(${rnd()<0.2?'255,226,190':rnd()<0.2?'190,210,255':'255,255,255'},${a})`; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); }
+  const mx=W*0.62, my=Hh*0.2, glow=g.createRadialGradient(mx,my,10,mx,my,170); glow.addColorStop(0,'rgba(220,230,255,.55)'); glow.addColorStop(1,'rgba(220,230,255,0)');
+  g.fillStyle=glow; g.fillRect(mx-170,my-170,340,340);
+  g.fillStyle='#f6f3e6'; g.beginPath(); g.arc(mx,my,24,0,7); g.fill();
+  g.fillStyle='rgba(170,170,150,.35)'; for(const [dx,dy,r] of [[-7,-4,6],[6,5,4],[3,-9,3],[-3,9,3]]){ g.beginPath(); g.arc(mx+dx,my+dy,r,0,7); g.fill(); }
+  return c;
+}
+function envApplyNight(on,refs){
+  const M=refs.M, scene=refs.scene, sky=M.skyMesh.material;
+  if(on&&!M.nightSky){ M.daySky=sky.map; M.nightSky=toTex(envNightSkyCanvas()); M.dayEnv=scene.environment;
+    if(!refs.perf){ const es=new THREE.Scene(); es.add(new THREE.Mesh(new THREE.SphereGeometry(500,32,16),new THREE.MeshBasicMaterial({map:M.nightSky,side:THREE.BackSide})));
+      const pm=new THREE.PMREMGenerator(refs.renderer); M.nightEnv=pm.fromScene(es,0.04).texture; pm.dispose(); } }
+  if(M.nightSky){ sky.map=on?M.nightSky:M.daySky; sky.needsUpdate=true; if(!refs.perf&&M.nightEnv) scene.environment=on?M.nightEnv:M.dayEnv; }
+  if(on){ if(M.pano) M.pano.material.color.set(0x2c3854); scene.background.set(0x0a1226); } else scene.background.set(0xbcdcf4);
+}
 function envSunDir(i){ const T=ENV_TOD[i]||ENV_TOD[1], e=T.el*Math.PI/180; return new THREE.Vector3(Math.cos(e)*Math.sin(T.az),Math.sin(e),Math.cos(e)*Math.cos(T.az)); }
 function envApplyTOD(i,refs){                       // refs: {sun, hemi, renderer, sky, pano, fog}
   const T=ENV_TOD[i]||ENV_TOD[1];
@@ -1889,30 +1911,13 @@ function refreshStats(){ document.getElementById('stBest').textContent=stats.bes
 // ── night: a starry sky with a moon, dark backdrop, lamp posts and clubhouse windows lit ──
 const NIGHT_TOD=3; let LAMPS=[], lampLights=[];
 const isNight=()=>settings.tod===NIGHT_TOD;
-function nightSkyCanvas(){
-  const W=2048, Hh=1024, c=mkCanvas(W,Hh), g=c.getContext('2d');
-  const gr=g.createLinearGradient(0,0,0,Hh/2); gr.addColorStop(0,'#03060f'); gr.addColorStop(0.6,'#0a1430'); gr.addColorStop(1,'#1d2c50');
-  g.fillStyle=gr; g.fillRect(0,0,W,Hh/2); g.fillStyle='#1d2c50'; g.fillRect(0,Hh/2,W,Hh/2);
-  const rnd=NZ.rnd; for(let i=0;i<2600;i++){ const y=Math.pow(rnd(),1.6)*Hh*0.48, x=rnd()*W, r=rnd()<0.04?1.6:rnd()<0.3?1.0:0.6, a=0.35+rnd()*0.65*(1-y/Hh);
-    g.fillStyle=`rgba(${rnd()<0.2?'255,226,190':rnd()<0.2?'190,210,255':'255,255,255'},${a})`; g.beginPath(); g.arc(x,y,r,0,7); g.fill(); }
-  const mx=W*0.62, my=Hh*0.2, glow=g.createRadialGradient(mx,my,10,mx,my,150); glow.addColorStop(0,'rgba(220,230,255,.45)'); glow.addColorStop(1,'rgba(220,230,255,0)');
-  g.fillStyle=glow; g.fillRect(mx-150,my-150,300,300);
-  g.fillStyle='#f4f1e4'; g.beginPath(); g.arc(mx,my,22,0,7); g.fill();
-  g.fillStyle='rgba(170,170,150,.35)'; for(const [dx,dy,r] of [[-7,-4,6],[6,5,4],[3,-9,3],[-3,9,3]]){ g.beginPath(); g.arc(mx+dx,my+dy,r,0,7); g.fill(); }
-  return c;
-}
 function syncLamps(){                                 // a warm point light in each lamp head, only after dark
   for(const l of lampLights) if(l.parent) l.parent.remove(l); lampLights=[];
   if(!isNight()) return;
   for(const [g,x,z] of LAMPS){ const l=new THREE.PointLight(0xffc884,1.3,400,2); l.position.set(x,106,z); g.add(l); lampLights.push(l); }
 }
 function applyNight(){
-  const on=isNight(), sky=M.skyMesh.material;
-  if(on&&!M.nightSky){ M.daySky=sky.map; M.nightSky=toTex(nightSkyCanvas()); M.dayEnv=scene.environment;
-    if(!PERF){ const es=new THREE.Scene(); es.add(new THREE.Mesh(new THREE.SphereGeometry(500,32,16),new THREE.MeshBasicMaterial({map:M.nightSky,side:THREE.BackSide})));
-      const pm=new THREE.PMREMGenerator(renderer); M.nightEnv=pm.fromScene(es,0.04).texture; pm.dispose(); } }
-  if(M.nightSky){ sky.map=on?M.nightSky:M.daySky; sky.needsUpdate=true; if(!PERF) scene.environment=on?M.nightEnv:M.dayEnv; }
-  if(on){ M.pano.material.color.set(0x2c3854); scene.background.set(0x0a1226); } else scene.background.set(0xbcdcf4);
+  const on=isNight(); envApplyNight(on,{M,scene,renderer,perf:PERF});                  // starry sky + moon (shared with Just Golf)
   if(M.glass) M.glass.emissiveIntensity=on?3.2:0.35;
   if(M.window){ if(!M.window.emissiveMap){ M.window.emissiveMap=M.window.map; M.window.needsUpdate=true; } M.window.emissive.set(on?0xffbf6a:0x000000); M.window.emissiveIntensity=on?0.9:0; }
   syncLamps();
