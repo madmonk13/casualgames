@@ -60,6 +60,12 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 #ov table{border-collapse:collapse;font-size:.9rem;color:#ddd3ee;table-layout:fixed;width:min(92vw,440px);margin:0 auto 6px;}   /* every nine's card is the same grid */
 #ov table th:first-child{width:3.4em;}
 #ov td,#ov th{border:1px solid #3a2d50;padding:3px 2px;text-align:center;} #ov th{color:#a08cc0;font-weight:600;}
+#coursePick{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:4px;}
+#coursePick .cp-label{color:#a08cc0;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+#coursePick .cp-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+#coursePick button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:92px;padding:10px 14px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;font-size:.95rem;cursor:pointer;}
+#coursePick button small{font-weight:600;font-size:.68rem;color:#bfb2d8;}
+#coursePick button.last{background:#ffd54a;color:#181000;} #coursePick button.last small{color:#4a3a00;}
 #startbtn{margin-top:6px;padding:11px 34px;background:#ffd54a;color:#181000;border:none;border-radius:8px;
   font-size:clamp(.95rem,2.6vw,1.15rem);font-weight:800;cursor:pointer;letter-spacing:1px;}
 #startbtn:hover{background:#ffe27a;}
@@ -127,20 +133,6 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <div class="sec"><div class="sec-label">Ball</div>
       <div class="picker"><button class="navbtn" data-grid="ballGrid" data-dir="-1" aria-label="Previous ball">‹</button><div id="ballGrid" class="grid scroll"></div><button class="navbtn" data-grid="ballGrid" data-dir="1" aria-label="Next ball">›</button></div>
     </div>
-    <div class="sec"><div class="sec-label" id="sensLbl">Sensitivity</div>
-      <div class="seg" role="radiogroup" aria-labelledby="sensLbl">
-        <label><input type="radio" name="sens" value="1"><span>Low<small>100%</small></span></label>
-        <label><input type="radio" name="sens" value="1.15"><span>Medium<small>115%</small></span></label>
-        <label><input type="radio" name="sens" value="1.5"><span>High<small>150%</small></span></label>
-      </div>
-    </div>
-    <div class="sec"><div class="sec-label" id="courseLbl">Course</div>
-      <div class="seg" role="radiogroup" aria-labelledby="courseLbl">
-        <label><input type="radio" name="course" value="front"><span>Front 9<small>holes 1–9</small></span></label>
-        <label><input type="radio" name="course" value="back"><span>Back 9<small>holes 10–18</small></span></label>
-        <label><input type="radio" name="course" value="all"><span>All 18<small>full round</small></span></label>
-      </div>
-    </div>
     <div class="sec"><div class="sec-label" id="maxLbl">Max over par</div>
       <div class="seg" role="radiogroup" aria-labelledby="maxLbl">
         <label><input type="radio" name="maxover" value="4"><span>+4</span></label>
@@ -170,6 +162,8 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 <div id="ov">
   <h2>⛳ JUST PUTT</h2>
   <p></p>
+  <div id="coursePick"><div class="cp-label" id="cpLabel">Choose a course</div>
+    <div class="cp-row"><button data-c="front">Front 9<small>holes 1–9</small></button><button data-c="back">Back 9<small>holes 10–18</small></button><button data-c="all">All 18<small>full round</small></button></div></div>
   <button id="startbtn">START</button>
 </div>
 <!-- "Having trouble?" hint: shown after 3 scoreless throws in a row (once per visit; can be switched off) -->
@@ -1549,7 +1543,7 @@ function putt(dirx,dirz,pow){
 let puttFrom=1e9;
 function ballStopped(){
   if(phase!=='roll') return; stopRoll();
-  if(puttFrom<=60) missHint.note(Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1])<24,'putt',3,'Short putts are rolling well past or stopping short.<br>Adjust <b>Sensitivity</b> in <b>Settings</b> — a lower setting gives finer control near the cup.');   // only judge putts from within 5 ft
+  if(puttFrom<=60) missHint.note(Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1])<24,'putt',3,'Short putts are rolling well past or stopping short.<br>Watch the dotted guide while you pull back — it stretches to about where the putt will stop.');   // only judge putts from within 5 ft
   if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }
   phase='aim'; camMode=viewOn?'overview':'aim'; saveGame();
 }
@@ -1581,7 +1575,7 @@ function roundOver(){
       +`<tr><th>You</th>${sc.map(v=>`<td>${v}</td>`).join('')}<td><b>${sc.reduce((x,v)=>x+v,0)}</b></td></tr></table>`; }
   ov.querySelector('p').innerHTML=tbl+`<br>Total <b>${s}</b> · par ${parTotal()}<br>`
     +(newBest?'<b>New best round!</b><br>':'')+`You won <b>${tix}</b> ticket${tix===1?'':'s'} 🎟️ &nbsp;·&nbsp; Best ${stats.best}`;
-  document.getElementById('startbtn').textContent='PLAY AGAIN'; ov.classList.add('show'); refreshStats();
+  showStart('over'); refreshStats();
 }
 function celebrate(text,cls){ const el=document.getElementById('celebrate'); el.className=''; void el.offsetWidth; el.textContent=text; el.classList.add('show',cls); }
 function showMsg(html,t){ document.getElementById('msg').innerHTML=html; msgT=t||1.4; }
@@ -1887,7 +1881,8 @@ function stepAmbient(dt){
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
 function saveSettings(){ try{ localStorage.setItem('justputt',JSON.stringify(settings)); }catch(e){} }
-function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('justputt')||'{}')); }catch(e){} if(!BALL_TYPES.some(b=>b.id===settings.ball)) settings.ball='white'; }
+function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('justputt')||'{}')); }catch(e){} if(!BALL_TYPES.some(b=>b.id===settings.ball)) settings.ball='white';
+  settings.power=1; settings.meter=1; if(!['front','back','all'].includes(settings.course)) settings.course='all'; }   // (putting sensitivity and meter speed are fixed now)
 function saveStats(){ try{ localStorage.setItem('justputt_stats',JSON.stringify(stats)); }catch(e){} }
 function loadStats(){ try{ Object.assign(stats,JSON.parse(localStorage.getItem('justputt_stats')||'{}')); }catch(e){} }
 function refreshStats(){ document.getElementById('stBest').textContent=stats.best||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; document.getElementById('stTix').textContent=stats.tickets; }
@@ -1955,26 +1950,32 @@ function setupSettings(){
   refresh();
   guideBtn.addEventListener('click',()=>{ settings.guide=!settings.guide; saveSettings(); refresh(); });
   optBtn.addEventListener('click',()=>{ settings.optimized=!settings.optimized; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); });
-  const sens=[...document.querySelectorAll('input[name="sens"]')], SENS=sens.map(r=>+r.value);
-  settings.power=SENS.reduce((a,b)=>Math.abs(b-settings.power)<Math.abs(a-settings.power)?b:a,SENS[0]);
-  sens.forEach(r=>{ r.checked=(+r.value===settings.power); r.addEventListener('change',()=>{ if(r.checked){ settings.power=+r.value; saveSettings(); } }); });
   const mr=[...document.querySelectorAll('input[name="maxover"]')]; if(![0,4,8].includes(settings.maxOver)) settings.maxOver=4;
   mr.forEach(r=>{ r.checked=(+r.value===settings.maxOver); r.addEventListener('change',()=>{ if(r.checked){ settings.maxOver=+r.value; saveSettings(); } }); });
   const tr=[...document.querySelectorAll('input[name="tod"]')]; tr.forEach(r=>{ r.checked=(+r.value===settings.tod); r.addEventListener('change',()=>{ if(r.checked){ settings.tod=+r.value; saveSettings(); applyTOD(); } }); });
-  const cr=[...document.querySelectorAll('input[name="course"]')];
-  cr.forEach(r=>{ r.checked=(r.value===settings.course); r.addEventListener('change',()=>{ if(r.checked){ settings.course=r.value; saveSettings(); if(phase!=='menu'&&phase!=='over') showMsg('Takes effect next round',1.4); } }); });
     { const jg=document.getElementById('jumpGrid');                                   // testing: start a round at any hole (earlier holes count as par; stats untouched)
     for(let i=0;i<HOLES.length;i++){ const b=document.createElement('button'); b.textContent=i+1; b.addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); jumpTo(i); }); jg.appendChild(b); } }
-  document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); newGame(); });
+  document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); if(phase==='menu') showStart(resumeSave?'resume':'start'); else if(phase!=='over') showStart('newgame'); });
 }
-document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('startbtn').textContent='START'; });
+// the start card: pick a course to start a new round (it's remembered and highlighted next time); START/CONTINUE only
+// resumes a round in progress (or goes back to it from Settings → New Game)
+function showStart(mode,show){ const ov=document.getElementById('ov'), sb=document.getElementById('startbtn');
+  sb.style.display=mode==='resume'||mode==='newgame'?'':'none'; sb.textContent=mode==='resume'?'CONTINUE ROUND':'BACK TO ROUND';
+  document.getElementById('cpLabel').textContent=mode==='resume'?'Or start a new round':mode==='over'?'Play again':mode==='newgame'?'Start a new round':'Choose a course';
+  document.querySelectorAll('#coursePick button').forEach(b=>b.classList.toggle('last',b.dataset.c===settings.course));
+  if(mode==='newgame'){ ov.querySelector('h2').textContent=OV_TITLE; ov.querySelector('p').innerHTML='Starting a new round ends the one you\'re playing.'; }
+  if(show!==false) ov.classList.add('show'); }
+let OV_TITLE='';
+document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ settings.course=b.dataset.c; saveSettings();
+  document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; newGame(); refreshStats(); }));
+document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } });
 function boot(){
   setupSettings();
   document.querySelector('#ov p').innerHTML='<b>Pull back &amp; release.</b> Touch the ball and drag back to aim — the arrow shows direction and power — then let go to putt. Before your first putt, tap the dark tee mat to set your ball where you like.<br>'
-    +HOLES.length+' holes, par '+HOLES.reduce((a,h)=>a+h.par,0)+' — or play the front or back nine (Settings) · a hole stops at 4 over par (change it in Settings). Water costs a stroke. The map button shows the whole hole.';
+    +HOLES.length+' holes, par '+HOLES.reduce((a,h)=>a+h.par,0)+' — or just the front or back nine · a hole stops at 4 over par (change it in Settings). Water costs a stroke. The map button shows the whole hole.';
   initScene(); bindInput();
   H=HOLES[0]; buildHole(); envPrewarm(renderer,scene,camera); ball.x=H.tee[0]; ball.z=H.tee[1]; phase='menu'; camMode='overview';
-  resumeSave=loadGame(); if(resumeSave) document.getElementById('startbtn').textContent='CONTINUE ROUND';
+  resumeSave=loadGame(); OV_TITLE=document.querySelector('#ov h2').textContent; showStart(resumeSave?'resume':'start',false);
   try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
   buildHUD();
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
