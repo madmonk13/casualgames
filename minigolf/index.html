@@ -1634,7 +1634,7 @@ function overviewTargets(){
 }
 // aiming: camera distance back, height, and how far past the ball it looks — set back far enough that a full pull-back
 // fits below the ball; a wide (landscape) screen looks closer in so the ball sits higher
-const CAM_TALL=[56,44,36], CAM_WIDE=[56,48,10]; let CAM_AIM=CAM_TALL;
+const CAM_TALL=[50,30,70], CAM_WIDE=[56,48,10];   // tall: a lower, flatter view down the hole (the windmill's sails stay in shot) that still leaves room for a full pull let CAM_AIM=CAM_TALL;
 function updateCamera(dt){
   CAM_AIM=camera.aspect>1.2?CAM_WIDE:CAM_TALL;
   const by=BASE_Y+hAt(ball.x,ball.z);

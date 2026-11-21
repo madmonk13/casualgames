@@ -1048,7 +1048,7 @@ function initScene(){
   L.hemi=new THREE.HemisphereLight(0xcfe8ff,0x5a7838,0.55); scene.add(L.hemi);
   L.sun=new THREE.DirectionalLight(0xfff1d6,1.1); scene.add(L.sun); scene.add(L.sun.target);
   applyTOD();
-  if(!PERF){ L.sun.castShadow=true; const c=L.sun.shadow.camera; c.left=c.bottom=-45; c.right=c.top=45; c.near=1; c.far=400; L.sun.shadow.mapSize.set(2048,2048); L.sun.shadow.bias=-0.0006; L.sun.shadow.normalBias=0.04; }
+  if(!PERF){ L.sun.castShadow=true; const c=L.sun.shadow.camera; c.left=c.bottom=-45; c.right=c.top=45; c.near=1; c.far=500; L.sun.shadow.mapSize.set(2048,2048); L.sun.shadow.bias=-0.0006; L.sun.shadow.normalBias=0.04; }
   buildBall(); buildAimBits();
   raycaster=new THREE.Raycaster();
   resize(); if(window.ResizeObserver) new ResizeObserver(()=>resize()).observe(stage);
@@ -1712,13 +1712,19 @@ function loop(t){
 // ═══════════════════════════════════════════════════════
 function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); envApplyNight(settings.tod===3,{M,scene,renderer,perf:PERF}); if(ball&&ball.p) placeSun(ball.p); }   // 3 = night: bright moonlight under a starry sky
 const _sd=V3();
-// the shadow box follows the ball, but centred on the ground under it (a ball high in the air used to drag the box off the
-// ground, so nearby shadows blinked out) and moved only in whole shadow-map texels, so shadow edges don't shimmer as it slides
-const _lx=V3(), _ly=V3(), _lz=V3(), _sg=V3();
+// the shadow box covers what the camera is looking at: centred a little ahead of the camera, ~170 m across for full
+// shots and flight (so tree shadows are already there as the view moves down the fairway, rather than drawing in at
+// the box's edge) and ~70 m when putting (crisper shadows close up). It moves in whole shadow-map texels, so the edges
+// don't shimmer as it slides
+const _lx=V3(), _ly=V3(), _lz=V3(), _sg=V3(); let SHR=0;
 function placeSun(P){ const d=envSunDir(settings.tod); _lz.copy(d).normalize(); _lx.set(0,1,0).cross(_lz).normalize(); _ly.copy(_lz).cross(_lx);
-  const tx=90/2048; _sg.set(P.x,H?meshH(P.x,P.z):P.y,P.z); const a=Math.round(_sg.dot(_lx)/tx)*tx, b=Math.round(_sg.dot(_ly)/tx)*tx, c=_sg.dot(_lz);
+  const close=camMode==='putt'||(clubIdx===PUTTER&&phase==='aim'&&!viewOn), R=close?35:85;
+  if(R!==SHR&&L.sun.castShadow){ SHR=R; const c=L.sun.shadow.camera; c.left=c.bottom=-R; c.right=c.top=R; c.updateProjectionMatrix(); }
+  let cx=P.x, cz=P.z; const fx=camLook.x-camPos.x, fz=camLook.z-camPos.z, fl=Math.hypot(fx,fz);
+  if(H&&fl>0.01&&camMode!=='intro'){ cx=camPos.x+fx/fl*R*0.72; cz=camPos.z+fz/fl*R*0.72; }
+  const tx=2*R/2048; _sg.set(cx,H?meshH(cx,cz):P.y,cz); const a=Math.round(_sg.dot(_lx)/tx)*tx, b=Math.round(_sg.dot(_ly)/tx)*tx, c=_sg.dot(_lz);
   _sg.copy(_lx).multiplyScalar(a).addScaledVector(_ly,b).addScaledVector(_lz,c);
-  _sd.copy(d).multiplyScalar(150); L.sun.position.copy(_sg).add(_sd); L.sun.target.position.copy(_sg); }
+  _sd.copy(d).multiplyScalar(200); L.sun.position.copy(_sg).add(_sd); L.sun.target.position.copy(_sg); }
 // cart path: a concrete ribbon down one side of the hole, broken where it would cross sand, water, greens or tees
 function cartLine(){
   const side=(H.name.length&1)?1:-1, out=[], P=H.route;
