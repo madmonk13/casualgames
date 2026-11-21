@@ -1542,6 +1542,39 @@ let camMode='intro', introT=0, viewOn=false;
 const CAM_PUTT_TALL=[2.6,1.15,3], CAM_PUTT_WIDE=[3,1.5,0.6]; let CAM_PUTT=CAM_PUTT_TALL;
 const camPos=V3(0,40,-40), camLook=V3(0,0,0), _tp=V3(), _tl=V3();
 const camOff=V3(), lookOff=V3(), trackDir=new THREE.Vector2(0,1), _v2=new THREE.Vector2(); let tracking=false;
+// ── the aiming view (full shots and putts), chosen to work anywhere on the course:
+//  1. start behind the ball; if that's inside a tree, or a tree hides the ball, step in closer (as a last resort, rise over it)
+//  2. rise until no ground between the camera and the ball hides it (banks, ledges, the far side of a mound)
+//  3. full shots: back off and up together until the landing zone shows over the swells (back and up together keeps the
+//     angle moderate, so it doesn't turn into a top-down view)
+//  4. tilt so the ball always sits the same way down the screen — lower for shots, a little higher for putts — easing that
+//     only if the target would otherwise be off the top
+const _aimCam={key:'',tp:V3(),tl:V3()};
+function aimCamera(P,d){
+  const key=[P.x.toFixed(2),P.z.toFixed(2),aim.toFixed(3),clubIdx,camera.aspect.toFixed(2),holeIdx,H&&H.name].join('|');   // only recompute when something changed
+  if(key===_aimCam.key){ _tp.copy(_aimCam.tp); _tl.copy(_aimCam.tl); return; }
+  CAM_PUTT=camera.aspect>1.2?CAM_PUTT_WIDE:CAM_PUTT_TALL; const putting=clubIdx===PUTTER, by=P.y, vf=Math.tan(camera.fov*DEG/2);
+  let back=putting?CAM_PUTT[0]:7, up=putting?CAM_PUTT[1]:3.2, cx=0, cz=0, cy=0, side=0;   // side: swing the camera round the ball (radians) to dodge trees
+  const tD=putting?Math.min(toPin(),12):Math.min(toPin(),carryOf(clubIdx,lieMul())*(1+rollFrac(clubIdx))), tx=P.x+d[0]*tD, tz=P.z+d[1]*tD, ty=hAt(tx,tz)+1.5;   // (aim to see ~where the landing ring floats)
+  const place=()=>{ const c=Math.cos(side), sn=Math.sin(side), ox=d[0]*c-d[1]*sn, oz=d[0]*sn+d[1]*c; cx=P.x-ox*back; cz=P.z-oz*back; cy=Math.max(hAt(cx,cz)+0.8,by+up);
+    for(let i=1;i<16;i++){ const u=i/16, x=mix(cx,P.x,u), z=mix(cz,P.z,u), need=hAt(x,z)+0.2, ly=mix(cy,by,u); if(ly<need) cy+=(need-ly)/(1-u); } };
+  const seg=(ax,ay,az,qx,qy,qz,r)=>{ const vx=P.x-ax, vy=by-ay, vz=P.z-az, L2=vx*vx+vy*vy+vz*vz||1, t=clamp(((qx-ax)*vx+(qy-ay)*vy+(qz-az)*vz)/L2,0,1); return (ax+vx*t-qx)**2+(ay+vy*t-qy)**2+(az+vz*t-qz)**2<r*r; };
+  const treeBad=()=>TREES.some(T=>{ const ty0=T.y+T.ch; return Math.hypot(cx-T.x,cy-ty0,cz-T.z)<T.cr+0.6||(Math.hypot(cx-T.x,cz-T.z)<T.trunkR+0.6&&cy<T.y+T.h+0.5)
+    ||seg(cx,cy,cz,T.x,ty0,T.z,T.cr*0.85)||seg(cx,cy,cz,T.x,Math.min(cy,T.y+T.h*0.5),T.z,T.trunkR+0.1); });
+  const seesTarget=()=>{ for(let i=1;i<24;i++){ const u=i/24, x=mix(cx,tx,u), z=mix(cz,tz,u); if(mix(cy,ty,u)<hAt(x,z)+0.1) return false; } return true; };
+  place();
+  for(let i=0;i<8&&treeBad();i++){ back=Math.max(putting?1.6:2.4,back*0.8); place(); }
+  if(treeBad()){ const b0=back; for(const a of [0.35,-0.35,0.7,-0.7,1.05,-1.05]){ side=a; back=b0; place(); if(!treeBad()) break; } if(treeBad()){ side=0; place(); } }   // round the side of the trunk/canopy
+  for(let i=0;i<16&&treeBad();i++){ up+=1.2; place(); }
+  if(!putting) for(let i=0;i<10&&!seesTarget();i++){ up+=0.8; back+=1.5; place(); if(treeBad()){ up+=1.1; place(); } }   // at most ~22 m back, ~11 m up: past that it's a blind shot
+  const db=Math.hypot(cx-P.x,cz-P.z), aBall=Math.atan2(cy-by,db), fy=putting?0.42:0.55;
+  let pitch=aBall-Math.atan(fy*vf);                                                   // ball fy of the way from centre to bottom
+  const aT=Math.atan2(cy-ty,Math.hypot(tx-cx,tz-cz)), tgtY=Math.tan(pitch-aT)/vf;      // where the target lands (+ is up)
+  if(tgtY>0.8) pitch=Math.max(aT+Math.atan(0.8*vf),aBall-Math.atan(0.9*vf));          // look up a little to keep it on screen, but keep the ball in shot
+  let hx=d[0], hz=d[1]; if(side){ const ax=P.x+d[0]*20-cx, az=P.z+d[1]*20-cz, al=Math.hypot(ax,az)||1; hx=ax/al; hz=az/al; }   // swung round a tree: look across to the line ahead of the ball
+  _tp.set(cx,cy,cz); _tl.set(cx+hx*Math.cos(pitch)*60,cy-Math.sin(pitch)*60,cz+hz*Math.cos(pitch)*60);
+  _aimCam.key=key; _aimCam.tp.copy(_tp); _aimCam.tl.copy(_tl);
+}
 function updateCamera(dt){
   const P=ball.p, d=[Math.sin(aim),Math.cos(aim)];
   let k=1-Math.exp(-dt*3.5);
@@ -1559,12 +1592,7 @@ function updateCamera(dt){
     camera.position.copy(camPos); camera.lookAt(camLook); placeSun(P); return; }
   else if(phase==='sunk'){ const putting=camMode==='putt';
     _tp.set(P.x-d[0]*(putting?3.2:10),hAt(P.x,P.z)+(putting?1.4:4),P.z-d[1]*(putting?3.2:10)); _tl.set(P.x,P.y,P.z); k=1-Math.exp(-dt*(putting?3:2)); }
-  else { CAM_PUTT=camera.aspect>1.2?CAM_PUTT_WIDE:CAM_PUTT_TALL; const putting=clubIdx===PUTTER, back=putting?CAM_PUTT[0]:7, up=putting?CAM_PUTT[1]:3.4, ahead=putting?CAM_PUTT[2]:70;
-    // never below the ball (ground behind it can fall away — the bank of an island green, a ledge), and high enough that
-    // no ground between the camera and the ball blocks the view
-    const cx=P.x-d[0]*back, cz=P.z-d[1]*back, by=P.y; let cy=Math.max(hAt(cx,cz),by-BALL_R)+up;
-    for(let i=1;i<8;i++){ const u=i/8, x=mix(cx,P.x,u), z=mix(cz,P.z,u), need=hAt(x,z)+0.15; const lineY=mix(cy,by,u); if(lineY<need) cy+=(need-lineY)/(1-u); }
-    _tp.set(cx,cy,cz); _tl.set(P.x+d[0]*ahead,hAt(P.x+d[0]*ahead,P.z+d[1]*ahead)+(putting?0:2.5),P.z+d[1]*ahead); }
+  else aimCamera(P,d);
   tracking=false; camPos.lerp(_tp,k); camLook.lerp(_tl,k);
   const gy=meshH(camPos.x,camPos.z)+0.4; if(camPos.y<gy) camPos.y=gy;
   camera.position.copy(camPos); camera.lookAt(camLook);
