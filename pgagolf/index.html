@@ -1346,6 +1346,9 @@ function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return;
   const bt=ballType(id), tex=toTex(ballCanvas(id)); ballMat.map=tex; ballMat.emissive.set(bt.glow?0xffffff:0x000000); ballMat.emissiveMap=bt.glow?tex:null; ballMat.emissiveIntensity=bt.glow||1; ballMat.needsUpdate=true;
   if(ballMesh&&ballMesh.userData.px){ tex.magFilter=THREE.NearestFilter; } }
 function dotTex(){ if(dotTex.t) return dotTex.t; const c=mkCanvas(32,32), g=c.getContext('2d'); g.fillStyle='rgba(10,20,10,.85)'; g.beginPath(); g.arc(16,16,15,0,7); g.fill(); g.fillStyle='#fff'; g.beginPath(); g.arc(16,16,10,0,7); g.fill(); return dotTex.t=toTex(c); }
+function arrowTex(){ if(arrowTex.t) return arrowTex.t; const c=mkCanvas(32,32), g=c.getContext('2d'), tri=()=>{ g.beginPath(); g.moveTo(16,3); g.lineTo(28,25); g.lineTo(16,19); g.lineTo(4,25); g.closePath(); };
+  g.lineJoin='round'; g.lineWidth=5; g.strokeStyle='rgba(10,20,10,.85)'; tri(); g.stroke(); g.fillStyle='#fff'; tri(); g.fill();          // a small chevron, white (tinted by the material), dark-edged
+  const t=toTex(c); t.center.set(0.5,0.5); return arrowTex.t=t; }
 function buildAimBits(){
   // landing target ring + dotted aim line along the ground
   const rc=mkCanvas(128,128), rg=rc.getContext('2d'); rg.strokeStyle='rgba(0,0,0,.45)'; rg.lineWidth=12; rg.beginPath(); rg.arc(64,64,52,0,7); rg.stroke(); rg.strokeStyle='#fff'; rg.lineWidth=6; rg.beginPath(); rg.arc(64,64,52,0,7); rg.stroke();
@@ -1832,7 +1835,7 @@ function updateMeter(dt){
 const pad={cv:null,pts:[],on:false,turn:-1};
 function padGeom(){ const r=pad.cv.getBoundingClientRect(), W=r.width, Hh=r.height;
   return {r,W,Hh,cx:W/2,cy:Hh*0.5,rad:Math.min(W*0.19,40),backY:Hh*0.92,finY:Hh*0.17}; }
-function openPad(){ phase='pad'; document.getElementById('pad').classList.add('open'); pad.pts=[]; pad.on=false; pad.turn=-1; padMsg('Touch ADDRESS'); sizePad(); drawPad(); }
+function openPad(){ pad.hint=clubIdx===PUTTER?1:powerFor(clubIdx,shotTarget(clubIdx).carry); phase='pad'; document.getElementById('pad').classList.add('open'); pad.pts=[]; pad.on=false; pad.turn=-1; padMsg('Touch ADDRESS'); sizePad(); drawPad(); }
 function closePad(){ document.getElementById('pad').classList.remove('open'); if(phase==='pad') phase='aim'; }
 function padMsg(t){ document.getElementById('padMsg').textContent=t; }
 function sizePad(){ const r=pad.cv.getBoundingClientRect(), dpr=Math.min(2,window.devicePixelRatio||1); pad.cv.width=r.width*dpr; pad.cv.height=r.height*dpr; pad.cv.getContext('2d').setTransform(dpr,0,0,dpr,0,0); }
@@ -1844,8 +1847,17 @@ function drawPad(){
   g.strokeStyle='rgba(255,255,255,.35)'; g.beginPath(); g.moveTo(10,Q.cy); g.lineTo(Q.W-10,Q.cy); g.stroke(); g.setLineDash([]);                                     // impact line
   g.font='800 12px "Segoe UI",Arial'; g.textAlign='center'; g.textBaseline='middle';
   g.fillStyle='#ffd54a'; g.fillText('FINISH',Q.cx,Q.finY*0.5); g.fillStyle='#8fc4ff'; g.fillText('BACKSWING',Q.cx,Q.Hh-18);
+  // hints, like the meter's: a straight path up through ADDRESS, the impact window for a straight shot, and how far back to swing
+  { const band=Q.W*0.027;                                                              // crossing impact within this of ADDRESS = straight
+    g.strokeStyle='rgba(255,255,255,.22)'; g.setLineDash([3,7]); g.lineWidth=2; g.beginPath(); g.moveTo(Q.cx,Q.finY); g.lineTo(Q.cx,Q.backY); g.stroke(); g.setLineDash([]);
+    const p=pad.hint==null?1:pad.hint, bk=clamp((p-0.3)/0.75,0.12,1), y=Q.cy+bk*(Q.backY-Q.cy);    // power is capped at 0.3 + 0.75 × backswing
+    g.strokeStyle='rgba(255,213,74,.95)'; g.lineWidth=2.5; g.setLineDash([8,5]); g.beginPath(); g.moveTo(Q.W*0.18,y); g.lineTo(Q.W*0.82,y); g.stroke(); g.setLineDash([]);
+    g.fillStyle='#ffd54a'; g.font='800 11px "Segoe UI",Arial'; g.textAlign='left'; g.fillText(p>=0.97?'FULL':Math.round(p*100)+'%',Q.W*0.82+6,y); g.textAlign='center'; g.font='800 12px "Segoe UI",Arial'; }
   g.fillStyle='rgba(93,255,154,.2)'; g.strokeStyle='#5dff9a'; g.lineWidth=3; g.beginPath(); g.arc(Q.cx,Q.cy,Q.rad,0,7); g.fill(); g.stroke();
   g.fillStyle='#5dff9a'; g.fillText('ADDRESS',Q.cx,Q.cy);
+  { const band=Q.W*0.027; g.lineCap='round';                                           // the straight-shot gate: swing up between these posts
+    for(const [y0,y1] of [[Q.cy-Q.rad-18,Q.cy-Q.rad-4],[Q.cy+Q.rad+4,Q.cy+Q.rad+18]]) for(const x of [Q.cx-band,Q.cx+band]){
+      g.strokeStyle='rgba(0,0,0,.55)'; g.lineWidth=6; g.beginPath(); g.moveTo(x,y0); g.lineTo(x,y1); g.stroke(); g.strokeStyle='#fff'; g.lineWidth=3; g.beginPath(); g.moveTo(x,y0); g.lineTo(x,y1); g.stroke(); } }
   const P=pad.pts; if(P.length>1){ g.lineCap='round'; g.lineJoin='round';
     const seg=(a,b,col)=>{ if(b-a<1) return; g.strokeStyle='rgba(0,0,0,.5)'; g.lineWidth=9; g.beginPath(); for(let i=a;i<=b;i++) i===a?g.moveTo(P[i].x,P[i].y):g.lineTo(P[i].x,P[i].y); g.stroke();
       g.strokeStyle=col; g.lineWidth=5; g.beginPath(); for(let i=a;i<=b;i++) i===a?g.moveTo(P[i].x,P[i].y):g.lineTo(P[i].x,P[i].y); g.stroke(); };
@@ -2024,14 +2036,18 @@ function syncAim(){
   ballRing.visible=(phase==='aim'||phase==='swing')&&ball.visible&&ball.mode==='rest';                         // find the ball at a glance (it stays true to size)
   if(ballRing.visible){ const d=camera.position.distanceTo(P), r=Math.max(0.09,d*0.016); ballRing.position.set(P.x,meshH(P.x,P.z)+0.012,P.z); ballRing.scale.set(r*2,r*2,1); }
   landMark.visible=show&&!putting; aimLine.visible=show&&(!putting||puttPow>0.02);
-  puttArrow.visible=putting&&drawing()&&phase==='aim'&&puttPow>0.02;
+  puttArrow.visible=false;                                                   // (the dotted line itself is made of little arrows now)
   if(puttArrow.visible){ const len=0.15+puttPow*2.4, ang=Math.atan2(aimDir.x,aimDir.y), y=hAt(P.x,P.z)+0.02;
     puttArrow.position.set(P.x+aimDir.x*0.05,y,P.z+aimDir.y*0.05); puttArrow.rotation.set(0,ang+Math.PI,0); puttArrow.scale.set(0.2,1,len); puttArrow.material.color.setHSL(0.33*(1-puttPow),1,0.55); }
   if(!aimLine.visible&&!landMark.visible) return;
   const dir=putting&&puttPow>0.02?[aimDir.x,aimDir.y]:[Math.sin(aim),Math.cos(aim)], pos=aimLine.geometry.attributes.position;
-  const reach=putting?predictPutt(dir[0],dir[1],puttPow):carryOf(clubIdx,lieMul()), s0=putting?Math.min(reach,drawing()?0.15+puttPow*2.4:0.12):0, n=putting?clamp(Math.round((reach-s0)/0.3),1,200):200;   // putts: dots every 30 cm out to where it should stop
+  const reach=putting?predictPutt(dir[0],dir[1],puttPow):carryOf(clubIdx,lieMul()), s0=putting?Math.min(reach,0.12):0, n=putting?clamp(Math.round((reach-s0)/0.3),1,200):200;   // putts: dots every 30 cm out to where it should stop
   for(let i=0;i<n;i++){ const s=s0+(reach-s0)*i/n, x=P.x+dir[0]*s, z=P.z+dir[1]*s; pos.setXYZ(i,x,hAt(x,z)+0.03,z); } aimLine.geometry.setDrawRange(0,n); pos.needsUpdate=true;
-  aimLine.material.size=putting?9:6;
+  const arrows=putting&&drawing(); aimLine.material.map=arrows?arrowTex():dotTex(); aimLine.material.size=arrows?11:putting?9:6;
+  if(arrows){ aimLine.material.color.setHSL(0.33*(1-puttPow),1,0.55);                 // green for a soft putt through to red for a hard one
+    _tmp.set(P.x,P.y,P.z).project(camera); const ax=_tmp.x, ay=_tmp.y; _tmp.set(P.x+dir[0],P.y,P.z+dir[1]).project(camera);
+    arrowTex().rotation=-Math.atan2((_tmp.x-ax)*camera.aspect,_tmp.y-ay); }        // point the arrows along the putt as it looks on screen
+  else aimLine.material.color.set(0xffffff);
   if(landMark.visible){ const x=P.x+dir[0]*reach, z=P.z+dir[1]*reach, sc=Math.max(2.5,reach*0.035); landMark.position.set(x,hAt(x,z)+0.05,z); landMark.scale.set(sc,sc,1); }
 }
 
