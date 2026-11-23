@@ -998,6 +998,17 @@ function rangeTex(move){ const k=move?'m':'s'; if(_rtex[k]) return _rtex[k]; con
   [[1,cols[0]],[0.7,cols[1]],[0.45,cols[2]],[0.2,cols[3]]].forEach(([k2,col])=>{ g.beginPath(); g.arc(r,r,r*k2,0,7); g.fillStyle=col; g.fill(); g.lineWidth=5; g.strokeStyle='#222'; g.stroke(); });
   g.beginPath(); g.arc(r,r,r-6,0,7); g.lineWidth=12; g.strokeStyle='#222'; g.stroke();
   return _rtex[k]=toTex(c); }
+// 8 Bit range: a bullseye of square pixels (stepped round edge, see-through outside) and pixel-font yardage plates
+function rangeTexPx(move,back){ const k='px'+(move?'m':'s')+(back?'b':''); if(_rtex[k]) return _rtex[k]; const N=24, c=mkCanvas(N,N), g=c.getContext('2d');
+  const cols=move?['#1f5fd0','#ffffff','#1f5fd0','#ffd21a']:['#d8262b','#ffffff','#d8262b','#ffd21a'];
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const r=Math.hypot(x+0.5-N/2,y+0.5-N/2)/(N/2); if(r>1) continue;
+    g.fillStyle=back?(r>0.9?'#3a2a1a':'#8a6640'):r>0.9?'#222':r>0.7?cols[0]:r>0.45?cols[1]:r>0.2?cols[2]:cols[3]; g.fillRect(x,y,1,1); }
+  const t=toTex(c); t.magFilter=t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return _rtex[k]=t; }
+const PIXFONT={'0':'111101101101111','1':'010110010010111','2':'111001111100111','3':'111001111001111','4':'101101111001001','5':'111100111001111','6':'111100111101111','7':'111001010010010','8':'111101111101111','9':'111101111001111','<':'001010100010001','>':'100010001010100'};   // 3×5 digits
+function plateTexPx(txt){ const k='pp'+txt; if(_rtex[k]) return _rtex[k]; const W=Math.max(16,txt.length*4+5), c=mkCanvas(W,9), g=c.getContext('2d');
+  g.fillStyle='#1d2430'; g.fillRect(0,0,W,9); g.fillStyle='#fff'; g.fillRect(0,0,W,1); g.fillRect(0,8,W,1); g.fillRect(0,0,1,9); g.fillRect(W-1,0,1,9);
+  let x=Math.floor((W-(txt.length*4-1))/2); for(const ch of txt){ const m=PIXFONT[ch]; if(m) for(let p=0;p<15;p++) if(m[p]==='1') g.fillRect(x+p%3,2+Math.floor(p/3),1,1); x+=4; }
+  const t=toTex(c); t.magFilter=t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; t.userData={w:W}; return _rtex[k]=t; }
 function plateTex(txt){ const k='p'+txt; if(_rtex[k]) return _rtex[k]; const c=mkCanvas(256,96), g=c.getContext('2d');
   g.fillStyle='#1d2430'; g.fillRect(0,0,256,96); g.strokeStyle='#fff'; g.lineWidth=6; g.strokeRect(5,5,246,86);
   g.fillStyle='#fff'; g.font='bold 60px Segoe UI,Arial,sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(txt,128,52);
@@ -1005,11 +1016,14 @@ function plateTex(txt){ const k='p'+txt; if(_rtex[k]) return _rtex[k]; const c=m
 function buildTargets(){ TARGETS=[];
   const back=new THREE.MeshStandardMaterial({color:0xd9d2c2,roughness:0.9}), edge=new THREE.MeshStandardMaterial({color:0x2a2a2a,roughness:0.7});
   for(const t of RANGE_TGT){ const move=!!t.A, g=new THREE.Group(), R=t.R, cy=R+0.9;
-    const face=new THREE.MeshStandardMaterial({map:rangeTex(move),roughness:0.75});
-    const disc=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.12,48,1),[edge,back,face]); disc.rotation.x=Math.PI/2; disc.position.y=cy; g.add(disc);   // (the -y cap ends up facing the tee)
+    if(H.pixel){ for(const bk of [false,true]){ const pm=new THREE.Mesh(new THREE.PlaneGeometry(R*2,R*2),new THREE.MeshStandardMaterial({map:rangeTexPx(move,bk),alphaTest:0.5,roughness:0.85}));
+        pm.position.set(0,cy,bk?0.03:-0.03); if(!bk) pm.rotation.y=Math.PI; g.add(pm); } }             // a flat pixel board (front faces the tee)
+    else { const face=new THREE.MeshStandardMaterial({map:rangeTex(move),roughness:0.75});
+    const disc=new THREE.Mesh(new THREE.CylinderGeometry(R,R,0.12,48,1),[edge,back,face]); disc.rotation.x=Math.PI/2; disc.position.y=cy; g.add(disc); }   // (the -y cap ends up facing the tee)
     for(const sx of [-0.45,0.45]){ const leg=new THREE.Mesh(new THREE.BoxGeometry(0.14,cy,0.14),M.wood); leg.position.set(sx*R,cy/2,0.12); g.add(leg);
       const brace=new THREE.Mesh(new THREE.BoxGeometry(0.1,cy*0.9,0.1),M.wood); brace.position.set(sx*R,cy*0.42,0.12+cy*0.28); brace.rotation.x=-0.6; g.add(brace); }
-    const yd=Math.round(Math.hypot(t.x,t.z)*YD/5)*5, pl=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.56),new THREE.MeshBasicMaterial({map:plateTex(move?yd+' ⇄':''+yd)}));
+    const yd=Math.round(Math.hypot(t.x,t.z)*YD/5)*5, pl=new THREE.Mesh(new THREE.PlaneGeometry(1.5,0.56),new THREE.MeshBasicMaterial({map:H.pixel?plateTexPx(move?yd+'<>':''+yd):plateTex(move?yd+' ⇄':''+yd)}));
+    if(H.pixel) pl.geometry.scale(pl.material.map.userData.w/9*0.56/1.5,1,1);                   // keep the plate's pixels square
     pl.rotation.y=Math.PI; pl.position.set(0,0.42,-0.12); pl.scale.setScalar(clamp(R/2.6,1,1.4)); g.add(pl);
     if(move){ const rail=new THREE.Mesh(new THREE.BoxGeometry(t.A*2+R*1.2,0.08,0.5),M.metal); rail.position.set(t.x,hAt(t.x,t.z)+0.04,t.z+0.12); holeGroup.add(rail); }
     g.traverse(o=>{ if(o.isMesh&&!PERF){ o.castShadow=true; o.receiveShadow=true; } });
