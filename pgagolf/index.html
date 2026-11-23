@@ -46,13 +46,28 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
   font-size:clamp(.68rem,2.2vw,.86rem);font-weight:700;pointer-events:none;}
 #info span{display:flex;justify-content:space-between;gap:12px;min-width:120px;} #info b{color:#ffd54a;}
 #map{position:fixed;right:10px;z-index:7;width:clamp(76px,16vw,120px);height:auto;border-radius:10px;border:1px solid rgba(255,255,255,.3);background:#1b3a1a;box-shadow:0 4px 14px rgba(0,0,0,.4);}
-#ctrl{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 10px 14px;pointer-events:none;}
-#row{display:flex;gap:8px;align-items:center;pointer-events:auto;}
+#ctrl{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;flex-direction:column;align-items:center;gap:7px;padding:10px 12px calc(14px + env(safe-area-inset-bottom));pointer-events:none;}
+/* thumb-sized controls in the bottom corners: clubs on one side, SWING on the other (Settings can swap them for left-handers) */
+#row{display:flex;justify-content:space-between;align-items:flex-end;width:100%;pointer-events:none;}
+body.lefty #row{flex-direction:row-reverse;}
+#row>*{pointer-events:auto;}
+.clubset{display:flex;gap:6px;align-items:stretch;}
+.clubset .btn.small{width:34px;height:78px;padding:0;border-radius:14px;font-size:1.5rem;}
+/* with a mouse/trackpad, the controls sit at the two ends of the power meter instead of in the screen corners */
+@media (hover:hover) and (pointer:fine){
+  #ctrl{display:grid;grid-template-columns:auto auto auto;justify-content:center;align-items:center;column-gap:14px;row-gap:7px;}
+  #hint{grid-column:1 / 4;grid-row:1;justify-self:center;}
+  #row{display:contents;}
+  .clubset{grid-column:1;grid-row:2;} #meter{grid-column:2;grid-row:2;} #swing{grid-column:3;grid-row:2;}
+  body.lefty .clubset{grid-column:3;} body.lefty #swing{grid-column:1;}
+  #ctrl #swing,#ctrl #club{width:64px;height:64px;} #ctrl .clubset .btn.small{height:64px;width:30px;}
+}
 .btn{padding:10px 14px;border:1px solid rgba(255,255,255,.28);border-radius:9px;background:rgba(18,14,28,.88);color:#ddd3ee;font-size:.95rem;font-weight:800;cursor:pointer;}
 .btn.small{padding:10px 12px;font-size:1.2rem;line-height:1;}
-#swing{background:#ffd54a;color:#181000;border-color:#ffd54a;min-width:120px;}
+#swing{width:78px;height:78px;padding:0;border-radius:18px;background:#ffd54a;color:#181000;border-color:#ffd54a;font-size:1rem;letter-spacing:1px;box-shadow:0 6px 16px rgba(0,0,0,.35);touch-action:manipulation;}
+#swing:active{transform:scale(.96);}
 #swing:disabled{opacity:.5;}
-#club{min-width:96px;text-align:center;background:rgba(18,14,28,.88);border:1px solid rgba(255,255,255,.28);border-radius:9px;padding:5px 8px;line-height:1.15;}
+#club{width:78px;height:78px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;text-align:center;background:rgba(18,14,28,.88);border:1px solid rgba(255,255,255,.28);border-radius:18px;padding:4px;line-height:1.1;box-shadow:0 6px 16px rgba(0,0,0,.35);}
 #club b{display:block;color:#fff;} #club small{color:#b7a6d6;font-size:.72rem;}
 #hint{font-size:.8rem;color:#f2ecff;text-shadow:0 1px 4px #000;min-height:1.1em;pointer-events:none;}
 #meter{position:relative;width:min(86vw,420px);height:22px;border-radius:11px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.35);overflow:hidden;}
@@ -151,7 +166,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 <div id="ctrl">
   <div id="hint"></div>
   <div id="meter"><div id="mfill"></div><div id="mzone"></div><div id="mpow"></div><div id="mmark"></div></div>
-  <div id="row"><button class="btn small" id="clubPrev" aria-label="Previous club">‹</button><div id="club"><b id="clubName">Driver</b><small id="clubCarry">250 yd</small></div><button class="btn small" id="clubNext" aria-label="Next club">›</button><button class="btn" id="swing">SWING</button></div>
+  <div id="row"><div class="clubset"><button class="btn small" id="clubPrev" aria-label="Previous club">‹</button><div id="club"><b id="clubName">Driver</b><small id="clubCarry">250 yd</small></div><button class="btn small" id="clubNext" aria-label="Next club">›</button></div><button class="btn" id="swing">SWING</button></div>
 </div>
 <div id="celebrate"></div>
 <button id="cog" class="iconbtn" title="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94a7.6 7.6 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.61-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 00-.61.22L2.68 8.84a.5.5 0 00.12.64l2.03 1.58a7.6 7.6 0 000 1.88l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54a.5.5 0 00.5.42h3.84a.5.5 0 00.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96a.5.5 0 00.61-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z"/></svg></button>
@@ -186,6 +201,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
       </div>
     </div>
     <button class="toggle" id="setGuide"></button>
+    <button class="toggle" id="setLefty"></button>
     <button class="toggle" id="setOpt"></button>
     <button class="toggle" id="newGameBtn">New Game</button>
     <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
@@ -795,7 +811,7 @@ const HOLES=[
 HOLES.forEach(h=>{ h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
   let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; });
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, swing:null, tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, swing:null, lefty:false, tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 let PLAY=HOLES.slice(0,9), HOLE_NO0=0, roundCourse='front';             // the holes being played this round (front 9 / back 9 / all 18)
@@ -1457,7 +1473,9 @@ function hint(t){ document.getElementById('hint').textContent=t; }
 // ── 3-click swing meter: start, set power, then stop it on the impact zone for accuracy ──
 let meter={state:'idle',x:0,power:0};
 const IMPACT=0.12;
+let _lastSwingTap=0;
 function swingClick(){
+  const now=performance.now(); if(now-_lastSwingTap<40) return; _lastSwingTap=now;      // one press never counts twice (button + the view under it, click + pointer)
   if(clubIdx===PUTTER) return;
   if(phase==='aim'&&drawing()){ getAC(); initSfx(); startAmbient(); openPad(); return; }
   if(phase!=='aim'&&meter.state==='idle') return; getAC(); initSfx(); startAmbient();
@@ -1648,13 +1666,17 @@ function pup(e){
   puttPow=0;
 }
 function bindInput(){ const el=renderer.domElement; el.addEventListener('pointerdown',pdown); el.addEventListener('pointermove',pmove); el.addEventListener('pointerup',pup); el.addEventListener('pointercancel',pup);
-  document.getElementById('swing').addEventListener('click',e=>{ e.stopPropagation(); swingClick(); });
+  // SWING fires the moment it's pressed (not on the browser's later 'click', which some browsers drop or delay on quick taps);
+  // during a swing, a press on the bottom bar (club box, arrows) counts as a meter tap too
+  const sw=document.getElementById('swing'); sw.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); swingClick(); }); sw.addEventListener('click',e=>{ e.preventDefault(); e.stopPropagation(); });
+  document.getElementById('row').addEventListener('pointerdown',e=>{ if(phase==='swing'&&e.target!==sw){ e.preventDefault(); e.stopPropagation(); swingClick(); } },true);
   pad.cv=document.getElementById('padCv'); pad.cv.addEventListener('pointerdown',padDown); pad.cv.addEventListener('pointermove',padMove); pad.cv.addEventListener('pointerup',padUp); pad.cv.addEventListener('pointercancel',padUp);
   document.getElementById('padClose').addEventListener('click',e=>{ e.stopPropagation(); closePad(); updateUI(); });
   window.addEventListener('resize',()=>{ if(document.getElementById('pad').classList.contains('open')){ sizePad(); drawPad(); } });
   document.getElementById('clubPrev').addEventListener('click',()=>{ if(phase!=='aim') return; clubIdx=(clubIdx+CLUBS.length-1)%CLUBS.length; aimDefault(); updateUI(); });
   document.getElementById('clubNext').addEventListener('click',()=>{ if(phase!=='aim') return; clubIdx=(clubIdx+1)%CLUBS.length; aimDefault(); updateUI(); });
-  window.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); swingClick(); } }); }
+  window.addEventListener('keydown',e=>{ if(e.code==='Space'){ e.preventDefault(); if(!e.repeat) swingClick(); } });          // (holding Space doesn't repeat)
+  window.addEventListener('keyup',e=>{ if(e.code==='Space') e.preventDefault(); }); }                                        // (and a focused button doesn't 'click' as well)
 
 // aim aids: dotted line to the expected landing spot + a ring there; putting arrow length = power
 // live preview of how far a putt rolls: follows the aim line with the putt's speed, each surface's roll resistance and the
@@ -1834,12 +1856,18 @@ function setupSettings(){
   muteBtn.innerHTML=muteIcon(_muted); muteBtn.title=_muted?'Unmute':'Mute'; muteBtn.addEventListener('click',()=>{ getAC(); applyMute(!_muted); if(ambient) ambient.g.gain.value=_muted?0:0.045; });
   viewBtn.addEventListener('click',()=>{ viewOn=!viewOn; viewBtn.classList.toggle('on',viewOn); });
   const placeCtrls=()=>{ const hud=document.getElementById('hud'), top=(hud?hud.offsetHeight:0)+10; document.getElementById('cog').style.top=top+'px'; muteBtn.style.top=top+'px'; viewBtn.style.top=(top+muteBtn.offsetHeight+14)+'px';
-    document.getElementById('info').style.top=(top+document.getElementById('cog').offsetHeight+16)+'px'; document.getElementById('map').style.top=(top+muteBtn.offsetHeight*2+34)+'px'; };
+    document.getElementById('info').style.top=(top+document.getElementById('cog').offsetHeight+16)+'px'; { const mp=document.getElementById('map'), mt=top+muteBtn.offsetHeight*2+34, row=document.getElementById('row'), rr=row.getBoundingClientRect(), want=Math.max(76,Math.min(innerWidth*0.16,120));
+      // the map sits above the bottom-corner controls; if that leaves it too short (landscape), it moves in beside the right-hand control instead
+      let right=10, room=rr.top-10-mt; if(matchMedia('(hover:hover) and (pointer:fine)').matches){ room=document.getElementById('ctrl').getBoundingClientRect().top-10-mt; if(room<want*2) room=innerHeight-14-mt; }
+      else if(room<want*2){ const rc=[...row.children].reduce((a,c)=>{ const r=c.getBoundingClientRect(); return r.right>a.right?r:a; },{right:-1,left:innerWidth}); right=innerWidth-rc.left+10; room=innerHeight-14-mt; }
+      const w=Math.max(40,Math.min(want,room/2)); mp.style.top=mt+'px'; mp.style.right=right+'px'; mp.style.width=w+'px'; mp.style.height=(w*2)+'px'; } };
   placeCtrls(); requestAnimationFrame(placeCtrls); window.addEventListener('resize',placeCtrls); window.addEventListener('orientationchange',()=>setTimeout(placeCtrls,120));
   const modal=document.getElementById('settings');
   document.getElementById('cog').addEventListener('click',()=>{ refreshStats(); modal.classList.add('open'); requestAnimationFrame(()=>scrollToSel(bg,false)); });
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });
+  { const lb=document.getElementById('setLefty'), apply=()=>{ document.body.classList.toggle('lefty',!!settings.lefty); lb.classList.toggle('on',!!settings.lefty); lb.textContent='Left-handed controls: '+(settings.lefty?'On':'Off'); };
+    apply(); lb.addEventListener('click',()=>{ settings.lefty=!settings.lefty; saveSettings(); apply(); window.dispatchEvent(new Event('resize')); }); }   // (re-place the map round the swapped controls)                  // SWING on the left, clubs on the right
   const guideBtn=document.getElementById('setGuide'), optBtn=document.getElementById('setOpt');
   const refresh=()=>{ guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide & landing ring: '+(settings.guide?'On':'Off'); optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Low graphics: '+(settings.optimized?'On':'Off'); };
   refresh();
