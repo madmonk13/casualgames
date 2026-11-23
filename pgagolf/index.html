@@ -87,6 +87,10 @@ body.lefty #row{flex-direction:row-reverse;}
 #loader{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
   background:radial-gradient(ellipse at center,#1d2a3a 0%,#06040c 100%);transition:opacity .45s;}
 #loader.done{opacity:0;pointer-events:none;}
+#busy{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(6,4,12,.72);opacity:0;pointer-events:none;transition:opacity .2s;}
+#busy.show{opacity:1;pointer-events:auto;}
+#busy .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
+#busy small{color:#e6dcf5;font:600 .8rem 'Segoe UI',Arial,sans-serif;letter-spacing:2px;}
 #loader h1{margin:0;font-size:clamp(2rem,9vw,3.4rem);letter-spacing:3px;color:#ffd54a;text-shadow:0 0 24px rgba(255,170,0,.5);font-family:'Segoe UI',Arial,sans-serif;}
 #loader .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
 #loader small{color:#a99bc6;font:600 .8rem 'Segoe UI',Arial,sans-serif;letter-spacing:2px;}
@@ -99,12 +103,22 @@ body.lefty #row{flex-direction:row-reverse;}
 #ov table{border-collapse:collapse;font-size:.9rem;color:#ddd3ee;table-layout:fixed;width:min(92vw,440px);margin:0 auto 6px;}   /* every nine's card is the same grid */
 #ov table th:first-child{width:3.4em;}
 #ov td,#ov th{border:1px solid #3a2d50;padding:3px 2px;text-align:center;} #ov th{color:#a08cc0;font-weight:600;}
+#genPanel{display:none;flex-direction:column;align-items:center;gap:8px;width:min(92vw,420px);}
+#genPanel.open{display:flex;}
+#genPanel .cp-row button.sel{background:#ffd54a;color:#181000;} #genPanel .cp-row button.sel small{color:#4a3a00;}
+.gen-seed{display:flex;gap:8px;align-items:center;}
+.gen-seed input{width:9.5em;padding:9px 10px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#fff;font:800 1.05rem/1 'Segoe UI',Arial,sans-serif;letter-spacing:3px;text-align:center;text-transform:uppercase;}
+.gen-seed button,.mini{padding:8px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.3);background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;cursor:pointer;}
+#genSaved{width:100%;max-height:30vh;overflow:auto;display:flex;flex-direction:column;gap:5px;}
+#genSaved .row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:9px;background:rgba(29,22,48,.75);border:1px solid rgba(255,255,255,.14);color:#ece6f8;font-size:.88rem;}
+#genSaved .row span{flex:1;text-align:left;} #genSaved .row small{color:#bfb2d8;}
+.gen-info{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 11px;border-radius:9px;border:1px solid #3d3058;background:#1d1630;color:#ddd3ee;font-size:.88rem;font-weight:700;}
 #coursePick{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:4px;}
-#coursePick .cp-label{color:#a08cc0;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
-#coursePick .cp-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
-#coursePick button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:92px;padding:10px 14px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;font-size:.95rem;cursor:pointer;}
-#coursePick button small{font-weight:600;font-size:.68rem;color:#bfb2d8;}
-#coursePick button.last{background:#ffd54a;color:#181000;} #coursePick button.last small{color:#4a3a00;}
+#coursePick .cp-label,#genPanel .cp-label{color:#a08cc0;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+#coursePick .cp-row,#genPanel .cp-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+#coursePick button,#genPanel .cp-row button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:92px;padding:10px 14px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;font-size:.95rem;cursor:pointer;}
+#coursePick button small,#genPanel .cp-row button small{font-weight:600;font-size:.68rem;color:#bfb2d8;}
+#coursePick button.last,#genPanel .cp-row button.last{background:#ffd54a;color:#181000;} #coursePick button.last small,#genPanel .cp-row button.last small{color:#4a3a00;}
 #startbtn{margin-top:6px;padding:11px 34px;background:#ffd54a;color:#181000;border:none;border-radius:8px;
   font-size:clamp(.95rem,2.6vw,1.15rem);font-weight:800;cursor:pointer;letter-spacing:1px;}
 #startbtn:hover{background:#ffe27a;}
@@ -200,9 +214,18 @@ body.lefty #row{flex-direction:row-reverse;}
         <label><input type="radio" name="tod" value="3"><span>Night</span></label>
       </div>
     </div>
+    <div class="sec"><div class="sec-label" id="skinLbl">Course theme</div>
+      <div class="seg" role="radiogroup" aria-labelledby="skinLbl">
+        <label><input type="radio" name="skin" value="default"><span>Default</span></label>
+        <label><input type="radio" name="skin" value="dunes"><span>Dunes</span></label>
+        <label><input type="radio" name="skin" value="canyon"><span>Canyon</span></label>
+        <label><input type="radio" name="skin" value="desert"><span>Desert</span></label>
+      </div>
+    </div>
     <button class="toggle" id="setGuide"></button>
     <button class="toggle" id="setLefty"></button>
     <button class="toggle" id="setOpt"></button>
+    <div class="gen-info" id="genInfo" style="display:none"></div>
     <button class="toggle" id="newGameBtn">New Game</button>
     <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
       <div class="jump" id="jumpGrid"></div>
@@ -212,12 +235,19 @@ body.lefty #row{flex-direction:row-reverse;}
 </div>
 <div id="stage"></div>
 <div id="pad"><canvas id="padCv"></canvas><button id="padClose" aria-label="Cancel">✕</button><div id="padMsg"></div></div>
+<div id="busy"><div class="spin"></div><small>LOADING</small></div>
 <div id="loader"><h1>🏌️ JUST GOLF</h1><div class="spin"></div><small>LOADING</small></div>
 <div id="ov">
   <h2>🏌️ JUST GOLF</h2>
   <p></p>
   <div id="coursePick"><div class="cp-label" id="cpLabel">Choose a course</div>
-    <div class="cp-row"><button data-c="front">Front 9<small>holes 1–9</small></button><button data-c="back">Back 9<small>holes 10–18</small></button><button data-c="all">All 18<small>full round</small></button></div></div>
+    <div class="cp-row"><button data-c="front">Front 9<small>holes 1–9</small></button><button data-c="back">Back 9<small>holes 10–18</small></button><button data-c="all">All 18<small>full round</small></button><button data-c="gen">Generate<small>new course</small></button></div></div>
+  <div id="genPanel"><div class="cp-label">Theme</div>
+    <div class="cp-row" id="genThemes"><button data-t="default">Default</button><button data-t="dunes">Dunes</button><button data-t="canyon">Canyon</button><button data-t="desert">Desert</button></div>
+    <div class="cp-label">Seed</div>
+    <div class="gen-seed"><input id="genSeed" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Course seed"><button id="genRoll" title="New seed" aria-label="New seed">🎲</button></div>
+    <div class="cp-row"><button id="genPlay" class="last">Play course<small>18 holes · par 72</small></button><button id="genBack">Back<small>to courses</small></button></div>
+    <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
 </div>
 <!-- "Having trouble?" hint: shown after 3 scoreless throws in a row (once per visit; can be switched off) -->
@@ -549,26 +579,54 @@ function envTemplate(sp){
   } else if(sp==='poplar'){
     wood.push(envCyl(0.24,0.08,10,7,V(0,0,0),up));
     envLobeCards(cards,[{c:[0,7.2,0],r:1.75,sy:3.0},{c:[0,4.6,0],r:1.55,sy:1.4}],[0,7,0],Math.round(150*q),1.0); T={leaf:'leaf',h:12.8,cy:7,r:1.8,trunkR:0.22,trunkH:3.2,flat:false};
+  } else if(sp==='cactus'){                        // saguaro: a ribbed green column with two or three upturned arms (no leaves)
+    const cap=(x,y,z,r)=>{ const g=new THREE.SphereGeometry(r,10,6,0,Math.PI*2,0,Math.PI/2); g.translate(x,y,z); return g; };
+    wood.push(envCyl(0.34,0.3,5.4,12,V(0,0,0),up)); wood.push(cap(0,5.4,0,0.3));
+    const arms=2+(NZ.rnd()<0.5?1:0); for(let i=0;i<arms;i++){ const a=i/arms*6.28+NZ.rnd()*0.8, y=1.9+NZ.rnd()*1.6, ox=Math.cos(a), oz=Math.sin(a), out=0.7+NZ.rnd()*0.3, h=1.3+NZ.rnd()*1.2;
+      wood.push(envCyl(0.22,0.22,out,8,V(ox*0.2,y,oz*0.2),V(ox,0.25,oz))); const ex=ox*(0.2+out), ez=oz*(0.2+out), ey=y+out*0.24;
+      wood.push(envCyl(0.22,0.2,h,8,V(ex,ey-0.05,ez),up)); wood.push(cap(ex,ey-0.05+h,ez,0.2)); }
+    T={leaf:'leaf',h:5.7,cy:3.4,r:0.9,trunkR:0.34,trunkH:5.4,flat:false};
+  } else if(sp==='palm'){                          // palm: a gently curving ringed trunk and a crown of drooping fronds
+    let p=V(0,0,0), lean=0.05+NZ.rnd()*0.12; const la=NZ.rnd()*6.28;
+    for(let i=0;i<7;i++){ const d=V(Math.cos(la)*lean,1,Math.sin(la)*lean).normalize(), r=0.26-i*0.015; wood.push(envCyl(r+0.01,r,1.25,8,p,d)); p=p.clone().addScaledVector(d,1.25); lean+=0.03; }
+    const top=[p.x,p.y,p.z], nf=Math.round(12*q);
+    for(let f=0;f<nf;f++){ const a=f/nf*6.28+NZ.rnd()*0.3, rise=0.45-NZ.rnd()*0.55, L=3.0+NZ.rnd()*1.0;
+      for(let k=1;k<=11;k++){ const t=k/11, rr=L*t, dy=rise*rr-1.2*t*t*L*0.45; const pt=[top[0]+Math.cos(a)*rr,top[1]+dy,top[2]+Math.sin(a)*rr];
+        cards.push({p:pt,s:1.05*(1-t*0.5),n:[Math.cos(a)*0.55,0.83,Math.sin(a)*0.55],k:0.72+0.28*(1-t)}); }
+      cards.push({p:[top[0],top[1]+0.15,top[2]],s:0.7,n:[0,1,0],k:0.7}); }
+    T={leaf:'needle',h:p.y+0.6,cy:p.y-0.3,r:2.8,trunkR:0.26,trunkH:p.y,flat:false};
+  } else if(sp==='juniper'){                       // juniper: a short twisted trunk under a broad, uneven blue-green crown
+    wood.push(envCyl(0.3,0.16,2.2,7,V(0,0,0),V(0.15,1,0.08))); for(let i=0;i<3;i++){ const a=i/3*6.28+NZ.rnd(); wood.push(envCyl(0.12,0.05,1.6,5,V(0.1,1.4,0.05),V(Math.cos(a)*0.9,1,Math.sin(a)*0.9))); }
+    const lobes=[{c:[0.2,3.0,0],r:1.7,sy:0.8}]; for(let i=0;i<4;i++){ const a=i/4*6.28+NZ.rnd(), d=1.1+NZ.rnd()*0.5; lobes.push({c:[Math.cos(a)*d,2.4+NZ.rnd()*1.1,Math.sin(a)*d],r:1.0+NZ.rnd()*0.5,sy:0.75}); }
+    envLobeCards(cards,lobes,[0,2.8,0],Math.round(150*q),0.9); T={leaf:'needle',h:4.4,cy:2.9,r:2.2,trunkR:0.26,trunkH:2.2,flat:false};
+  } else if(sp==='dunegrass'||sp==='sage'){         // dune grass / desert sage: a low, loose clump
+    const g=sp==='dunegrass'; envLobeCards(cards,[{c:[0,0.5,0],r:0.9,sy:g?1.1:0.7},{c:[0.5,0.4,0.2],r:0.55,sy:g?1.1:0.7},{c:[-0.45,0.38,-0.25],r:0.55,sy:g?1.1:0.7}],[0,0.3,0],Math.round(60*q),g?0.5:0.5);
+    T={leaf:g?'needle':'leaf',h:1.2,cy:0.5,r:0.9,trunkR:0,trunkH:0,flat:false};
   } else {                                          // shrub: a low dome of leaf cards
     envLobeCards(cards,[{c:[0,0.55,0],r:0.95,sy:0.7},{c:[0.45,0.45,0.2],r:0.6,sy:0.7},{c:[-0.4,0.42,-0.25],r:0.6,sy:0.7}],[0,0.3,0],Math.round(64*q),0.55);
     T={leaf:'leaf',h:1.3,cy:0.5,r:1,trunkR:0,trunkH:0,flat:false};
   }
-  T.wood=wood.length?envMerge(wood):null; T.leaves=envCards(cards,T.flat); if(T.wood) T.wood.userData.shared=true; T.leaves.userData.shared=true; return ENV.tpl[sp]=T;
+  T.wood=wood.length?envMerge(wood):null; T.leaves=cards.length?envCards(cards,T.flat):null; if(T.wood) T.wood.userData.shared=true; if(T.leaves) T.leaves.userData.shared=true; return ENV.tpl[sp]=T;
 }
-const ENV_LEAF={oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e};
+const ENV_LEAF={oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e,palm:0xcfe68e,juniper:0x86a088,dunegrass:0xd8c890,sage:0xb4bea2,cactus:0x6f9a52};
+const ENV_BARK={poplar:0xd8d2c4,palm:0xffffff,juniper:0xa08a78};   // bark tints (×the bark texture); a cactus is plain ribbed green
+function envCactusCanvas(){ const c=mkCanvas(64,128), g=c.getContext('2d');                  // vertical ribs, light and dark green
+  for(let x=0;x<64;x++){ const k=0.5+0.5*Math.cos(x/64*Math.PI*2*6); g.fillStyle=`rgb(${Math.round(70+k*40)},${Math.round(112+k*44)},${Math.round(58+k*26)})`; g.fillRect(x,0,1,128); } return c; }
+function envPalmCanvas(){ const c=mkCanvas(32,128), g=c.getContext('2d');                    // a ringed, light grey-brown palm trunk
+  for(let y=0;y<128;y++){ const k=0.5+0.5*Math.cos(y/128*Math.PI*2*10), n=Math.random()*10; g.fillStyle=`rgb(${Math.round(150+k*48+n)},${Math.round(128+k*40+n)},${Math.round(100+k*30+n)})`; g.fillRect(0,y,32,1); } return c; }
 function envMaterials(sp,heightW){                  // per species: leaves + bark, both swaying with the wind
   const key=sp+'|'+heightW.toFixed(1); if(ENV.mats[key]) return ENV.mats[key];
   if(!ENV.leafTex){ ENV.leafTex=toTex(envLeafCanvas('leaf')); ENV.needleTex=toTex(envLeafCanvas('needle')); ENV.barkTex=toTex(envBarkCanvas(),{repeat:[2,3]}); }
   const T=envTemplate(sp), map=T.leaf==='needle'?ENV.needleTex:ENV.leafTex, K=(sp==='shrub'?0.05:0.3)*ENV.U;
   const leaf=envPatch(new THREE.MeshStandardMaterial({map,color:ENV_LEAF[sp],alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.82}),{sway:true,cloud:true,soft:true,swayH:heightW,swayK:K});
   leaf.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map,alphaTest:0.5});
-  const bark=envPatch(new THREE.MeshStandardMaterial({map:ENV.barkTex,color:sp==='poplar'?0xd8d2c4:0xffffff,roughness:0.95}),{sway:true,cloud:true,swayH:heightW,swayK:K});
+  const bark=envPatch(sp==='palm'?new THREE.MeshStandardMaterial({map:ENV.palmTex||(ENV.palmTex=toTex(envPalmCanvas(),{repeat:[1,3]})),color:0xffffff,roughness:0.9}):sp==='cactus'?new THREE.MeshStandardMaterial({map:ENV.cactusTex||(ENV.cactusTex=toTex(envCactusCanvas(),{repeat:[1,2]})),color:0xffffff,roughness:0.75}):new THREE.MeshStandardMaterial({map:ENV.barkTex,color:ENV_BARK[sp]||0xffffff,roughness:0.95}),{sway:true,cloud:true,swayH:heightW,swayK:sp==='cactus'?0:K});
   return ENV.mats[key]={leaf,bark};
 }
 // trees: [{x,y,z,s,sp,rot}] (s = scale, metres → world via ENV.U) → instanced meshes added to parent
 function envForest(trees,parent){
   const out=[], m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sv=new THREE.Vector3(), pv=new THREE.Vector3(), up=new THREE.Vector3(0,1,0);
-  for(const sp of ['oak','pine','poplar','shrub']){ const list=trees.filter(t=>t.sp===sp); if(!list.length) continue;
+  for(const sp of [...new Set(trees.map(t=>t.sp))]){ const list=trees.filter(t=>t.sp===sp); if(!list.length) continue;
     const T=envTemplate(sp), avg=list.reduce((a,t)=>a+t.s,0)/list.length, M2=envMaterials(sp,T.h*avg*ENV.U);
     for(const [geo,mt] of [[T.leaves,M2.leaf],[T.wood,M2.bark]]){ if(!geo) continue;
       const im=new THREE.InstancedMesh(geo,mt,list.length);
@@ -808,14 +866,110 @@ const HOLES=[
   {name:'Clubhouse',par:4,tee:[0,0],pin:[30,400],fair:[[0,30],[4,170],[16,290],[26,350],[30,380]],fw:[26,30,28,24,20],ter:[-2400,-1600],dense:1.4,rise:0.02,hills:1.6,mounds:1.2,
     green:{...E(30,398,15,12,0.25),tilt:[-0.01,-0.012]},bunkers:[E(46,388,5,3,-0.8),E(24,418,5,2.6,0.2)],water:[E(-34,200,15,40,0.1),E(-2,392,12,30,0.1)],ob:62},
 ];
-HOLES.forEach(h=>{ h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
-  let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; });
+function prepHole(h){ h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
+  let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; return h; }
+HOLES.forEach(prepHole);
+// ═══════════════════════════════════════════════════════
+//  COURSE GENERATOR: 18 holes from a seed, dressed in a theme. The same seed + theme always gives the same course
+//  (so a saved course, or a round in progress after a refresh, is rebuilt exactly). Each hole is drawn from a type
+//  (dogleg, carry over water, creek crossing…) with sensible ranges, then checked; one that fails is redrawn.
+// ═══════════════════════════════════════════════════════
+const THEMES={
+  default:{name:'Default',hills:[0.9,2.0],mounds:[0,1.4],dense:1,water:0.55,wind:1,bunk:1},
+  dunes:{name:'Dunes',hills:[1.4,2.4],mounds:[2,3.2],dense:0.45,water:0.25,wind:1.7,bunk:1.6,trees:{palm:0.35,dunegrass:0.45,pine:0.2},haze:0xeee2c6,
+    surf:{fairway:[118,172,74],tee:[114,170,72],fringe:[112,174,78],green:[112,198,86],rough:[150,162,96],deep:[196,178,116],ob:[208,190,134],sand:[238,226,184]}},
+  canyon:{name:'Canyon',hills:[1.0,1.8],mounds:[0.4,1.2],dense:0.5,water:0.35,wind:0.7,bunk:1,walls:true,trees:{juniper:0.55,pine:0.3,sage:0.15},haze:0xe8c2a0,
+    surf:{rough:[104,120,62],deep:[150,112,76],ob:[172,96,62],sand:[226,176,126]}},
+  desert:{name:'Desert',hills:[0.8,1.6],mounds:[0.6,1.8],dense:0.35,water:0.18,wind:1.2,bunk:1.2,trees:{cactus:0.45,sage:0.4,palm:0.15},haze:0xf2dcbc,
+    surf:{rough:[214,186,136],deep:[202,166,114],ob:[206,172,122],sand:[242,218,166]}},
+};
+const THEME_WORDS={default:['Oak','Willow','Meadow','Brook','Hollow','Ridge','Glen','Maple','Heather','Fox','Birch','Orchard'],
+  dunes:['Marram','Sea Breeze','Dune','Shore','Gull','Tide','Salt','Sandpiper','Driftwood','Beacon','Harbour','Cliff Top'],
+  canyon:['Red Rock','Mesa','Gorge','Cliff','Hawk','Arroyo','Butte','Echo','Slot','Ledge','Boulder','Eagle'],
+  desert:['Mirage','Cactus','Oasis','Sun','Scorpion','Sage','Dust','Coyote','Adobe','Sidewinder','Mesquite','Agave']};
+const NAME_ENDS=['Run','Bend','Way','Rise','Lane','Corner','Crossing','Pass','View','Turn','Point','Reach','Drop','Climb'];
+const SEED_CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';                                // no 0/O or 1/I, so seeds read back easily
+function newSeed(){ let s=''; for(let i=0;i<6;i++) s+=SEED_CH[Math.floor(Math.random()*SEED_CH.length)]; return s; }
+const cleanSeed=v=>String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,10);
+function seedNum(str){ let h=2166136261; for(let i=0;i<str.length;i++) h=Math.imul(h^str.charCodeAt(i),16777619); return h>>>0; }
+function seededRng(n){ let a=n>>>0; return ()=>{ a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function genHole(par,T,R,theme,force){
+  const r=(a,b)=>a+R()*(b-a), chance=p=>R()<p, sgn=()=>R()<0.5?-1:1, pick=a=>a[Math.floor(R()*a.length)];
+  const wet=!force&&chance(T.water);
+  const kind=force||(par===3?pick(['plain','guarded','elevated',wet?'carry':'guarded']):par===4?pick(['straight','dogleg','dogleg',wet?'lakeside':'crossbunk','crossbunk','short','chute']):pick(['sbend','dogleg',wet?'creek':'sbend']));
+  const L=par===3?r(125,185):par===5?r(455,535):kind==='short'?r(235,262):r(305,420);
+  // centre line: straight runs between bends; corners[] then sample it by distance
+  const bends=kind==='dogleg'?[[r(0.52,0.64),sgn()*r(0.35,0.65)]]:kind==='sbend'?(k=>[[r(0.32,0.4),k*r(0.3,0.5)],[r(0.66,0.74),-k*r(0.3,0.55)]])(sgn()):[[0.5,r(-0.08,0.08)]];
+  const corners=[[0,0]]; let x=0,z=0,hd=0,last=0;
+  for(const [bf,ba] of bends){ const d=(bf-last)*L; x+=Math.sin(hd)*d; z+=Math.cos(hd)*d; corners.push([x,z]); hd+=ba; last=bf; }
+  { const d=(1-last)*L; x+=Math.sin(hd)*d; z+=Math.cos(hd)*d; corners.push([x,z]); }
+  const at=s=>{ for(let i=0;i<corners.length-1;i++){ const a=corners[i], b=corners[i+1], l=Math.hypot(b[0]-a[0],b[1]-a[1]); if(s<=l||i===corners.length-2){ const t=clamp(s/l,0,1), dx=(b[0]-a[0])/l, dz=(b[1]-a[1])/l; return [a[0]+dx*l*t,a[1]+dz*l*t,dx,dz]; } s-=l; } };
+  const [gx,gz,gdx,gdz]=at(L), side=(p,o)=>[p[0]-p[3]*o,p[1]+p[2]*o];                  // side(): offset across the line (+ = player's left)
+  // fairway
+  let fair=[], fw=[];
+  if(par===3){ fair=[at(L-42).slice(0,2),at(L-27).slice(0,2)]; fw=[15,13]; }
+  else { const n=Math.max(3,Math.round(L/95)); for(let i=0;i<n;i++){ const s=28+(L-50)*i/(n-1), p=at(s), w=i>0&&i<n-1?r(-5,5):0; fair.push(side(p,w)); fw.push(i===n-1?r(18,22):kind==='chute'?r(15,19):r(24,32)); }
+    if(kind==='short'){ fw[n-1]=15; fw[n-2]=Math.min(fw[n-2],18); } }
+  const fwAt=s=>par===3?14:kind==='chute'?17:28;
+  // green and pin
+  const hdEnd=Math.atan2(gdx,gdz), grx=par===3||kind==='short'?r(10,13):r(11,16), grz=par===3||kind==='short'?r(9,11):r(9.5,13), t1=r(0.008,0.014), t2=r(-0.008,0.008);
+  const green={...E(gx,gz,grx,grz,hdEnd+r(-0.5,0.5)),tilt:[-gdx*t1+gdz*t2,-gdz*t1-gdx*t2]}; if(kind==='elevated') green.lift=r(1.5,3); else if(chance(0.25)) green.lift=r(0.8,2);
+  const pin=[gx+r(-2.5,2.5),gz+r(-2,2)], gr=(grx+grz)/2;
+  // bunkers: round the green, by the landing area, or across the fairway
+  const B=[], nG=Math.round((kind==='guarded'?r(3,4.5):r(1,3))*T.bunk);
+  for(let i=0;i<nG;i++){ const a=hdEnd+Math.PI+r(-2.3,2.3), d=gr+r(2.5,4.5); B.push(E(gx+Math.sin(a)*d,gz+Math.cos(a)*d,r(4,6.5),r(2.4,3.6),a+r(-0.4,0.4))); }
+  if(par>3&&kind!=='short'){ const nF=Math.round(r(0,2.2)*T.bunk); for(let i=0;i<nF;i++){ const s=Math.min(L-70,r(190,265)), p=at(s), q=side(p,sgn()*(fwAt(s)/2+r(1.5,6))); B.push(E(q[0],q[1],r(5,9),r(3,4.5),Math.atan2(p[2],p[3]))); } }
+  if(kind==='crossbunk'){ const s=r(170,215), p=at(s), h=Math.atan2(p[2],p[3]); for(const k of [-1,0,1]){ const q=side(p,k*r(9,12)); B.push(E(q[0],q[1],r(6,8),r(2.6,3.2),h)); } }
+  if(theme==='dunes'&&par>3&&chance(0.5)){ const s=L*r(0.3,0.6), p=at(s), q=side(p,sgn()*(fwAt(s)/2+r(8,12))); B.push(E(q[0],q[1],r(5,7),r(26,40),Math.atan2(p[2],p[3]))); }   // a long waste bunker
+  // water
+  const W=[];
+  if(kind==='carry'){ const p=at(L*r(0.42,0.56)); W.push(E(p[0],p[1],r(18,30),Math.min(r(16,24),L*0.22),Math.atan2(p[2],p[3]))); }
+  if(kind==='lakeside'){ const p=at(L*r(0.35,0.6)), rx=r(10,16), q=side(p,sgn()*(fwAt(0)/2+rx+r(3,8))); W.push(E(q[0],q[1],rx,r(30,58),Math.atan2(p[2],p[3]))); }
+  if(kind==='creek'){ const p=at(r(255,310)); W.push(E(p[0],p[1],r(42,60),r(6.5,9),Math.atan2(p[2],p[3]))); }
+  if(kind==='dogleg'&&wet){ const bf=bends[0], p=at(bf[0]*L), rx=r(14,22); const q=side(p,Math.sign(bf[1])*(fwAt(0)/2+rx+r(3,7))); W.push(E(q[0],q[1],rx,r(16,26),Math.atan2(p[2],p[3]))); }
+  if(par===4&&kind!=='lakeside'&&kind!=='short'&&chance(T.water*0.35)){ const a=hdEnd+sgn()*r(1.3,1.8), d=gr+r(16,22); W.push(E(gx+Math.sin(a)*d,gz+Math.cos(a)*d,r(9,13),r(14,22),a)); }   // a pond by the green
+  const rise=kind==='elevated'?-r(0.04,0.07):chance(0.3)?r(-0.035,0.035):0;
+  return {name:pick(THEME_WORDS[theme]||THEME_WORDS.default)+' '+pick(NAME_ENDS),par,kind,tee:[0,0],pin,fair,fw,green,bunkers:B,water:W,ob:r(56,66),
+    ter:[r(-6000,6000),r(-6000,6000)],hills:r(T.hills[0],T.hills[1]),mounds:r(T.mounds[0],T.mounds[1]),rise,dense:T.dense*(kind==='chute'?2.4:r(0.8,1.25)),wind:T.wind,
+    theme};
+}
+// a hole is used only if: tee and pin sit on tee and green, no pond or bunker sits on either, the line never runs out of
+// bounds, and water crosses the line only on a carry/creek hole (and then as a crossing, not a long stretch)
+function holeOK(h){ const keep=H; H=h; try{
+  if(surfAt(h.tee[0],h.tee[1])!=='tee'||surfAt(h.pin[0],h.pin[1])!=='green') return false;
+  for(const W of h.water) if(ellR(W,h.pin[0],h.pin[1])<1.5||ellR(W,h.tee[0],h.tee[1])<1.6) return false;
+  for(const B of h.bunkers) if(ellR(B,h.pin[0],h.pin[1])<1.4||ellR(B,h.tee[0],h.tee[1])<2) return false;
+  let run=0, maxRun=0, wetN=0; for(let s=0;s<=h.len;s+=2){ const [x,z]=routePoint(s), sf=surfAt(x,z); if(sf==='ob') return false; if(sf==='water'){ run+=2; wetN++; maxRun=Math.max(maxRun,run); } else run=0; }
+  const crossing=h.kind==='carry'||h.kind==='creek'; return crossing?(wetN>0&&maxRun<=75):wetN===0;
+  } finally { H=keep; } }
+function genCourse(seed,theme){
+  const T=THEMES[theme]||THEMES.default, R=seededRng(seedNum(seed+'|'+theme));
+  const nine=()=>{ for(;;){ const p=[3,3,5,5,4,4,4,4,4]; for(let i=p.length-1;i>0;i--){ const j=Math.floor(R()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; } if(p[0]!==3&&!p.some((v,i)=>v===3&&p[i+1]===3)) return p; } };
+  const pars=[...nine(),...nine()], holes=[];
+  for(let i=0;i<18;i++){ let h=null, c=null; for(let t=0;t<30&&!h;t++){ c=prepHole(genHole(pars[i],T,R,theme)); if(holeOK(c)) h=c; }
+    for(let t=0;t<30&&!h;t++){ c=prepHole(genHole(pars[i],T,R,theme,pars[i]===3?'plain':pars[i]===4?'straight':'sbend')); if(holeOK(c)) h=c; }   // fallback: a plain version of the hole
+    holes.push(h||c); }
+  return holes;
+}
+// saved courses (kept for good, with a best score each) — {seed, theme, best, at}
+const SAVED_KEY='justgolf_courses';
+function savedCourses(){ try{ const a=JSON.parse(localStorage.getItem(SAVED_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function writeSaved(a){ try{ localStorage.setItem(SAVED_KEY,JSON.stringify(a)); }catch(e){} }
+const sameCourse=(e,g)=>!!e&&!!g&&e.seed===g.seed&&e.theme===g.theme;
+function savedFind(g){ return savedCourses().find(e=>sameCourse(e,g))||null; }
+function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){ a.unshift({seed:g.seed,theme:g.theme,best:0,at:Date.now()}); writeSaved(a); } }
+function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g)); if(e){ e.best=s; writeSaved(a); } }
+const courseLabel=g=>(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, swing:null, lefty:false, tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 let PLAY=HOLES.slice(0,9), HOLE_NO0=0, roundCourse='front';             // the holes being played this round (front 9 / back 9 / all 18)
-function setCourse(c){ PLAY=c==='back'?HOLES.slice(9):c==='all'?HOLES:HOLES.slice(0,9); HOLE_NO0=c==='back'?9:0; }
+function setCourse(c){ GEN=null; PLAY=c==='back'?HOLES.slice(9):c==='all'?HOLES:HOLES.slice(0,9); HOLE_NO0=c==='back'?9:0; }
+let GEN=null, ROUND_SKIN=null;                                         // ROUND_SKIN: the theme picked in Settings for this round (null = the course's own)
+const roundSkin=()=>ROUND_SKIN||(GEN?GEN.theme:'default');
+let _GEN_DUMMY=null;                                                            // {seed, theme} while a generated course is loaded
+function setGen(seed,theme){ GEN={seed,theme}; PLAY=genCourse(seed,theme); HOLE_NO0=0; }
 const bestKey=c=>c==='back'?'bestBack':c==='all'?'bestAll':'best';      // a best score per course (the front nine keeps the original 'best')
 const stats={ best:0, bestBack:0, bestAll:0, games:0, aces:0, tickets:0 };
 
@@ -859,7 +1013,9 @@ function baseH(x,z){ const x0=x, z0=z, o=H&&H.ter; if(o){ x+=o[0]; z+=o[1]; }
   // rise: the climb (+) or drop (−) from tee to green, along the route only and blending back to the surroundings off to the
   // sides. It never goes below the normal ground (a downhill hole starts raised and finishes at the usual level), since the
   // flat world plane 6 m down would otherwise cover the low end
-  if(H&&H.rise){ const R=routeInfo(x0,z0), L=H.len, sr=clamp(R.s,0,L), k=1-smooth(clamp((R.d-(H.ob+20))/90,0,1)); h+=H.rise*(H.rise<0?sr-L:sr)*k; }
+  if(H&&(H.rise||H.walls)){ const R=routeInfo(x0,z0);
+    if(H.rise){ const L=H.len, sr=clamp(R.s,0,L), k=1-smooth(clamp((R.d-(H.ob+20))/90,0,1)); h+=H.rise*(H.rise<0?sr-L:sr)*k; }
+    if(H.walls) h+=26*smooth(clamp((R.d-(H.ob+4))/45,0,1))*(0.75+0.5*NZ.n2(x*0.012,z*0.012)); }   // canyon: rock walls rise beyond out of bounds
   return h+((H&&H.base)||0); }
 function hAt(x,z){
   let h=baseH(x,z);
@@ -895,7 +1051,8 @@ function detailTex(){                              // neutral grass detail, tint
 function sandGrain(){ const S=256; return shade(S,S,(x,y,o)=>{ const g=NZ.n2(x*0.9,y*0.9,230,230), k=0.9+g*0.14; o[0]=o[1]=o[2]=clamp(235*k,0,255); o[3]=70+g*150; },true); }
 function waterTexG(){ const S=128; return shade(S,S,(x,y,o)=>{ const n=NZ.fbm(x/S*4,y/S*4,4,4,4), r=0.5+0.5*Math.sin((x/S*2+n*1.4)*Math.PI*4);
   o[0]=clamp(36+r*30+n*24,0,255); o[1]=clamp(92+r*40+n*26,0,255); o[2]=clamp(118+r*40+n*20,0,255); },false).color; }
-const SURF_COL={tee:[92,170,72],fairway:[86,168,64],fringe:[80,170,70],green:[104,198,86],rough:[62,128,46],deep:[50,106,38],sand:[226,206,160],water:[60,84,70],ob:[56,112,42]};
+const SURF_BASE={tee:[92,170,72],fairway:[86,168,64],fringe:[80,170,70],green:[104,198,86],rough:[62,128,46],deep:[50,106,38],sand:[226,206,160],water:[60,84,70],ob:[56,112,42]};
+let SURF_COL=SURF_BASE;                              // a generated course's theme recolours some surfaces (set per hole in buildHole)
 function wetK(x,z){ let k=1; for(const W of H.water){ const r=ellR(W,x,z); if(r<1.45) k=Math.min(k,0.6+0.4*smooth(clamp((r-1.02)/0.4,0,1))); } return k; }   // darker, damp ground at the water's edge
 function surfPixel(x,z,out){                      // sRGB surface colour for the course texture: stripes, a first cut beside fairways, rough tufts
   const s=surfAt(x,z), c=SURF_COL[s]; let k=1;
@@ -1100,8 +1257,11 @@ function buildAimBits(){
 // ── build the hole: terrain mesh, water, trees, tee markers, pin ──
 function disposeGroup(g){ g.traverse(o=>{ if(o.geometry&&!o.geometry.userData.shared) o.geometry.dispose(); }); scene.remove(g); }
 function buildHole(){
+  { const SK=THEMES[roundSkin()]||THEMES.default, own=THEMES[H.theme]||THEMES.default;          // dress the hole in the round's theme (its layout stays as made)
+    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.denseK=SK.dense/own.dense; }
+  SURF_COL=H.surf?Object.assign({},SURF_BASE,H.surf):SURF_BASE;
   if(holeGroup) disposeGroup(holeGroup);
-  holeGroup=new THREE.Group(); scene.add(holeGroup); envClearWater(); TUFTS=null;
+  holeGroup=new THREE.Group(); scene.add(holeGroup); envClearWater(); TUFTS=[];
   // keep the whole hole (valleys, pond beds) clear of the flat world plane 6 m down
   if(H.base==null){ H.base=0; let lo=1e9; let ax0=1e9,ax1=-1e9,az1=-1e9; for(const [x,z] of H.route){ ax0=Math.min(ax0,x); ax1=Math.max(ax1,x); az1=Math.max(az1,z); }
     for(let x=ax0-H.ob-110;x<=ax1+H.ob+110;x+=6) for(let z=-120;z<=az1+150;z+=6) lo=Math.min(lo,hAt(x,z)); H.base=Math.max(0,-4.2-lo); for(const W of H.water){ W.bed=null; W.lvl=null; } }   // (pond beds/levels were cached before the lift)
@@ -1202,13 +1362,15 @@ function stepGreenAids(dt){
 // trees: instanced trunks + canopies lining the hole and in clumps, kept off fairway, greens, tees and water
 let TREES=[];
 function buildTrees(){
-  TREES=[]; const want=Math.round((PERF?100:180)*(H.dense||1)*clamp(H.len/350,0.6,1.4)), rnd=NZ.rnd;
+  TREES=[]; const want=Math.round((PERF?100:180)*(H.dense||1)*(H.denseK||1)*clamp(H.len/350,0.6,1.4)), rnd=NZ.rnd;
   for(let tries=0;TREES.length<want&&tries<6000;tries++){
     const [rpx,rpz,rdx,rdz]=routePoint(-40+rnd()*(H.len+90)), side=rnd()<0.5?-1:1, off=(H.dense?16:24)+rnd()*(H.ob+30), x=rpx-rdz*off*side, z=rpz+rdx*off*side, s=surfAt(x,z);
     if(s==='fairway'||s==='green'||s==='fringe'||s==='tee'||s==='water'||s==='sand') continue;
     const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
     if(TREES.some(t=>Math.hypot(t.x-x,t.z-z)<4.5)||onCart(x,z)||onCart(x+2,z)||onCart(x-2,z)) continue;
-    const k=rnd(), sp=k<(H.dense?0.3:0.5)?'oak':k<(H.dense?0.85:0.78)?'pine':'poplar', T=envTemplate(sp), sc=0.75+rnd()*0.55;
+    let k=rnd(), sp=k<(H.dense?0.3:0.5)?'oak':k<(H.dense?0.85:0.78)?'pine':'poplar';
+    if(H.trees){ k=rnd(); for(const [name,w] of Object.entries(H.trees)){ sp=name; if((k-=w)<0) break; } }      // a theme's own mix (shrubs, pines…)
+    const T=envTemplate(sp), sc=0.75+rnd()*0.55;
     TREES.push({x,z,y:hAt(x,z)-0.1,s:sc,sp,trunkR:T.trunkR*sc,h:T.trunkH*sc,cr:T.r*sc,ch:(T.cy-T.r*0.3)*sc});
   }
   envForest(TREES,holeGroup);
@@ -1349,24 +1511,26 @@ function aimDefault(){
   const [x,z]=routePoint(R.s+reach); aim=Math.atan2(x-ball.p.x,z-ball.p.z);
 }
 let testRound=false;
-function newGame(){ clearGame(); setCourse(settings.course); roundCourse=settings.course; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
+function newGame(){ clearGame(); setCourse(settings.course); ROUND_SKIN=null; roundCourse=settings.course; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
+function newGenGame(seed,theme){ clearGame(); setGen(seed,theme); ROUND_SKIN=null; roundCourse='gen'; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
 function jumpTo(i){ clearGame(); setCourse('all'); roundCourse='all'; testRound=true; anims=[]; scores=PLAY.slice(0,i).map(h=>h.par); holeIdx=i; startHole(); }
 // the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
 let resumeSave=null;
-function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justgolf_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound})); }catch(e){} }
-function loadGame(){ try{ const g=JSON.parse(sessionStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
+function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; sessionStorage.setItem('justgolf_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound,gen:roundCourse==='gen'?GEN:null,skin:ROUND_SKIN})); }catch(e){} }
+function loadGame(){ try{ const g=JSON.parse(sessionStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; if(g.course==='gen'&&g.gen) setGen(g.gen.seed,g.gen.theme); else setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
 function clearGame(){ try{ sessionStorage.removeItem('justgolf_game'); }catch(e){} }
 function resumeGame(g){
-  setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
+  if(g.course==='gen'&&g.gen){ if(!sameCourse(GEN,g.gen)) setGen(g.gen.seed,g.gen.theme); } else setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; ROUND_SKIN=THEMES[g.skin]?g.skin:null; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
   if(g.strokes>0){ strokes=g.strokes; const [x,z]=g.p; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=g.lie||surfAt(x,z); ball.last=g.last||[x,z]; buildTufts(); suggestClub(); aimDefault(); }
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function startHole(){
   H=PLAY[holeIdx]; strokes=0; buildHole(); envPrewarm(renderer,scene,camera);
   const [tx,tz]=H.tee; ball.p.set(tx,meshH(tx,tz)+BALL_R+0.03,tz); ball.v.set(0,0,0); ball.mode='rest'; ball.lie='tee'; ball.visible=true; ball.sink=0; ball.last=[tx,tz];
-  const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14*(H.wind||1));   // exposed holes blow harder wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};
+  const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14*(H.wind||1)); wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};   // exposed holes blow harder
   buildTufts(); suggestClub(); aimDefault(); phase='intro'; camMode='intro'; introT=0;
-  showMsg(`HOLE ${HOLE_NO0+holeIdx+1} · ${H.name.toUpperCase()}<small>PAR ${H.par} · ${Math.round(H.len*YD)} YARDS</small>`,3);
+  applyTOD();                                                                                   // (re-tints the haze for a themed course)
+  showMsg(`HOLE ${HOLE_NO0+holeIdx+1} · ${H.name.toUpperCase()}<small>PAR ${H.par} · ${Math.round(H.len*YD)} YARDS${GEN&&holeIdx===0?' · '+courseLabel(GEN).toUpperCase():''}</small>`,3);
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function nextShot(){
@@ -1382,7 +1546,9 @@ function strike(power,acc){                        // power 0..1, acc -1..1 (lef
   ball.spinAxis.crossVectors(ball.v,UPV).normalize();                                       // pure backspin axis
   ball.spinAxis.applyAxisAngle(V3(Math.sin(dir),0,Math.cos(dir)),acc*0.55);                 // tilted axis → curve (right for a slice, left for a hook)
   ball.mode='fly'; ball.t=0; ball.inTree=false; ball.marked=false; strokes++; phase='flight'; camMode='flight'; flightPts=0; trail.geometry.setDrawRange(0,0);
-  shotMarks(dir,power); sfxStrike(clubIdx,power); buildHUD(); updateUI();
+  shotMarks(dir,power); sfxStrike(clubIdx,power);
+  { const cy=carryOf(clubIdx,lm*power), roll=cy*rollFrac(clubIdx)*1.4, bx=ball.p.x, bz=ball.p.z;              // grass ready before the ball gets there
+    ensureTufts(bx+Math.sin(dir)*cy,bz+Math.cos(dir)*cy); ensureTufts(bx+Math.sin(dir)*(cy+roll),bz+Math.cos(dir)*(cy+roll)); } buildHUD(); updateUI();
   showMsg(Math.abs(acc)<0.06?'Pure!':acc<0?(acc<-0.35?'Hook!':'Draw'):(acc>0.35?'Slice!':'Fade'),1.0);
 }
 function putt(dirx,dirz,pow){
@@ -1427,16 +1593,19 @@ function endHole(sc){
   buildHUD(); tween(0.01,()=>{},()=>{ holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else startHole(); },2.4);
 }
 function roundOver(){
-  clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=PLAY.reduce((a,h)=>a+h.par,0), rel=s-par, bk=bestKey(roundCourse), newBest=!testRound&&(!stats[bk]||s<stats[bk]);
-  const tix=Math.max(1,(par+Math.ceil(PLAY.length/4)-s)*4+2); if(!testRound){ stats.games++; stats.tickets+=tix; if(newBest) stats[bk]=s; saveStats(); } buildHUD();
+  clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=PLAY.reduce((a,h)=>a+h.par,0), rel=s-par, bk=bestKey(roundCourse), isGen=roundCourse==='gen'&&GEN, ge=isGen?savedFind(GEN):null;
+  const newBest=!testRound&&(isGen?(!!ge&&(!ge.best||s<ge.best)):(!stats[bk]||s<stats[bk]));
+  const tix=Math.max(1,(par+Math.ceil(PLAY.length/4)-s)*4+2); if(!testRound){ stats.games++; stats.tickets+=tix; if(newBest){ if(isGen) setSavedBest(GEN,s); else stats[bk]=s; } saveStats(); } buildHUD();
   const ov=document.getElementById('ov'); ov.querySelector('h2').textContent=`🏌️ ${s} (${rel===0?'E':rel>0?'+'+rel:rel})`;
   let tbl=''; for(let a=0;a<PLAY.length;a+=9){ const hs=PLAY.slice(a,a+9), sc=scores.slice(a,a+9);
     tbl+=`<table><tr><th>Hole</th>${hs.map((h,i)=>`<th>${HOLE_NO0+a+i+1}</th>`).join('')}<th>${PLAY.length>9?(a?'In':'Out'):'Tot'}</th></tr>`
       +`<tr><th>Par</th>${hs.map(h=>`<td>${h.par}</td>`).join('')}<td>${hs.reduce((x,h)=>x+h.par,0)}</td></tr>`
       +`<tr><th>You</th>${sc.map(v=>`<td>${v}</td>`).join('')}<td><b>${sc.reduce((x,v)=>x+v,0)}</b></td></tr></table>`; }
   ov.querySelector('p').innerHTML=tbl+(PLAY.length>9?`<br>Total <b>${s}</b> · par ${par}`:'')+'<br>'
-    +(newBest?'<b>New best!</b><br>':'')+(testRound?'Test round · not counted':`You won <b>${tix}</b> ticket${tix===1?'':'s'} 🎟️ &nbsp;·&nbsp; Best ${stats[bk]||'–'}`);
+    +(newBest?'<b>New best!</b><br>':'')+(testRound?'Test round · not counted':`You won <b>${tix}</b> ticket${tix===1?'':'s'} 🎟️ &nbsp;·&nbsp; Best ${isGen?(newBest?s:(ge&&ge.best)||'–'):stats[bk]||'–'}`)
+    +(isGen?`<br>Course <b>${courseLabel(GEN)}</b> ${ge?'· saved':'<button class="mini" id="ovSave">Save course</button>'}`:'');
   showStart('over'); refreshStats();
+  const sv=document.getElementById('ovSave'); if(sv) sv.addEventListener('click',()=>{ saveCourse(GEN); setSavedBest(GEN,s); sv.replaceWith(document.createTextNode('· saved')); });
 }
 function celebrate(text,cls){ const el=document.getElementById('celebrate'); el.className=''; void el.offsetWidth; el.textContent=text; el.classList.add('show',cls); }
 function showMsg(html,t){ document.getElementById('msg').innerHTML=html; msgT=t||1.4; }
@@ -1445,7 +1614,7 @@ function buildHUD(){
   if(page){ const out=scores.slice(0,9).reduce((a,b)=>a+b,0); h+=`<div class="fr"><div class="fh">OUT</div><div class="tot">${out}</div></div>`; }
   for(let i=from;i<to;i++){ const hh=PLAY[i], v=scores[i], cur=i===holeIdx&&phase!=='over'&&phase!=='menu', shown=v!=null?v:(cur&&strokes?strokes:'');
     const cls=v==null?'':v<hh.par?' under':v>hh.par?' over':''; h+=`<div class="fr${cur?' cur':''}"><div class="fh">${HOLE_NO0+i+1}<small>P${hh.par}</small></div><div class="tot${cls}">${shown}</div></div>`; }
-  const s=scores.reduce((a,b)=>a+b,0), p=PLAY.slice(0,scores.length).reduce((a,x)=>a+x.par,0), r=s-p, best=stats[bestKey(phase==='menu'?settings.course:roundCourse)];
+  const s=scores.reduce((a,b)=>a+b,0), p=PLAY.slice(0,scores.length).reduce((a,x)=>a+x.par,0), r=s-p, best=roundCourse==='gen'&&GEN&&phase!=='menu'?((savedFind(GEN)||{}).best||0):stats[bestKey(phase==='menu'?settings.course:roundCourse)];
   h+=`<div class="fr ftot"><div class="fh">TOTAL</div><div class="tot">${scores.length?s+' <small style="font-size:.6em;color:#bba">'+(r===0?'E':r>0?'+'+r:r)+'</small>':'–'}</div></div><div class="fr fbest"><div class="fh">BEST</div><div class="tot">${best||'–'}</div></div>`;
   document.getElementById('board').innerHTML=h;
 }
@@ -1750,7 +1919,7 @@ function loop(t){
       if(M.water.map) M.water.map.offset.x+=dt*0.01;
       envStep(dt,wind.x||0.4,wind.z||0.15,0.25+(wind.mph||0)/11); if(M.skyMesh) M.skyMesh.rotation.y+=dt*0.002*(1+(wind.mph||0)/8);
       birdT-=dt; if(birdT<0){ birdT=5+Math.random()*12; birdChirp(); }
-      if(renderer){ syncBall(); updateCamera(dt); if(M.pano) M.pano.position.set(camera.position.x,-6-660*(24/1024)+330,camera.position.z); syncAim(); if(greenGrid) stepGreenAids(dt); mapT-=dt; if(mapT<0){ mapT=0.1; drawMap(false); } }
+      if(renderer){ syncBall(); if(ball.mode!=='rest') tuftsAhead(); growTufts(); updateCamera(dt); if(M.pano) M.pano.position.set(camera.position.x,-6-660*(24/1024)+330,camera.position.z); syncAim(); if(greenGrid) stepGreenAids(dt); mapT-=dt; if(mapT<0){ mapT=0.1; drawMap(false); } }
     }
     if(renderer){ envMirrorRender(renderer,scene,camera); renderer.render(scene,camera); }
   }catch(err){ showFatal(err); }
@@ -1760,7 +1929,9 @@ function loop(t){
 // ═══════════════════════════════════════════════════════
 //  ENVIRONMENT DETAIL: time of day, course furniture, cart path, grass tufts, divots & pitch marks
 // ═══════════════════════════════════════════════════════
-function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); envApplyNight(settings.tod===3,{M,scene,renderer,perf:PERF}); if(ball&&ball.p) placeSun(ball.p); }   // 3 = night: bright moonlight under a starry sky
+function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); envApplyNight(settings.tod===3,{M,scene,renderer,perf:PERF});
+  if(H&&H.haze&&settings.tod!==3){ const c=new THREE.Color(H.haze); scene.fog.color.lerp(c,0.55); if(M.pano) M.pano.material.color.lerp(c,0.4); }   // a themed course's warm/sandy haze
+  if(ball&&ball.p) placeSun(ball.p); }   // 3 = night: bright moonlight under a starry sky
 const _sd=V3();
 // the shadow box covers what the camera is looking at: centred a little ahead of the camera, ~170 m across for full
 // shots and flight (so tree shadows are already there as the view moves down the fairway, rather than drawing in at
@@ -1808,15 +1979,36 @@ function buildFurniture(){
     if(surfAt(x,z)==='water'||surfAt(x,z)==='sand') continue;
     add(new THREE.CylinderGeometry(0.06,0.07,0.6,10),M.white,x,y+0.3,z); add(new THREE.CylinderGeometry(0.065,0.065,0.12,10),cap,x,y+0.62,z); }
 }
-let TUFTS=null;
-function buildTufts(){
-  if(TUFTS){ holeGroup.remove(TUFTS); TUFTS.dispose&&TUFTS.dispose(); TUFTS=null; } if(PERF) return;
-  const P=ball.p, list=[], R=14, c=new THREE.Color();
-  for(let i=0;i<9000&&list.length<4200;i++){ const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*R, x=P.x+Math.cos(a)*r, z=P.z+Math.sin(a)*r;
-    const dB=Math.hypot(x-P.x,z-P.z); if(dB<0.45) continue; const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue;
+// grass tufts come in patches (14 m across) that stay put: one round the ball, and new ones grown ahead of a shot — where
+// the ball is coming down, then where it'll stop rolling — before it gets there, rather than all appearing after it lands.
+// A patch only fills ground no other patch covers (no doubled-up grass). Round a resting ball the blades shrink so it shows.
+let TUFTS=[]; const TUFT_R=22, _tm4=new THREE.Matrix4(), _tq=new THREE.Quaternion(), _tsv=new THREE.Vector3(), _tpv=new THREE.Vector3(), _tup=new THREE.Vector3(0,1,0);
+function clearTufts(){ for(const T of TUFTS) if(T.im){ if(T.im.parent) T.im.parent.remove(T.im); T.im.dispose&&T.im.dispose(); } TUFTS=[]; }
+function tuftPatch(cx,cz){
+  while(TUFTS.length>=4){ let fi=0, fd=-1; TUFTS.forEach((T,i)=>{ const d=Math.hypot(T.x-cx,T.z-cz); if(d>fd){ fd=d; fi=i; } });            // make room first: drop the patch furthest away
+    const o=TUFTS.splice(fi,1)[0]; if(o.im){ if(o.im.parent) o.im.parent.remove(o.im); o.im.dispose&&o.im.dispose(); } }
+  const list=[], c=new THREE.Color(), others=TUFTS.slice();
+  for(let i=0;i<10000&&list.length<3600;i++){ const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*TUFT_R, x=cx+Math.cos(a)*r, z=cz+Math.sin(a)*r;      // ~2.4 blades per m² of rough at most (was ~6.8)
+    if(others.some(T=>Math.hypot(x-T.x,z-T.z)<TUFT_R)) continue;                                       // already grassed by another patch
+    const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue;
     const col=SURF_COL[s], kk=0.95+NZ.rnd()*0.25; c.setRGB(Math.pow(col[0]*kk/255,2.2)*1.6,Math.pow(col[1]*kk/255,2.2)*1.6,Math.pow(col[2]*kk/255,2.2)*1.6);
-    list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7)*(dB<1.3?0.45:1),c:c.clone()}); }
-  TUFTS=envTufts(list,holeGroup);
+    list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7),k:1,c:c.clone()}); }
+  const im=envTufts(list,holeGroup); TUFTS.push({im,list,x:cx,z:cz,born:clock,grow:!!im}); if(im) setTuftScales(TUFTS[TUFTS.length-1],0);
+}
+function setTuftScales(T,g){ T.list.forEach((t,i)=>{ _tpv.set(t.x,t.y,t.z); _tq.setFromAxisAngle(_tup,(t.x*13.7+t.z*7.1)%6.28); _tsv.setScalar(Math.max(1e-4,t.s*t.k*g)*ENV.U); _tm4.compose(_tpv,_tq,_tsv); T.im.setMatrixAt(i,_tm4); }); T.im.instanceMatrix.needsUpdate=true; }
+function growTufts(){ for(const T of TUFTS) if(T.grow){ const u=clamp((clock-T.born)/0.45,0,1); setTuftScales(T,smooth(u)); if(u>=1) T.grow=false; } }   // new grass rises in rather than popping
+function ensureTufts(x,z){ if(PERF||!holeGroup) return; if(TUFTS.some(T=>Math.hypot(T.x-x,T.z-z)<TUFT_R*0.6)) return; tuftPatch(x,z); }
+function nestBall(){                                   // shrink the blades right round the resting ball (and let others spring back)
+  const P=ball.p; for(const T of TUFTS){ if(!T.im) continue; let ch=false;
+    T.list.forEach((t,i)=>{ const d=Math.hypot(t.x-P.x,t.z-P.z), k=d<0.45?0:d<1.3?0.45:1; if(k===t.k) return; t.k=k; ch=true;
+      _tpv.set(t.x,t.y,t.z); _tq.setFromAxisAngle(_tup,(t.x*13.7+t.z*7.1)%6.28); _tsv.setScalar(Math.max(1e-4,t.s*k)*ENV.U); _tm4.compose(_tpv,_tq,_tsv); T.im.setMatrixAt(i,_tm4); });
+    if(ch) T.im.instanceMatrix.needsUpdate=true; } }
+function buildTufts(){ if(PERF) return; ensureTufts(ball.p.x,ball.p.z); nestBall(); }
+function tuftsAhead(){                                  // called every frame while the ball moves
+  if(PERF) return; const P=ball.p, V=ball.v;
+  if(ball.mode==='fly'&&V.y<0){ let x=P.x, z=P.z; for(let k=0;k<2;k++){ const gy=hAt(x,z), t=(V.y+Math.sqrt(Math.max(0,V.y*V.y+2*G*(P.y-gy))))/G; x=P.x+V.x*t; z=P.z+V.z*t; }   // where it comes down
+    if(Math.hypot(x-P.x,z-P.z)<120) ensureTufts(x,z); }
+  else if(ball.mode==='roll'){ const sp=Math.hypot(V.x,V.z); if(sp>0.3){ const S2=SURF[ball.lie]||SURF.fairway, d=sp*sp/(2*(S2.roll||1)); ensureTufts(P.x+V.x/sp*d,P.z+V.z/sp*d); } }   // where it'll stop
 }
 function decal(m,x,z,w,l,rot){ const g=new THREE.PlaneGeometry(w,l); g.rotateX(-Math.PI/2); const o=new THREE.Mesh(g,m); o.position.set(x,meshH(x,z)+0.012,z); o.rotation.y=rot||0; o.renderOrder=2; holeGroup.add(o); return o; }
 function shotMarks(dir,power){
@@ -1842,7 +2034,16 @@ function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.get
 const drawing=()=>settings.swing==='draw';
 function saveStats(){ try{ localStorage.setItem('justgolf_stats',JSON.stringify(stats)); }catch(e){} }
 function loadStats(){ try{ Object.assign(stats,JSON.parse(localStorage.getItem('justgolf_stats')||'{}')); }catch(e){} }
-function refreshStats(){ document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; document.getElementById('stTix').textContent=stats.tickets; }
+// Settings → Course theme: re-dress the hole being played (colours, trees, canyon walls, haze); the ball stays where it is
+// cover the screen while a slow rebuild runs: paint the overlay first, do the work, draw a frame, then fade it out
+function busyThen(fn){ const B=document.getElementById('busy'); B.classList.add('show');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{ try{ fn(); if(renderer) renderer.render(scene,camera); }finally{ requestAnimationFrame(()=>B.classList.remove('show')); } },0))); }
+function setSkin(t){ ROUND_SKIN=t; if(!H) return; const P=ball.p, rest=ball.mode==='rest';
+  buildHole(); envPrewarm(renderer,scene,camera); if(rest) P.y=meshH(P.x,P.z)+BALL_R+(ball.lie==='tee'?0.03:0); buildTufts(); applyTOD(); drawMap(true); if(phase!=='menu'&&phase!=='over') saveGame(); }
+function drawGenInfo(){ const el=document.getElementById('genInfo'); if(!el) return; const on=roundCourse==='gen'&&GEN&&phase!=='menu'&&phase!=='over'; el.style.display=on?'':'none'; if(!on) return;
+  const saved=!!savedFind(GEN); el.innerHTML=`<span>This course: ${courseLabel(GEN)}</span>`+(saved?'<span>Saved</span>':'<button class="mini" id="genSaveBtn">Save course</button>');
+  const b=document.getElementById('genSaveBtn'); if(b) b.addEventListener('click',()=>{ saveCourse(GEN); drawGenInfo(); }); }
+function refreshStats(){ drawGenInfo(); document.querySelectorAll('input[name="skin"]').forEach(r=>r.checked=(r.value===roundSkin())); document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; document.getElementById('stTix').textContent=stats.tickets; }
 function setupSettings(){
   loadSettings(); loadStats();
   const scrollToSel=(grid,sm)=>{ const sel=grid.querySelector('.tile.selected'); if(!sel) return; const cr=grid.getBoundingClientRect(), sr=sel.getBoundingClientRect(); grid.scrollTo({left:grid.scrollLeft+(sr.left-cr.left)-(grid.clientWidth-sel.offsetWidth)/2,behavior:sm?'smooth':'auto'}); };
@@ -1879,20 +2080,38 @@ function setupSettings(){
     rs.forEach(r=>{ r.checked=(+r.value===settings[key]); r.addEventListener('change',()=>{ if(r.checked){ settings[key]=+r.value; saveSettings(); } }); }); };
   pick('tod','tod'); pick('maxover','maxOver');
   document.querySelectorAll('input[name="tod"]').forEach(r=>r.addEventListener('change',()=>applyTOD()));
+  document.querySelectorAll('input[name="skin"]').forEach(r=>r.addEventListener('change',()=>{ if(r.checked) busyThen(()=>setSkin(r.value)); }));
     { const jg=document.getElementById('jumpGrid');                                   // testing: start a round at any hole (earlier holes count as par; stats untouched)
     for(let i=0;i<HOLES.length;i++){ const b=document.createElement('button'); b.textContent=i+1; b.addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); jumpTo(i); }); jg.appendChild(b); } }
   document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); if(phase==='menu') showStart(resumeSave?'resume':'start'); else if(phase!=='over') showStart('newgame'); });
 }
 // the start card: pick a course to start a new round (it's remembered and highlighted next time); START/CONTINUE only
 // resumes a round in progress (or goes back to it from Settings → New Game)
-function showStart(mode,show){ const ov=document.getElementById('ov'), sb=document.getElementById('startbtn');
+function showStart(mode,show){ const ov=document.getElementById('ov'), sb=document.getElementById('startbtn'); document.getElementById('genPanel').classList.remove('open'); document.getElementById('coursePick').style.display=''; delete sb.dataset.was;
   sb.style.display=mode==='resume'||mode==='newgame'?'':'none'; sb.textContent=mode==='resume'?'CONTINUE ROUND':'BACK TO ROUND';
   document.getElementById('cpLabel').textContent=mode==='resume'?'Or start a new round':mode==='over'?'Play again':mode==='newgame'?'Start a new round':'Choose a course';
   document.querySelectorAll('#coursePick button').forEach(b=>b.classList.toggle('last',b.dataset.c===settings.course));
   if(mode==='newgame'){ ov.querySelector('h2').textContent=OV_TITLE; ov.querySelector('p').innerHTML='Starting a new round ends the one you\'re playing.'; }
   if(show!==false) ov.classList.add('show'); }
 let OV_TITLE='';
-document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ settings.course=b.dataset.c; saveSettings();
+// ── Generate: pick a theme and a seed (a fresh one is offered; type one to replay a course), or a saved course ──
+let genTheme='default';
+function openGen(on){ document.getElementById('genPanel').classList.toggle('open',on); document.getElementById('coursePick').style.display=on?'none':''; const sb=document.getElementById('startbtn');
+  if(on){ sb.dataset.was=sb.style.display; sb.style.display='none'; genTheme=THEMES[settings.genTheme]?settings.genTheme:'default'; document.getElementById('genSeed').value=newSeed(); drawGenPanel(); } else if(sb.dataset.was!=null){ sb.style.display=sb.dataset.was; } }
+function drawGenPanel(){ document.querySelectorAll('#genThemes button').forEach(b=>b.classList.toggle('sel',b.dataset.t===genTheme));
+  const a=savedCourses(), box=document.getElementById('genSaved'); document.getElementById('genSavedLbl').style.display=a.length?'':'none'; box.innerHTML='';
+  for(const e of a){ const row=document.createElement('div'); row.className='row';
+    row.innerHTML=`<span><b>${courseLabel(e)}</b> <small>${e.best?'best '+e.best:'no score yet'}</small></span><button class="mini" data-act="play">Play</button><button class="mini" data-act="del" aria-label="Delete">✕</button>`;
+    row.querySelector('[data-act=play]').addEventListener('click',()=>startGen(e.seed,e.theme));
+    row.querySelector('[data-act=del]').addEventListener('click',()=>{ writeSaved(savedCourses().filter(x=>!sameCourse(x,e))); drawGenPanel(); });
+    box.appendChild(row); } }
+function startGen(seed,theme){ settings.genTheme=theme; saveSettings(); openGen(false); document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; newGenGame(seed,theme); refreshStats(); }
+document.querySelectorAll('#genThemes button').forEach(b=>b.addEventListener('click',()=>{ genTheme=b.dataset.t; drawGenPanel(); }));
+document.getElementById('genRoll').addEventListener('click',()=>{ document.getElementById('genSeed').value=newSeed(); });
+document.getElementById('genSeed').addEventListener('input',e=>{ const v=cleanSeed(e.target.value); if(v!==e.target.value) e.target.value=v; });
+document.getElementById('genPlay').addEventListener('click',()=>{ const sd=cleanSeed(document.getElementById('genSeed').value)||newSeed(); startGen(sd,genTheme); });
+document.getElementById('genBack').addEventListener('click',()=>openGen(false));
+document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.c==='gen'){ openGen(true); return; } settings.course=b.dataset.c; saveSettings();
   document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; newGame(); refreshStats(); }));
 document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } });
 function boot(){
