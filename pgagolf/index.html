@@ -212,8 +212,8 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="sec"><div class="sec-label" id="mspdLbl">Power meter speed</div>
       <div class="seg" role="radiogroup" aria-labelledby="mspdLbl">
         <label><input type="radio" name="mspd" value="1"><span>Pro</span></label>
-        <label><input type="radio" name="mspd" value="0.9"><span>Amateur<small>10% slower</small></span></label>
-        <label><input type="radio" name="mspd" value="0.75"><span>Novice<small>25% slower</small></span></label>
+        <label><input type="radio" name="mspd" value="0.75"><span>Amateur<small>25% slower</small></span></label>
+        <label><input type="radio" name="mspd" value="0.5"><span>Novice<small>50% slower</small></span></label>
       </div>
     </div>
     <div class="sec"><div class="sec-label" id="todLbl">Time of day</div>
@@ -1071,7 +1071,7 @@ function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){
 function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g)); if(e){ e.best=s; writeSaved(a); } }
 const courseLabel=g=>(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.9, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 // ═══════════════════════════════════════════════════════
