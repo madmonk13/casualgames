@@ -87,6 +87,9 @@ body.lefty #row{flex-direction:row-reverse;}
 #loader{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
   background:radial-gradient(ellipse at center,#1d2a3a 0%,#06040c 100%);transition:opacity .45s;}
 #loader.done{opacity:0;pointer-events:none;}
+#fps{position:fixed;left:50%;top:62px;transform:translateX(-50%);z-index:20;display:none;font:600 11px/1.35 ui-monospace,Menlo,Consolas,monospace;color:#eafff0;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:6px;pointer-events:none;white-space:pre;text-align:center;}
+#gfxNote{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:35;max-width:86vw;font:600 .85rem 'Segoe UI',Arial,sans-serif;color:#fff;background:rgba(20,14,34,.88);border:1px solid #3d3058;padding:9px 14px;border-radius:9px;opacity:0;transition:opacity .4s;pointer-events:none;text-align:center;}
+#gfxNote.show{opacity:1;}
 #busy{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(6,4,12,.72);opacity:0;pointer-events:none;transition:opacity .2s;}
 #busy.show{opacity:1;pointer-events:auto;}
 #busy .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
@@ -225,7 +228,30 @@ body.lefty #row{flex-direction:row-reverse;}
     </div>
     <button class="toggle" id="setGuide"></button>
     <button class="toggle" id="setLefty"></button>
-    <button class="toggle" id="setOpt"></button>
+    <div class="sec"><div class="sec-label" id="gfxLbl">Graphics</div>
+      <div class="seg" role="radiogroup" aria-labelledby="gfxLbl">
+        <label><input type="radio" name="gfx" value="auto"><span>Auto<small id="gfxAutoLbl"></small></span></label>
+        <label><input type="radio" name="gfx" value="high"><span>High</span></label>
+        <label><input type="radio" name="gfx" value="medium"><span>Medium</span></label>
+        <label><input type="radio" name="gfx" value="low"><span>Low</span></label>
+      </div>
+    </div>
+    <button class="toggle" id="setFps"></button>
+    <div class="sec"><div class="sec-label" id="swLbl">Swing sound <small style="text-transform:none;opacity:.7">(try them · tap to hear)</small></div>
+      <div class="seg" role="radiogroup" aria-labelledby="swLbl">
+        <label><input type="radio" name="swingsfx" value="off"><span>Off</span></label>
+        <label><input type="radio" name="swingsfx" value="air"><span>Air<small>Whoosh</small></span></label>
+        <label><input type="radio" name="swingsfx" value="whistle"><span>Whistle<small>Shaft</small></span></label>
+      </div>
+    </div>
+    <div class="sec"><div class="sec-label" id="woodLbl">Woods sound <small style="text-transform:none;opacity:.7">(try them · tap to hear)</small></div>
+      <div class="seg" role="radiogroup" aria-labelledby="woodLbl">
+        <label><input type="radio" name="woodsfx" value="cur"><span>Current</span></label>
+        <label><input type="radio" name="woodsfx" value="A"><span>A<small>Deep</small></span></label>
+        <label><input type="radio" name="woodsfx" value="B"><span>B<small>Hollow</small></span></label>
+        <label><input type="radio" name="woodsfx" value="C"><span>C<small>Persimmon</small></span></label>
+      </div>
+    </div>
     <div class="gen-info" id="genInfo" style="display:none"></div>
     <button class="toggle" id="newGameBtn">New Game</button>
     <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
@@ -236,6 +262,7 @@ body.lefty #row{flex-direction:row-reverse;}
 </div>
 <div id="stage"></div>
 <div id="pad"><canvas id="padCv"></canvas><button id="padClose" aria-label="Cancel">✕</button><div id="padMsg"></div></div>
+<div id="fps"></div><div id="gfxNote"></div>
 <div id="busy"><div class="spin"></div><small>LOADING</small></div>
 <div id="loader"><h1>🏌️ JUST GOLF</h1><div class="spin"></div><small>LOADING</small></div>
 <div id="ov">
@@ -310,7 +337,7 @@ function showFatal(err){
 window.addEventListener('error',e=>showFatal(e.error||e.message));
 window.addEventListener('unhandledrejection',e=>showFatal(e.reason));
 
-let PERF=false, ANISO=4;
+let PERF=false, ANISO=4, GFX=2, RES_SCALE=1;   // GFX graphics tier: 0 Low, 1 Medium, 2 High. RES_SCALE: auto mode's render-resolution trim
 const NZ=(function(){
   let s=1337; const rnd=()=>{ s=(Math.imul(s,1664525)+1013904223)>>>0; return s/4294967296; };
   const P=new Uint16Array(512), V=new Float32Array(256), perm=[...Array(256).keys()];
@@ -476,8 +503,8 @@ function envBarkCanvas(){
 }
 // ── shader patch: wind sway, cloud shadows, soft canopy normals, mirror reflections ──
 function envPatch(m,o){
-  if(m.userData.envP) return m; m.userData.envP=true;
-  const prev=m.onBeforeCompile; m.defines=Object.assign(m.defines||{},o.sway?{ENV_SWAY:''}:{},o.cloud?{ENV_CLOUD:''}:{},o.refl?{ENV_REFL:''}:{},o.soft?{ENV_SOFT:''}:{},o.wear?{ENV_WEAR:''}:{},o.detail?{ENV_DETAIL:''}:{});
+  if(m.userData.envP) return m; m.userData.envP=true; if(GFX<2&&o.cloud) o=Object.assign({},o,{cloud:false});   // drifting cloud shadows: High only (a texture read per pixel on everything)
+  const prev=m.onBeforeCompile; m.defines=Object.assign(m.defines||{},o.sway?{ENV_SWAY:''}:{},o.cloud?{ENV_CLOUD:''}:{},o.refl?{ENV_REFL:''}:{},o.soft?{ENV_SOFT:''}:{},o.wear?{ENV_WEAR:''}:{},o.detail?{ENV_DETAIL:''}:{},o.bill?{ENV_BILL:''}:{});
   const swayH={value:o.swayH||1}, swayK={value:o.swayK||0};
   m.userData.swayH=swayH; m.userData.swayK=swayK;
   m.onBeforeCompile=(sh,r)=>{ if(prev) prev(sh,r);
@@ -491,6 +518,10 @@ function envPatch(m,o){
 envP=instanceMatrix*envP; envO=instanceMatrix[3].xyz;
 #endif
 envP=modelMatrix*envP;
+#ifdef ENV_BILL
+{ vec3 bc=(modelMatrix*vec4(envO,1.0)).xyz; vec2 bf=cameraPosition.xz-bc.xz; bf=bf/max(length(bf),1e-3);   // a far tree: a card turned to face the camera
+  envP.xyz=bc+vec3(bf.y,0.0,-bf.x)*transformed.x*length(instanceMatrix[0].xyz)+vec3(0.0,transformed.y*length(instanceMatrix[1].xyz),0.0); }
+#endif
 #ifdef ENV_SWAY
 { vec3 wo=(modelMatrix*vec4(envO,1.0)).xyz; float hh=max(envP.y-wo.y,0.0)/envSwayH; float ph=envT*1.6+wo.x*0.37/envSwayH+wo.z*0.29/envSwayH;
   float gw=(0.62+0.38*sin(ph))*hh*hh*envSwayK; envP.xz+=envWind*gw;
@@ -514,7 +545,7 @@ gl_Position=projectionMatrix*mvPosition;`);
 #endif
 #include <tonemapping_fragment>`);
   };
-  m.customProgramCacheKey=()=>'env'+(o.sway?1:0)+(o.cloud?1:0)+(o.refl?1:0)+(o.soft?1:0)+(o.wear?1:0)+(o.detail?1:0)+(prev?prev.toString().length:0);
+  m.customProgramCacheKey=()=>'env'+(o.sway?1:0)+(o.cloud?1:0)+(o.refl?1:0)+(o.soft?1:0)+(o.wear?1:0)+(o.detail?1:0)+(o.bill?'b':'')+(prev?prev.toString().length:0);
   return m;
 }
 function envFiberCanvas(){                         // carpet / turf grain: per-pixel fibres, a little stretched (tiles seamlessly)
@@ -636,16 +667,77 @@ function envMaterials(sp,heightW){                  // per species: leaves + bar
   const bark=envPatch(sp==='palm'?new THREE.MeshStandardMaterial({map:ENV.palmTex||(ENV.palmTex=toTex(envPalmCanvas(),{repeat:[1,3]})),color:0xffffff,roughness:0.9}):sp==='cactus'?new THREE.MeshStandardMaterial({map:ENV.cactusTex||(ENV.cactusTex=toTex(envCactusCanvas(),{repeat:[1,2]})),color:0xffffff,roughness:0.75}):new THREE.MeshStandardMaterial({map:ENV.barkTex,color:ENV_BARK[sp]||0xffffff,roughness:0.95}),{sway:true,cloud:true,swayH:heightW,swayK:sp==='cactus'?0:K});
   return ENV.mats[key]={leaf,bark};
 }
+// far trees: each species is drawn once, from the side, into a small texture; beyond LOD_D metres a tree is that picture on a
+// card that turns to face the camera (one quad instead of a few hundred leaf cards, and no shadow pass). 8 Bit blocks stay as they are
+const LOD_D=[55,80,130];
+let FOREST=[];
+function envImpostor(sp,M2){
+  ENV.imp=ENV.imp||{}; if(ENV.imp[sp]) return ENV.imp[sp];
+  const T=envTemplate(sp), box=new THREE.Box3(); for(const g of [T.leaves,T.wood]) if(g){ g.computeBoundingBox(); box.union(g.boundingBox); }
+  const R=Math.max(-box.min.x,box.max.x,-box.min.z,box.max.z,0.3)*1.04, top=box.max.y*1.03, W=128, Hh=clamp(Math.pow(2,Math.round(Math.log2(W*top/(2*R)))),64,512);
+  const rt=new THREE.WebGLRenderTarget(W,Hh,{minFilter:THREE.LinearMipmapLinearFilter,magFilter:THREE.LinearFilter}); rt.texture.generateMipmaps=true;
+  const sc=new THREE.Scene(), cam=new THREE.OrthographicCamera(-R,R,top,0,1,80); cam.position.set(0,0,40); cam.lookAt(0,0,0);
+  const basic=m=>new THREE.MeshBasicMaterial({map:m.map,color:m.color,vertexColors:!!m.vertexColors,alphaTest:m.alphaTest||0,side:m.side,toneMapped:false,fog:false});
+  if(T.wood) sc.add(new THREE.Mesh(T.wood,basic(M2.bark))); if(T.leaves) sc.add(new THREE.Mesh(T.leaves,basic(M2.leaf)));
+  const pt=renderer.getRenderTarget(), pc=renderer.getClearColor(new THREE.Color()), pa=renderer.getClearAlpha(), cp=renderer.clippingPlanes;
+  renderer.clippingPlanes=[]; renderer.setRenderTarget(rt); renderer.setClearColor(new THREE.Color(ENV_LEAF[sp]||0x6a8a50).convertSRGBToLinear().multiplyScalar(0.55),0); renderer.clear(); renderer.render(sc,cam);   // (clear to leaf colour, so the soft edges don't go dark)
+  renderer.setRenderTarget(pt); renderer.setClearColor(pc,pa); renderer.clippingPlanes=cp; sc.traverse(o=>{ if(o.material) o.material.dispose(); });
+  const geo=new THREE.PlaneGeometry(2*R,top); geo.translate(0,top/2,0); const nr=geo.attributes.normal; for(let k=0;k<nr.count;k++) nr.setXYZ(k,0,1,0);   // lit like a canopy, from above
+  geo.userData.shared=true;
+  const mat=envPatch(new THREE.MeshStandardMaterial({map:rt.texture,alphaTest:0.42,side:THREE.DoubleSide,roughness:0.9,color:0x7a7a7a}),{cloud:true,bill:true});   // (darkened to match the shaded full trees)
+  return ENV.imp[sp]={geo,mat,rt};
+}
 // trees: [{x,y,z,s,sp,rot}] (s = scale, metres → world via ENV.U) → instanced meshes added to parent
 function envForest(trees,parent){
-  const out=[], m4=new THREE.Matrix4(), q=new THREE.Quaternion(), sv=new THREE.Vector3(), pv=new THREE.Vector3(), up=new THREE.Vector3(0,1,0);
+  const out=[];
   for(const sp of [...new Set(trees.map(t=>t.sp))]){ const list=trees.filter(t=>t.sp===sp); if(!list.length) continue;
-    const T=envTemplate(sp), avg=list.reduce((a,t)=>a+t.s,0)/list.length, M2=envMaterials(sp,T.h*avg*ENV.U);
+    const T=envTemplate(sp), avg=list.reduce((a,t)=>a+t.s,0)/list.length, M2=envMaterials(sp,T.h*avg*ENV.U), F={list,fulls:[],far:null,lod:new Int8Array(list.length)};
     for(const [geo,mt] of [[T.leaves,M2.leaf],[T.wood,M2.bark]]){ if(!geo) continue;
       const im=new THREE.InstancedMesh(geo,mt,list.length);
-      list.forEach((t,i)=>{ pv.set(t.x,t.y,t.z); q.setFromAxisAngle(up,t.rot!=null?t.rot:t.x*1.7+t.z); const s=t.s*ENV.U; sv.set(s,s*(t.sy||1),s); m4.compose(pv,q,sv); im.setMatrixAt(i,m4); });
-      if(!PERF){ im.castShadow=true; im.receiveShadow=geo===T.leaves; } im.frustumCulled=false; parent.add(im); out.push(im); } }
+      if(GFX===2){ im.castShadow=true; im.receiveShadow=geo===T.leaves; } im.frustumCulled=false; parent.add(im); out.push(im); F.fulls.push(im); }
+    if(!sp.startsWith('block')){ const I=envImpostor(sp,M2); F.far=new THREE.InstancedMesh(I.geo,I.mat,list.length); F.far.frustumCulled=false; F.far.count=0; parent.add(F.far); }
+    F.lod.fill(-1); FOREST.push(F); forestPlace(F,null); }
   return out;
+}
+const _fm4=new THREE.Matrix4(), _fq=new THREE.Quaternion(), _fsv=new THREE.Vector3(), _fpv=new THREE.Vector3(), _fup=new THREE.Vector3(0,1,0);
+function forestPlace(F,lod){                        // write the near trees into the full meshes and the far ones onto cards
+  let nN=0, nF=0; const L=F.list;
+  for(let i=0;i<L.length;i++){ const t=L[i]; _fpv.set(t.x,t.y,t.z); _fq.setFromAxisAngle(_fup,t.rot!=null?t.rot:t.x*1.7+t.z); const sc=t.s*ENV.U; _fsv.set(sc,sc*(t.sy||1),sc); _fm4.compose(_fpv,_fq,_fsv);
+    if(lod&&lod[i]===2) continue;                    // well behind the camera: not drawn at all
+    if(lod&&lod[i]===1&&F.far) F.far.setMatrixAt(nF++,_fm4); else { for(const im of F.fulls) im.setMatrixAt(nN,_fm4); nN++; } }
+  for(const im of F.fulls){ im.count=nN; im.visible=nN>0; im.instanceMatrix.needsUpdate=true; }
+  if(F.far){ F.far.count=nF; F.far.visible=nF>0; F.far.instanceMatrix.needsUpdate=true; }
+}
+const _fwd=new THREE.Vector3();
+function forestLOD(x,z,fx,fz){                       // (fx,fz null: looking down from above, nothing is behind) every frame: which trees are near enough to draw in full (±6 m of slack, so none flicker),
+  const D=LOD_D[GFX], A=(D+6)*(D+6), B=(D-6)*(D-6), K=GFX===2?40:12, K2=K*K;   // and which are well behind the camera (more than ~110° off the view, K m
+  for(const F of FOREST){ let ch=false; const L=F.list;                          // away; on High further, since their shadows can still fall in view)
+    for(let i=0;i<L.length;i++){ const t=L[i], dx=t.x-x, dz=t.z-z, d2=dx*dx+dz*dz, cur=F.lod[i]; let nf;
+      const c=fx==null||d2<K2?1:(dx*fx+dz*fz)/Math.sqrt(d2); if(c<(cur===2?-0.3:-0.4)) nf=2;
+      else nf=!F.far?0:cur===1?(d2>B?1:0):(d2>A?1:0);
+      if(nf!==cur){ F.lod[i]=nf; ch=true; } }
+    if(ch) forestPlace(F,F.lod); }
+}
+// Medium and Low have no sun shadows: a soft dark patch under each course tree instead, cast away from the sun (redrawn with the time of day)
+let treeShade=null, _shadeTex=null, _shadeTexPx=null;
+function shadeTex(px){ if(px&&_shadeTexPx) return _shadeTexPx; if(!px&&_shadeTex) return _shadeTex;
+  const N=px?16:64, c=mkCanvas(N,N), g=c.getContext('2d');
+  if(px){ for(let y=0;y<N;y++) for(let x=0;x<N;x++){ const r=Math.hypot(x+0.5-N/2,y+0.5-N/2)/(N/2); if(r<1){ g.fillStyle=`rgba(255,255,255,${r<0.7?1:0.55})`; g.fillRect(x,y,1,1); } } }
+  else { const rg=g.createRadialGradient(N/2,N/2,0,N/2,N/2,N/2); rg.addColorStop(0,'rgba(255,255,255,1)'); rg.addColorStop(0.55,'rgba(255,255,255,.85)'); rg.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=rg; g.fillRect(0,0,N,N); }
+  const t=toTex(c); if(px){ t.magFilter=t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; } return px?(_shadeTexPx=t):(_shadeTex=t); }
+function buildTreeShade(){
+  if(treeShade){ if(treeShade.parent) treeShade.parent.remove(treeShade); treeShade.geometry.dispose(); treeShade=null; }
+  if(GFX===2||!holeGroup||!TREES.length) return;
+  const d=envSunDir(settings.tod), el=Math.max(0.25,d.y), hl=Math.hypot(d.x,d.z)||1, ux=-d.x/hl, uz=-d.z/hl, vx=-uz, vz=ux, n=6, V=n+1;
+  const pos=new Float32Array(TREES.length*V*V*3), uv=new Float32Array(TREES.length*V*V*2), idx=[];
+  TREES.forEach((T,k)=>{ const hc=(T.ch+T.cr*0.3), off=Math.min(T.cr*2.2,hc*hl/el)*0.85, cx=T.x+ux*off, cz=T.z+uz*off, ra=Math.min(T.cr*2.4,T.cr*1.05/Math.sqrt(el)), rb=T.cr*1.05, b0=k*V*V;
+    for(let j=0;j<V;j++) for(let i=0;i<V;i++){ const a=(i/n)*2-1, b=(j/n)*2-1, x=cx+ux*a*ra+vx*b*rb, z=cz+uz*a*ra+vz*b*rb, q=(b0+j*V+i);
+      pos[q*3]=x; pos[q*3+1]=meshH(x,z)+0.035; pos[q*3+2]=z; uv[q*2]=i/n; uv[q*2+1]=j/n; }
+    for(let j=0;j<n;j++) for(let i=0;i<n;i++){ const a=b0+j*V+i; idx.push(a,a+V,a+1,a+1,a+V,a+V+1); } });
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('uv',new THREE.BufferAttribute(uv,2)); g.setIndex(idx); g.computeBoundingSphere();
+  if(!M.treeShade) M.treeShade=new THREE.MeshBasicMaterial({color:0x08160a,transparent:true,depthWrite:false,fog:false,toneMapped:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  M.treeShade.map=shadeTex(!!H.pixel); M.treeShade.opacity=settings.tod===3?0.2:settings.tod===2?0.5:0.44; M.treeShade.needsUpdate=true;
+  treeShade=new THREE.Mesh(g,M.treeShade); treeShade.renderOrder=1; holeGroup.add(treeShade);
 }
 // grass tufts: [{x,y,z,s,c:THREE.Color}] → one instanced mesh of crossed blades
 function envTuftGeo(){
@@ -665,7 +757,7 @@ function envTufts(list,parent){
 }
 // ── water that mirrors the sky and trees (one planar reflection, at the level of the water nearest the camera) ──
 function envMirrorInit(){
-  if(PERF||ENV.mirror) return ENV.mirror;
+  if(GFX<2||ENV.mirror) return ENV.mirror;
   const rt=new THREE.WebGLRenderTarget(512,512,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,format:THREE.RGBAFormat});
   ENV.mirror={rt,tex:{value:rt.texture},mat:{value:new THREE.Matrix4()},cam:new THREE.PerspectiveCamera(),plane:new THREE.Plane(new THREE.Vector3(0,1,0),0),waters:[],hide:[],level:0,on:false};
   return ENV.mirror;
@@ -677,8 +769,17 @@ const _envFr=new THREE.Frustum(), _envM4=new THREE.Matrix4(), _envSph=new THREE.
 // compile every shader and upload every texture for the scene now (main pass and the water-reflection pass), so nothing
 // stalls the first time it scrolls into view. Renders off-screen with culling off and hidden things briefly shown.
 let _envWarmRT=null;
+let _warmKit=null;
+function warmKit(scene){                            // hidden samples of what's only made mid-shot, so envPrewarm compiles their shaders up front
+  if(_warmKit||typeof M==='undefined'||!M.divot) return; const g=new THREE.Group(), pg=new THREE.PlaneGeometry(0.01,0.01); g.visible=false;
+  for(const m of [M.divot,M.pitch]) g.add(new THREE.Mesh(pg,m));
+  const pts=new THREE.BufferGeometry(); pts.setAttribute('position',new THREE.BufferAttribute(new Float32Array(3),3));
+  g.add(new THREE.Points(pts,new THREE.PointsMaterial({color:0xffffff,size:0.05,transparent:true,opacity:0.9,depthWrite:false})));
+  g.add(new THREE.Mesh(new THREE.RingGeometry(0.8,1,40),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.7,depthWrite:false,side:THREE.DoubleSide})));
+  envTufts([{x:0,y:-50,z:0,s:0.01,c:new THREE.Color(1,1,1)}],g);
+  g.position.y=-60; scene.add(g); _warmKit=g; }
 function envPrewarm(renderer,scene,camera){
-  if(!renderer||!scene||!camera) return; const flip=[];
+  if(!renderer||!scene||!camera) return; warmKit(scene); const flip=[];
   scene.traverse(o=>{ if(o.frustumCulled&&(o.isMesh||o.isLine||o.isPoints)){ flip.push([o,'frustumCulled',true]); o.frustumCulled=false; }
     if(!o.visible&&o!==scene){ flip.push([o,'visible',false]); o.visible=true; } });
   const R=ENV.mirror, tgt=renderer.getRenderTarget();
@@ -693,6 +794,7 @@ function envPrewarm(renderer,scene,camera){
   }catch(e){ console.warn('prewarm',e); }
   renderer.setRenderTarget(tgt); for(const [o,k,v] of flip) o[k]=v;
 }
+const _envSz=new THREE.Vector2(), _envDir=new THREE.Vector3();
 function envMirrorRender(renderer,scene,camera){    // call just before the main render
   const R=ENV.mirror; if(!R) return; R.on=false;
   // only water that's actually on screen gets a reflection pass (it's a second full render of the scene)
@@ -701,10 +803,10 @@ function envMirrorRender(renderer,scene,camera){    // call just before the main
     _envSph.center.set(w.userData.cx,w.userData.level,w.userData.cz); _envSph.radius=w.userData.rad; if(!_envFr.intersectsSphere(_envSph)) continue; bd=d; best=w; }
   if(!best||bd>300*ENV.U) return;                       // nothing nearby to reflect
   const h=best.userData.level; R.level=h; R.on=true;
-  const sz=new THREE.Vector2(); renderer.getDrawingBufferSize(sz); const w=Math.max(256,(sz.x/3)|0), hh=Math.max(256,(sz.y/3)|0);     // a third of the screen is plenty for a rippled reflection
+  const sz=_envSz; renderer.getDrawingBufferSize(sz); const w=Math.max(256,(sz.x/4)|0), hh=Math.max(256,(sz.y/4)|0);     // a quarter of the screen is plenty for a rippled reflection
   if(R.rt.width!==w||R.rt.height!==hh) R.rt.setSize(w,hh);
   const mc=R.cam; mc.copy(camera); mc.position.y=2*h-camera.position.y;
-  const dir=new THREE.Vector3(); camera.getWorldDirection(dir); dir.y=-dir.y; mc.up.set(0,1,0); mc.lookAt(mc.position.x+dir.x,mc.position.y+dir.y,mc.position.z+dir.z);
+  const dir=_envDir; camera.getWorldDirection(dir); dir.y=-dir.y; mc.up.set(0,1,0); mc.lookAt(mc.position.x+dir.x,mc.position.y+dir.y,mc.position.z+dir.z);
   mc.projectionMatrix.copy(camera.projectionMatrix); mc.updateMatrixWorld();
   R.mat.value.set(0.5,0,0,0.5, 0,0.5,0,0.5, 0,0,0.5,0.5, 0,0,0,1).multiply(mc.projectionMatrix).multiply(mc.matrixWorldInverse);
   R.plane.set(new THREE.Vector3(0,1,0),-h);
@@ -977,7 +1079,7 @@ function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){
 function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g)); if(e){ e.best=s; writeSaved(a); } }
 const courseLabel=g=>(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, meter:1, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 // ═══════════════════════════════════════════════════════
@@ -1301,7 +1403,7 @@ function buildMaterials(){
 }
 // wrap-around backdrop: hazy mountain ranges, green foothills and a distant tree line (tiles seamlessly round 360°)
 function panoramaCanvas(px){
-  const W=PERF?2048:4096, Hh=1024, c=mkCanvas(W,Hh), g=c.getContext('2d'), base=Hh-24, q=px?16:1, Q=v=>Math.round(v/q)*q;    // base = where the ground meets the backdrop
+  const W=GFX===2?4096:2048, Hh=1024, c=mkCanvas(W,Hh), g=c.getContext('2d'), base=Hh-24, q=px?16:1, Q=v=>Math.round(v/q)*q;    // base = where the ground meets the backdrop
   const ridge=(k,oct,amp,y0,col,seed)=>{ g.fillStyle=col; g.beginPath(); g.moveTo(0,Hh);
     for(let x=0;x<=W;x+=4){ const xs=px?Math.floor(x/q)*q:x, n=NZ.fbm(xs/W*k+seed,seed,oct,k,0), sharp=1-Math.abs(NZ.fbm(xs/W*k*2+seed*3,seed+5,3,k*2,0)*2-1); g.lineTo(x,Q(y0-amp*(n*0.75+sharp*0.35))); }
     g.lineTo(W,Hh); g.closePath(); g.fill(); };
@@ -1320,12 +1422,23 @@ function buildEnvironmentOutdoor(){
   const es=new THREE.Scene(); es.add(new THREE.Mesh(new THREE.SphereGeometry(500,32,16),new THREE.MeshBasicMaterial({map:M.skyMesh.material.map,side:THREE.BackSide})));
   const pm=new THREE.PMREMGenerator(renderer); scene.environment=pm.fromScene(es,0.04).texture; pm.dispose();
 }
+// graphics tiers. High: antialiasing, live sun shadows, water reflections. Medium: none of those (soft shadow blobs under the
+// trees and a sky-only shine on the water instead) at 1× resolution. Low: Medium plus lighter textures, terrain, grass and 30 fps.
+// Auto starts from a guess at the GPU and steps down (resolution first, then a tier) if play runs slow
+const GFX_NAMES=['Low','Medium','High'];
+function gpuGuess(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl'); if(!gl) return 0;
+    const e=gl.getExtension('WEBGL_debug_renderer_info'), s=String(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)), lose=gl.getExtension('WEBGL_lose_context'); if(lose) lose.loseContext();
+    if(/swiftshader|llvmpipe|software|basic render/i.test(s)) return 0;
+    if(/nvidia|geforce|quadro|radeon (rx|pro)|apple m\d (pro|max|ultra)|apple m[3-9]/i.test(s)) return 2;
+    return 1; }catch(e){ return 1; } }
+function resolveGfx(){ const g=settings.gfx; if(g==='high') return 2; if(g==='medium') return 1; if(g==='low') return 0;
+  if(settings.gfxAuto==null){ settings.gfxAuto=gpuGuess(); saveSettings(); } return clamp(settings.gfxAuto|0,0,2); }
 function initScene(){
-  PERF=!!settings.optimized; ENV.U=1; ENV.cloudScale.value=1/400;
-  renderer=new THREE.WebGLRenderer({antialias:!PERF,powerPreference:PERF?'low-power':'high-performance'});
+  GFX=resolveGfx(); PERF=GFX===0; settings.optimized=PERF; ENV.U=1; ENV.cloudScale.value=1/400;
+  renderer=new THREE.WebGLRenderer({antialias:GFX===2,powerPreference:PERF?'low-power':'high-performance'});
   renderer.outputEncoding=THREE.sRGBEncoding; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.0;
-  if(!PERF){ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate=false; }   // (the loop says when)
-  ANISO=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  if(GFX===2){ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFShadowMap; renderer.shadowMap.autoUpdate=false; }   // (the loop says when)
+  ANISO=Math.min(GFX===2?4:2,renderer.capabilities.getMaxAnisotropy());
   applyQuality(); stage.appendChild(renderer.domElement);
   scene=new THREE.Scene(); scene.background=new THREE.Color(0xbcdcf4); scene.fog=new THREE.FogExp2(0xcfe2f2,0.00045);   // aerial perspective: distant trees and hills fade into the haze
   camera=new THREE.PerspectiveCamera(55,1,0.05,5000);
@@ -1339,7 +1452,7 @@ function initScene(){
   L.hemi=new THREE.HemisphereLight(0xcfe8ff,0x5a7838,0.55); scene.add(L.hemi);
   L.sun=new THREE.DirectionalLight(0xfff1d6,1.1); scene.add(L.sun); scene.add(L.sun.target);
   applyTOD();
-  if(!PERF){ L.sun.castShadow=true; const c=L.sun.shadow.camera; c.left=c.bottom=-45; c.right=c.top=45; c.near=1; c.far=500; L.sun.shadow.mapSize.set(2048,2048); L.sun.shadow.bias=-0.0006; L.sun.shadow.normalBias=0.04; }
+  if(GFX===2){ L.sun.castShadow=true; const c=L.sun.shadow.camera; c.left=c.bottom=-45; c.right=c.top=45; c.near=1; c.far=500; L.sun.shadow.mapSize.set(2048,2048); L.sun.shadow.bias=-0.0006; L.sun.shadow.normalBias=0.04; }
   buildBall(); buildAimBits();
   raycaster=new THREE.Raycaster();
   resize(); if(window.ResizeObserver) new ResizeObserver(()=>resize()).observe(stage);
@@ -1404,7 +1517,7 @@ function buildHole(){
   SURF_COL=H.surf?Object.assign({},SURF_BASE,H.surf):SURF_BASE;
   pixelLook(!!H.pixel);
   if(holeGroup) disposeGroup(holeGroup);
-  holeGroup=new THREE.Group(); scene.add(holeGroup); envClearWater(); TUFTS=[];
+  holeGroup=new THREE.Group(); scene.add(holeGroup); envClearWater(); TUFTS=[]; TUFTQ=[]; FOREST=[];
   // keep the whole hole (valleys, pond beds) clear of the flat world plane 6 m down
   if(H.base==null){ H.base=0; let lo=1e9; let ax0=1e9,ax1=-1e9,az1=-1e9; for(const [x,z] of H.route){ ax0=Math.min(ax0,x); ax1=Math.max(ax1,x); az1=Math.max(az1,z); }
     for(let x=ax0-H.ob-110;x<=ax1+H.ob+110;x+=6) for(let z=-120;z<=az1+150;z+=6) lo=Math.min(lo,hAt(x,z)); H.base=Math.max(0,-4.2-lo); for(const W of H.water){ W.bed=null; W.lvl=null; } }   // (pond beds/levels were cached before the lift)
@@ -1416,7 +1529,7 @@ function buildHole(){
   for(let j=0;j<nz;j++) for(let i=0;i<nx;i++){ const x=X0+i*cs, z=Z0+j*cs, k=j*nx+i; pos[k*3]=x; pos[k*3+1]=hAt(x,z); pos[k*3+2]=z; surfColor(x,z,c3); col[k*3]=c3[0]; col[k*3+1]=c3[1]; col[k*3+2]=c3[2]; uv[k*2]=x/1.4; uv[k*2+1]=z/1.4; }
   const idx=[]; for(let j=0;j<nz-1;j++) for(let i=0;i<nx-1;i++){ const a=j*nx+i, b=a+1, c=a+nx, d=c+1; idx.push(a,c,b,b,c,d); }
   // surface texture over the playing corridor (0.4 m per pixel), so fairway / rough / green / sand edges stay sharp
-  const SX0=rx0-H.ob-24, SX1=rx1+H.ob+24, SZ0=-46, SZ1=rz1+44; let res=H.pixel?0.25:PERF?0.8:0.4; while((SX1-SX0)/res>4096||(SZ1-SZ0)/res>4096) res*=1.25;
+  const SX0=rx0-H.ob-24, SX1=rx1+H.ob+24, SZ0=-46, SZ1=rz1+44; let res=H.pixel?0.25:PERF?0.8:0.4; const TMAX=GFX===2?4096:2048; while((SX1-SX0)/res>TMAX||(SZ1-SZ0)/res>TMAX) res*=1.25;   // (Medium/Low: at most 2048², a quarter of the memory)
   const SW=Math.ceil((SX1-SX0)/res), SH=Math.ceil((SZ1-SZ0)/res), scv=mkCanvas(SW,SH), sg=scv.getContext('2d'), simg=sg.createImageData(SW,SH), sd=simg.data;
   const blk=new Map(), hsh=(a,b)=>{ const v=Math.sin(a*127.1+b*311.7)*43758.5453; return v-Math.floor(v); };
   for(let py=0;py<SH;py++) for(let px=0;px<SW;px++){ const x=SX0+(px+0.5)*res, z=SZ1-(py+0.5)*res, i=(py*SW+px)*4;
@@ -1478,7 +1591,7 @@ function buildOuterLand(gOut){
     for(let k=0;k<N;k++){ const b=base[k]; g.attributes.normal.setXYZ(k,nIn.getX(b),nIn.getY(b),nIn.getZ(b)); } }   // share the course edge's normals: no lighting seam
   const o=new THREE.Mesh(g,M.groundFar); o.receiveShadow=!PERF; holeGroup.add(o);
   // woods on the near hills
-  if(PERF) return; const list=[]; for(let i=0;i<4000&&list.length<260;i++){ const k=(NZ.rnd()*N)|0, j=1+NZ.rnd()*7.5, j0=Math.floor(j), t=j-j0, dd=mix(D[j0],D[j0+1],t), b=base[k];
+  const list=[]; for(let i=0;i<4000&&list.length<(PERF?160:260);i++){ const k=(NZ.rnd()*N)|0, j=1+NZ.rnd()*7.5, j0=Math.floor(j), t=j-j0, dd=mix(D[j0],D[j0+1],t), b=base[k];
     let dx=pos[b*3]-cx, dz=pos[b*3+2]-cz; const l=Math.hypot(dx,dz)||1; const x=pos[b*3]+dx/l*dd, z=pos[b*3+2]+dz/l*dd;
     if(NZ.fbm(x*0.006+2,z*0.006+7,3)<0.47&&NZ.rnd()<0.85) continue;
     const dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1)); if(dOut<8) continue;
@@ -1541,7 +1654,7 @@ function buildTrees(){
     const T=envTemplate(sp), sc=0.75+rnd()*0.55;
     TREES.push({x,z,y:hAt(x,z)-0.1,s:sc,sp,trunkR:T.trunkR*sc,h:T.trunkH*sc,cr:T.r*sc,ch:(T.cy-T.r*0.3)*sc,rot:sp.startsWith('block')?0:undefined});
   }
-  envForest(TREES,holeGroup); buildSquatch();
+  envForest(TREES,holeGroup); buildSquatch(); buildTreeShade(); forestLOD(H.tee[0],H.tee[1]);
 }
 const UPV=V3(0,1,0);
 
@@ -1554,14 +1667,59 @@ function resize(){
   camera.aspect=aspect; camera.fov=vfov; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize',()=>{ if(renderer) resize(); });
-function applyQuality(){ if(!renderer) return; const dpr=window.devicePixelRatio||1; renderer.setPixelRatio(settings.optimized?Math.min(1,dpr):Math.min(1.5,dpr)); lastW=lastH=0; resize(); }
+function applyQuality(){ if(!renderer) return; const dpr=window.devicePixelRatio||1; renderer.setPixelRatio(Math.min(GFX===2?1.25:1,dpr)*RES_SCALE); lastW=lastH=0; resize(); }
 
 // ═══════════════════════════════════════════════════════
 //  SOUND
 // ═══════════════════════════════════════════════════════
 function sfxStrike(club,q){ if(!audioOK()) return; const t=_ac.currentTime, c=CLUBS[club];             // driver "crack", iron "click", wedge "thwick"
-  if(c.n==='Driver'||c.n.includes('Wood')){ burst(t,0.02,0.6,'highpass',2800); mode(1900,t,0.08,0.25*q,1500); mode(3600,t,0.05,0.1*q); mode(320,t,0.09,0.25,220); }
+  if(c.n==='Driver'||c.n.includes('Wood')){ sfxWood(t,q,c.n==='Driver'?1:1.12); }
   else { burst(t,0.012,0.5,'bandpass',3600,1.2); mode(2600,t,0.04,0.18*q); mode(880,t,0.06,0.12); burst(t+0.01,0.08,0.12,'lowpass',900); } }
+// woods: trying out "thwack" options (WOOD_SFX, picked in Settings while we choose). k raises the pitch a little for fairway woods
+let WOOD_SFX='A'; try{ WOOD_SFX=sessionStorage.getItem('justgolf_woodsfx')||'A'; }catch(e){}
+function sfxWood(t,q,k){ const v=0.55+0.45*q;
+  if(WOOD_SFX==='A'){            // A · deep thwack: a fat low thump under a smack, with a dark low-passed rush that falls away
+    burst(t,0.025,0.32*v,'bandpass',1100*k,1.1);                       // the smack of the face
+    burst(t,0.16,0.75*v,'lowpass',2200*k,0.9,260,0.002);               // LPF noise: the body of the thwack, darkening fast
+    mode(190*k,t,0.12,0.55*v,70);                                      // low thump, pitching down
+    mode(640*k,t,0.05,0.12*v,480); }
+  else if(WOOD_SFX==='B'){       // B · hollow titanium: a ringing "tank" from the hollow head, a tight crack and a long low-passed whoosh
+    burst(t,0.012,0.35*v,'highpass',3200*k);                           // tight crack
+    mode(1050*k,t,0.09,0.28*v,930); mode(2240*k,t,0.06,0.12*v,2050);   // the hollow head ringing
+    burst(t+0.004,0.24,0.5*v,'lowpass',3200*k,0.8,380,0.004);          // LPF noise: a whooshing tail
+    mode(140*k,t,0.1,0.4*v,80); }
+  else if(WOOD_SFX==='C'){       // C · persimmon "thock": woodier and rounder, a hard knock with a short dark puff of noise
+    burst(t,0.035,0.45*v,'bandpass',760*k,2.2,520);                    // the wooden knock
+    mode(560*k,t,0.06,0.3*v,430); mode(1380*k,t,0.035,0.12*v,1200);
+    burst(t,0.1,0.6*v,'lowpass',1500*k,1.0,300,0.002);                 // LPF noise puff
+    mode(230*k,t,0.08,0.35*v,110); }
+  else { burst(t,0.02,0.6,'highpass',2800); mode(1900,t,0.08,0.25*q,1500); mode(3600,t,0.05,0.1*q); mode(320,t,0.09,0.25,220); }   // the current crack
+}
+// the downswing: a whoosh that builds as the club comes down and peaks at the hit. Meter mode follows the meter's way back to
+// the white zone; Touch mode plays it over the moment between letting go and the strike. Trying options (SWING_SFX, in Settings)
+let SWING_SFX='air'; try{ SWING_SFX=sessionStorage.getItem('justgolf_swingsfx')||'air'; }catch(e){}
+let _sw=null;
+function swingK(){ const c=CLUBS[clubIdx]; return c.n==='Driver'||c.n.includes('Wood')?1:c.n.includes('Iron')?0.86:0.74; }   // club-head speed
+function swooshStart(){
+  if(!audioOK()||SWING_SFX==='off'||clubIdx===PUTTER) return null; if(_sw) swooshEnd();
+  const ac=_ac, t=ac.currentTime, src=ac.createBufferSource(), f=ac.createBiquadFilter(), g=ac.createGain(), wh=SWING_SFX==='whistle';
+  src.buffer=getNoise(); src.loop=true; f.type='bandpass'; f.Q.value=wh?3.5:0.8; f.frequency.setValueAtTime(260,t); g.gain.setValueAtTime(0.0001,t);
+  src.connect(f); f.connect(g); g.connect(master); src.start(t,Math.random()*0.5);
+  let o=null, og=null; if(wh){ o=ac.createOscillator(); og=ac.createGain(); o.type='triangle'; o.frequency.setValueAtTime(420,t); og.gain.setValueAtTime(0.0001,t); o.connect(og); og.connect(master); o.start(t); }   // the shaft's whistle
+  return _sw={src,f,g,o,og,k:swingK(),wh};
+}
+function swooshAt(u,pow,t,ramp){                    // u: 0 → 1 at the ball (Meter mode: over the last 0.4 s before the white zone)
+  const S=_sw; if(!S) return; const a=Math.pow(clamp(u,0,1),2)*(0.35+0.65*pow)*S.k, set=(prm,v)=>ramp?prm.linearRampToValueAtTime(v,t):prm.setTargetAtTime(v,t,0.02);
+  set(S.g.gain,Math.max(0.0001,a*(S.wh?0.45:0.8))); set(S.f.frequency,260+u*(S.wh?2200:1500)*S.k);
+  if(S.o){ set(S.og.gain,Math.max(0.0001,a*0.07)); set(S.o.frequency,420+u*900*S.k); }
+}
+function swooshEnd(){                               // at the hit: the whoosh carries on a moment into the follow-through and dies away
+  const S=_sw; if(!S) return; _sw=null; const t=_ac.currentTime;
+  for(const prm of [S.g.gain,S.og&&S.og.gain]) if(prm){ prm.cancelScheduledValues(t); prm.setValueAtTime(Math.max(0.0001,prm.value),t); prm.setTargetAtTime(0.0001,t,0.045); }
+  S.f.frequency.cancelScheduledValues(t); S.f.frequency.setTargetAtTime(S.f.frequency.value*0.6,t,0.06);
+  S.src.stop(t+0.35); if(S.o) S.o.stop(t+0.35);
+}
+function swooshFor(dur,pow){ if(!swooshStart()) return; const t=_ac.currentTime; swooshAt(0,pow,t,true); swooshAt(1,pow,t+dur,true); }   // Touch: a set length
 function sfxPutt(p){ if(!audioOK()) return; const t=_ac.currentTime, v=0.35+p*0.65; burst(t,0.012,0.45*v,'highpass',2400); mode(1250,t,0.05,0.2*v,900); mode(420,t,0.06,0.12*v,300); }
 function sfxLand(v,s){ if(!audioOK()) return; const vol=clamp(v/25,0,1); if(vol<0.04) return; const t=gate('land',0.06); if(t<0) return;
   if(s==='sand'){ burst(t,0.12,0.4*vol,'lowpass',700); return; } if(s==='green'||s==='fringe'){ burst(t,0.02,0.3*vol,'lowpass',1600); mode(180,t,0.06,0.2*vol,120); return; }
@@ -1693,7 +1851,7 @@ function resumeGame(g){
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function startHole(){
-  H=PLAY[holeIdx]; strokes=0; buildHole(); envPrewarm(renderer,scene,camera);
+  H=PLAY[holeIdx]; strokes=0; buildHole(); envPrewarm(renderer,scene,camera); AT.hold=2500; AT.t=AT.n=AT.sum=0; PF.hitch=0; PF.skip=2;
   const [tx,tz]=H.tee; ball.p.set(tx,meshH(tx,tz)+BALL_R+0.03,tz); ball.v.set(0,0,0); ball.mode='rest'; ball.lie='tee'; ball.visible=true; ball.sink=0; ball.last=[tx,tz];
   const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14*(H.wind||1)); wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};   // exposed holes blow harder
   buildTufts(); if(H.range){ clubIdx=0; aim=0; rangeShot={bonus:0,hit:null}; } else { suggestClub(); aimDefault(); } phase='intro'; camMode='intro'; introT=0;
@@ -1705,7 +1863,7 @@ function nextShot(){
   if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }      // also catches penalty strokes
   buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); avoidWater(); updateUI(); buildHUD(); saveGame();
 }
-function strike(power,acc){                        // power 0..1, acc -1..1 (left = hook, right = slice)
+function strike(power,acc){ swooshEnd();                        // power 0..1, acc -1..1 (left = hook, right = slice)
   const c=CLUBS[clubIdx], lm=lieMul(), S2=SURF[ball.lie]||SURF.fairway;
   const v=c.v*power*lm*(1-Math.abs(acc)*0.15), la=(c.la+(ball.lie==='sand'?4:0)-(ball.lie==='tee'&&c.n!=='Driver'?0:0))*DEG;
   const dir=aim+acc*0.025, hs=v*Math.cos(la);
@@ -1759,7 +1917,8 @@ function endHole(sc){
   phase='sunk'; scores.push(sc); saveGame(true); const rel=sc-H.par;
   const term=sc===1?'HOLE IN ONE!':rel<=-3?'ALBATROSS!':rel===-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':rel===2?'DOUBLE BOGEY':'+'+rel;
   if(rel<0){ celebrate(term,rel<=-2?'pink':'gold'); sfxChime('great'); if(!testRound){ stats.aces++; saveStats(); } } else if(rel===0){ celebrate(term,'green'); sfxChime('par'); } else { showMsg(term,1.6); sfxChime('over'); }
-  buildHUD(); tween(0.01,()=>{},()=>{ holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else startHole(); },2.4);
+  buildHUD(); tween(0.01,()=>{},()=>{ if(gfxPending&&holeIdx+1<PLAY.length){ saveGame(true); try{ sessionStorage.setItem('gfxAutoReload','1'); }catch(e){} location.reload(); return; }   // Auto graphics stepping down: reload into the next hole
+    holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else startHole(); },2.4);
 }
 function roundOver(){
   clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=PLAY.reduce((a,h)=>a+h.par,0), rel=s-par, bk=bestKey(roundCourse), isGen=roundCourse==='gen'&&GEN, ge=isGen?savedFind(GEN):null;
@@ -1832,13 +1991,13 @@ function swingClick(){
   else if(meter.state==='down'){ if(meter.auto&&now-meter.auto<250) return; finishSwing(-(meter.x-IMPACT)/0.12); }   // (a late power tap right as it maxed out)      // early = hook (−), late = slice (+)
 }
 function meterPuttGo(p){ meter.state='idle'; document.getElementById('mfill').style.width='0'; const dx=Math.sin(aim), dz=Math.cos(aim); aimDir.set(dx,dz); puttPow=0; putt(dx,dz,p); }
-function finishSwing(accRaw){ const acc=clamp(accRaw,-1,1); meter.state='idle';
+function finishSwing(accRaw){ const acc=clamp(accRaw,-1,1); meter.state='idle'; swooshEnd();
   missHint.note(Math.abs(acc)<0.35,'swing',3,'Your last few swings went way off line.<br>Stop the meter right on the white zone for a straight shot — or try <b>Swing: Touch</b> in <b>Settings</b>.'); document.getElementById('mfill').style.width='0'; strike(meter.power,acc); }
 function updateMeter(dt){
   if(meter.state==='idle') return; const pm=clubIdx===PUTTER, sp=(pm?0.62:1.05)*settings.meter;
   if(meter.state==='up'&&pm){ meter.x=Math.min(1,meter.x+sp*dt); puttPow=(meter.x-IMPACT)/(1-IMPACT); if(meter.x>=1){ meterPuttGo(1); return; } }
   else if(meter.state==='up'){ meter.x+=sp*dt; if(meter.x>=1){ meter.x=1; meter.power=1; meter.state='down'; meter.auto=performance.now(); const pw=document.getElementById('mpow'); pw.style.left='100%'; pw.style.display='block'; pw.style.background='#fff'; } }
-  else if(meter.state==='down'){ meter.x-=sp*1.15*dt; if(meter.x<=IMPACT-0.12){ finishSwing(1); return; } }          // never stopped it: a big slice
+  else if(meter.state==='down'){ meter.x-=sp*1.15*dt; if(!_sw&&audioOK()) swooshStart(); if(_sw) swooshAt(1-Math.max(0,meter.x-IMPACT)/(sp*1.15)/0.4,meter.power,_ac.currentTime); if(meter.x<=IMPACT-0.12){ finishSwing(1); return; } }          // never stopped it: a big slice
   document.getElementById('mmark').style.left=(meter.x*100)+'%';
   const f=document.getElementById('mfill'); f.style.left=(IMPACT*100)+'%'; f.style.width=Math.max(0,(meter.state==='up'?meter.x:meter.power*(1-IMPACT)+IMPACT)-IMPACT)*100+'%';
 }
@@ -1906,7 +2065,7 @@ function padUp(e){
   const acc=clamp(bow*3.6+(ix-Q.cx)/Q.W*2.2,-1,1);
   const shape=Math.abs(acc)<0.06?'straight':acc<0?(acc<-0.35?'hook':'draw'):(acc>0.35?'slice':'fade');
   padMsg(`Power ${Math.round(power*100)}% · ${shape}`);
-  setTimeout(()=>{ closePad(); strike(power,acc); },260);
+  swooshFor(0.26,power); setTimeout(()=>{ closePad(); strike(power,acc); },260);
 }
 
 
@@ -2089,11 +2248,36 @@ function drawMap(rebuild){
 //  RENDER LOOP
 // ═══════════════════════════════════════════════════════
 let lastT=0, mapT=0, birdT=6;
-// frame pacing: never more than 60 fps (30 on Low graphics) however fast the screen refreshes, and once nothing has moved for
-// a moment (aiming, the menu) drop to 30 (20) — the laptop's fans and battery notice, the player doesn't
-let _busyT=0, _idle=false, _frameN=0;
+// frame pacing: about 60 fps (30 on Low graphics) however fast the screen refreshes, and once nothing has moved for a moment
+// (aiming, the menu) about 30 (20) — the laptop's fans and battery notice, the player doesn't. Frames land on whole refreshes
+// (every 2nd on a 120 Hz screen, every 2nd on 144 Hz = 72 fps) so the pace is even rather than a beat of 2s and 3s
+let _busyT=0, _idle=false, _frameN=0, _rafPrev=0, _refresh=16.67, _target=16.67; const _rafD=[];
+function noteRaf(t){ if(_rafPrev){ const d=t-_rafPrev; if(d>2&&d<60){ _rafD.push(d); if(_rafD.length>=45){ _rafD.sort((a,b)=>a-b); _refresh=_rafD[22]; _rafD.length=0; } } } _rafPrev=t; }
+// after 3 s with nothing moving (aiming, the menu, the scorecard) the picture holds still and nothing is drawn at all; any touch,
+// key, mouse move or resize brings it straight back
+function wake(){ _busyT=performance.now(); }
+['pointerdown','pointermove','keydown','wheel','touchstart','resize','visibilitychange'].forEach(ev=>window.addEventListener(ev,wake,{passive:true}));
 function frameGap(t){ const active=!(phase==='menu'||phase==='over'||phase==='aim')||dragging||meter.state!=='idle'||anims.length>0||ball.mode!=='rest'||document.getElementById('pad').classList.contains('open');
-  if(active) _busyT=t; _idle=t-_busyT>1500; return (PERF?(_idle?50:33.3):(_idle?33.3:16.7))-1.5; }
+  if(active) _busyT=t; _idle=t-_busyT>1500; const want=PERF?(_idle?50:33.3):(_idle?33.3:16.7), r=_refresh, k=Math.max(1,Math.floor(want/r+0.25)); _target=k*r; return _target-r*0.5; }
+// frame-rate readout (Settings) and Auto graphics: watches frames while something moves (not the idle-capped ones)
+const PF={t:0,n:0,sum:0,max:0,cpu:0,hitch:0,el:null,skip:0}, AT={t:0,n:0,sum:0,fast:0,hold:0}; let gfxPending=false;
+function perfSample(raw,cpu){
+  if(raw>250||document.hidden||PF.skip>0){ PF.skip--; return; }   // a tab switch or a hole loading, not a frame
+  if(raw>_target*2.5&&!_idle) PF.hitch++;
+  if(settings.fps){ PF.n++; PF.sum+=raw; PF.max=Math.max(PF.max,raw); PF.cpu+=cpu; PF.t+=raw;
+    if(PF.t>=500){ const el=PF.el||(PF.el=document.getElementById('fps')), a=PF.sum/PF.n, ri=renderer.info.render;
+      el.textContent=`${Math.round(1000/a)} fps${_idle?' (idle)':''} · ${a.toFixed(1)} ms · worst ${PF.max.toFixed(0)} · cpu ${(PF.cpu/PF.n).toFixed(1)} · hitches ${PF.hitch}\n${GFX_NAMES[GFX]}${settings.gfx==='auto'?' (auto)':''} · ${renderer.getPixelRatio().toFixed(2)}× · ${Math.round(1000/_refresh)} Hz · ${ri.calls} draws · ${Math.round(ri.triangles/1000)}k tris`;
+      el.style.display='block'; PF.t=PF.n=PF.sum=PF.max=PF.cpu=0; } }
+  if(settings.gfx!=='auto'||_idle||phase==='menu'||phase==='over'||phase==='intro') return;
+  if(AT.hold>0){ AT.hold-=raw; return; }                  // let a new hole's first frames (and a resolution change) settle
+  AT.sum+=raw; AT.n++; AT.t+=raw; if(AT.t<3000) return;
+  const a=AT.sum/AT.n; AT.t=AT.sum=AT.n=0;
+  if(a>_target*1.3){ AT.fast=0;                           // running slow: trim the resolution, then (between holes) drop a tier
+    if(RES_SCALE>0.76){ RES_SCALE=Math.max(0.75,RES_SCALE-0.125); applyQuality(); AT.hold=800; }
+    else if(GFX>0&&!gfxPending){ settings.gfxAuto=GFX-1; saveSettings(); gfxPending=true; } }
+  else if(a<_target*1.08&&RES_SCALE<1){ if(++AT.fast>=2){ AT.fast=0; RES_SCALE=Math.min(1,RES_SCALE+0.125); applyQuality(); AT.hold=800; } }
+  else AT.fast=0;
+}
 function syncBall(){
   // the ball is always true size; only when the camera is far off (the overhead view) is it drawn larger, and that view
   // never changes while you watch the ball. In flight a close chase camera keeps it big enough to follow instead
@@ -2112,9 +2296,11 @@ function syncBall(){
   const gy=meshH(P.x,P.z); shadowDisc.position.set(P.x,gy+0.006,P.z); shadowDisc.scale.setScalar(Math.max(1,dist/14)); shadowDisc.visible=ball.visible&&P.y-gy<3;
 }
 function loop(t){
-  if(t-lastT<frameGap(t)){ requestAnimationFrame(loop); return; }
+  noteRaf(t);
+  if(t-lastT<frameGap(t)||(_idle&&t-_busyT>3000&&_frameN>30)){ requestAnimationFrame(loop); return; }
+  const c0=performance.now(), raw=t-lastT;
   try{
-    const dt=Math.min((t-lastT)/1000,0.033); lastT=t; clock+=dt; _frameN++;
+    const dt=Math.min(raw/1000,0.033); lastT=t; clock+=dt; _frameN++;
     if(renderer&&(lastW<2||lastH<2)) resize();
     if(H){
       const n=Math.max(1,Math.ceil(dt*480)); for(let k=0;k<n;k++) physStep(dt/n);
@@ -2126,10 +2312,11 @@ function loop(t){
       if(M.water.map) M.water.map.offset.x+=dt*0.01;
       envStep(dt,wind.x||0.4,wind.z||0.15,0.25+(wind.mph||0)/11); if(M.skyMesh) M.skyMesh.rotation.y+=dt*0.002*(1+(wind.mph||0)/8);
       birdT-=dt; if(birdT<0){ birdT=5+Math.random()*12; birdChirp(); }
-      if(renderer){ syncBall(); if(ball.mode!=='rest') tuftsAhead(); growTufts(); updateCamera(dt); if(M.pano) M.pano.position.set(camera.position.x,-6-660*(24/1024)+330,camera.position.z); syncAim(); if(greenGrid) stepGreenAids(dt); mapT-=dt; if(mapT<0){ mapT=_idle?0.5:0.1; drawMap(false); } }
+      if(renderer){ syncBall(); if(ball.mode!=='rest') tuftsAhead(); stepTufts(); growTufts(); updateCamera(dt); camera.getWorldDirection(_fwd); { const l=Math.hypot(_fwd.x,_fwd.z)||1, down=_fwd.y<-0.6; forestLOD(camera.position.x,camera.position.z,down?null:_fwd.x/l,down?null:_fwd.z/l); } if(M.pano) M.pano.position.set(camera.position.x,-6-660*(24/1024)+330,camera.position.z); syncAim(); if(greenGrid) stepGreenAids(dt); mapT-=dt; if(mapT<0){ mapT=_idle?0.5:0.1; drawMap(false); } }
     }
     if(renderer){ if(renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate=!_idle||(_frameN&1)===0;            // idle: shadows (swaying leaves) every other frame
-      if(!_idle||(_frameN&1)===0||!ENV.mirror||!ENV.mirror.on) envMirrorRender(renderer,scene,camera); renderer.render(scene,camera); }
+      if(_frameN%(_idle?3:2)===0||!ENV.mirror||!ENV.mirror.on) envMirrorRender(renderer,scene,camera); renderer.render(scene,camera); }   // the reflection redraws every 2nd frame (3rd when idle)
+    perfSample(raw,performance.now()-c0);
   }catch(err){ showFatal(err); }
   requestAnimationFrame(loop);
 }
@@ -2137,9 +2324,10 @@ function loop(t){
 // ═══════════════════════════════════════════════════════
 //  ENVIRONMENT DETAIL: time of day, course furniture, cart path, grass tufts, divots & pitch marks
 // ═══════════════════════════════════════════════════════
-function applyTOD(){ if(!L.sun) return; envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); envApplyNight(settings.tod===3,{M,scene,renderer,perf:PERF});
+function applyTOD(){ if(!L.sun) return; wake(); envApplyTOD(settings.tod,{sun:L.sun,hemi:L.hemi,renderer,sky:M.skyMesh,pano:M.pano,fog:scene.fog}); envApplyNight(settings.tod===3,{M,scene,renderer,perf:PERF});
   if(greenGrid){ greenGrid.material.color.set(settings.tod===3?0x9fd8ff:0x0b3a9e); greenGrid.material.opacity=settings.tod===3?0.8:0.7; }   // dark lines by day, light by moonlight
   if(H&&H.haze&&settings.tod!==3){ const c=new THREE.Color(H.haze); scene.fog.color.lerp(c,0.55); if(M.pano) M.pano.material.color.lerp(c,0.4); }   // a themed course's warm/sandy haze
+  if(H&&holeGroup&&GFX<2) buildTreeShade();
   if(ball&&ball.p) placeSun(ball.p); }   // 3 = night: bright moonlight under a starry sky
 const _sd=V3();
 // the shadow box covers what the camera is looking at: centred a little ahead of the camera, ~170 m across for full
@@ -2193,26 +2381,36 @@ function buildFurniture(){
 // A patch only fills ground no other patch covers (no doubled-up grass). Round a resting ball the blades shrink so it shows.
 let TUFTS=[]; const TUFT_R=22, _tm4=new THREE.Matrix4(), _tq=new THREE.Quaternion(), _tsv=new THREE.Vector3(), _tpv=new THREE.Vector3(), _tup=new THREE.Vector3(0,1,0);
 function clearTufts(){ for(const T of TUFTS) if(T.im){ if(T.im.parent) T.im.parent.remove(T.im); T.im.dispose&&T.im.dispose(); } TUFTS=[]; }
-function tuftPatch(cx,cz){
-  while(TUFTS.length>=4){ let fi=0, fd=-1; TUFTS.forEach((T,i)=>{ const d=Math.hypot(T.x-cx,T.z-cz); if(d>fd){ fd=d; fi=i; } });            // make room first: drop the patch furthest away
-    const o=TUFTS.splice(fi,1)[0]; if(o.im){ if(o.im.parent) o.im.parent.remove(o.im); o.im.dispose&&o.im.dispose(); } }
-  const list=[], c=new THREE.Color(), others=TUFTS.slice();
-  for(let i=0;i<10000&&list.length<3600;i++){ const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*TUFT_R, x=cx+Math.cos(a)*r, z=cz+Math.sin(a)*r;      // ~2.4 blades per m² of rough at most (was ~6.8)
-    if(others.some(T=>Math.hypot(x-T.x,z-T.z)<TUFT_R)) continue;                                       // already grassed by another patch
+// grass patches are grown a slice at a time (a few ms a frame) so planting one as you swing doesn't stall the frame; the
+// one under the ball at the start of a hole is built whole, behind the loading screen
+let TUFTQ=[];
+function tuftPatch(cx,cz){ const J={x:cx,z:cz,i:0,list:[],others:null}; while(!tuftWork(J,1e9)); }
+function tuftWork(J,budget){                        // true once the patch is done
+  if(!J.others){ J.others=TUFTS.slice(); }
+  const t0=performance.now(), c=_tcol, cap=GFX===2?3600:2200;
+  while(J.i<10000&&J.list.length<cap){ J.i++; const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*TUFT_R, x=J.x+Math.cos(a)*r, z=J.z+Math.sin(a)*r;      // ~2.4 blades per m² of rough at most
+    if(J.others.some(T=>Math.hypot(x-T.x,z-T.z)<TUFT_R)) continue;                                     // already grassed by another patch
     const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue;
     const col=SURF_COL[s], kk=0.95+NZ.rnd()*0.25; c.setRGB(Math.pow(col[0]*kk/255,2.2)*1.6,Math.pow(col[1]*kk/255,2.2)*1.6,Math.pow(col[2]*kk/255,2.2)*1.6);
-    list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7),k:1,c:c.clone()}); }
-  const im=envTufts(list,holeGroup); TUFTS.push({im,list,x:cx,z:cz,born:clock,grow:!!im}); if(im) setTuftScales(TUFTS[TUFTS.length-1],0);
+    J.list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7),k:1,c:c.clone()});
+    if((J.i&63)===0&&performance.now()-t0>budget) return false; }
+  while(TUFTS.length>=4){ let fi=0, fd=-1; TUFTS.forEach((T,i)=>{ const d=Math.hypot(T.x-J.x,T.z-J.z); if(d>fd){ fd=d; fi=i; } });   // make room: drop the patch furthest away
+    const o=TUFTS.splice(fi,1)[0]; if(o.im){ if(o.im.parent) o.im.parent.remove(o.im); o.im.dispose&&o.im.dispose(); } }
+  const im=envTufts(J.list,holeGroup); TUFTS.push({im,list:J.list,x:J.x,z:J.z,born:clock,grow:!!im}); if(im) setTuftScales(TUFTS[TUFTS.length-1],0);
+  return true;
 }
+const _tcol=new THREE.Color();
+function stepTufts(){ if(!TUFTQ.length) return; const J=TUFTQ[0]; if(tuftWork(J,3)){ TUFTQ.shift(); if(ball.mode==='rest') nestBall(); } }
 function setTuftScales(T,g){ T.list.forEach((t,i)=>{ _tpv.set(t.x,t.y,t.z); _tq.setFromAxisAngle(_tup,(t.x*13.7+t.z*7.1)%6.28); _tsv.setScalar(Math.max(1e-4,t.s*t.k*g)*ENV.U); _tm4.compose(_tpv,_tq,_tsv); T.im.setMatrixAt(i,_tm4); }); T.im.instanceMatrix.needsUpdate=true; }
 function growTufts(){ for(const T of TUFTS) if(T.grow){ const u=clamp((clock-T.born)/0.45,0,1); setTuftScales(T,smooth(u)); if(u>=1) T.grow=false; } }   // new grass rises in rather than popping
-function ensureTufts(x,z){ if(PERF||!holeGroup||(H&&H.pixel)) return; if(TUFTS.some(T=>Math.hypot(T.x-x,T.z-z)<TUFT_R*0.6)) return; tuftPatch(x,z); }
+function ensureTufts(x,z,now){ if(PERF||!holeGroup||(H&&H.pixel)) return; const near=T=>Math.hypot(T.x-x,T.z-z)<TUFT_R*0.6; if(TUFTS.some(near)||TUFTQ.some(near)) return;
+  if(now) tuftPatch(x,z); else TUFTQ.push({x,z,i:0,list:[],others:null}); }
 function nestBall(){                                   // shrink the blades right round the resting ball (and let others spring back)
   const P=ball.p; for(const T of TUFTS){ if(!T.im) continue; let ch=false;
     T.list.forEach((t,i)=>{ const d=Math.hypot(t.x-P.x,t.z-P.z), k=d<0.45?0:d<1.3?0.45:1; if(k===t.k) return; t.k=k; ch=true;
       _tpv.set(t.x,t.y,t.z); _tq.setFromAxisAngle(_tup,(t.x*13.7+t.z*7.1)%6.28); _tsv.setScalar(Math.max(1e-4,t.s*k)*ENV.U); _tm4.compose(_tpv,_tq,_tsv); T.im.setMatrixAt(i,_tm4); });
     if(ch) T.im.instanceMatrix.needsUpdate=true; } }
-function buildTufts(){ if(PERF) return; ensureTufts(ball.p.x,ball.p.z); nestBall(); }
+function buildTufts(){ if(PERF) return; ensureTufts(ball.p.x,ball.p.z,true); nestBall(); }
 function tuftsAhead(){                                  // called every frame while the ball moves
   if(PERF) return; const P=ball.p, V=ball.v;
   if(ball.mode==='fly'&&V.y<0){ let x=P.x, z=P.z; for(let k=0;k<2;k++){ const gy=hAt(x,z), t=(V.y+Math.sqrt(Math.max(0,V.y*V.y+2*G*(P.y-gy))))/G; x=P.x+V.x*t; z=P.z+V.z*t; }   // where it comes down
@@ -2235,7 +2433,8 @@ function landMarks(s,vn,P){
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
 function saveSettings(){ try{ localStorage.setItem('justgolf',JSON.stringify(settings)); }catch(e){} }
-function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('justgolf')||'{}')); }catch(e){} if(!BALL_TYPES.some(b=>b.id===settings.ball)) settings.ball='white';
+function loadSettings(){ try{ const raw=JSON.parse(localStorage.getItem('justgolf')||'{}'); Object.assign(settings,raw); if(raw.gfx==null&&raw.optimized) settings.gfx='low'; }catch(e){}   // (the old Low graphics switch)
+  if(!['auto','high','medium','low'].includes(settings.gfx)) settings.gfx='auto'; if(!BALL_TYPES.some(b=>b.id===settings.ball)) settings.ball='white';
   settings.power=1; settings.meter=1; if(!['front','back','all'].includes(settings.course)) settings.course='front';   // (putting sensitivity and meter speed are fixed now)
   // swing method: 'meter' (3-click power meter) or 'draw' (draw to drive). Until you pick one it's draw on a touch screen, the meter otherwise
   if(settings.swing!=='meter'&&settings.swing!=='draw') settings.swing=settings.drawSwing?'draw':(window.matchMedia&&matchMedia('(pointer:coarse)').matches?'draw':'meter');
@@ -2281,13 +2480,23 @@ function setupSettings(){
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });
   { const lb=document.getElementById('setLefty'), apply=()=>{ document.body.classList.toggle('lefty',!!settings.lefty); lb.classList.toggle('on',!!settings.lefty); lb.textContent='Left-handed controls: '+(settings.lefty?'On':'Off'); };
     apply(); lb.addEventListener('click',()=>{ settings.lefty=!settings.lefty; saveSettings(); apply(); window.dispatchEvent(new Event('resize')); }); }   // (re-place the map round the swapped controls)                  // SWING on the left, clubs on the right
-  const guideBtn=document.getElementById('setGuide'), optBtn=document.getElementById('setOpt');
-  const refresh=()=>{ guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide & landing ring: '+(settings.guide?'On':'Off'); optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Low graphics: '+(settings.optimized?'On':'Off'); };
+  const guideBtn=document.getElementById('setGuide'), fpsBtn=document.getElementById('setFps');
+  const refresh=()=>{ guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide & landing ring: '+(settings.guide?'On':'Off');
+    fpsBtn.classList.toggle('on',!!settings.fps); fpsBtn.textContent='Frame rate readout: '+(settings.fps?'On':'Off'); document.getElementById('fps').style.display=settings.fps?'block':'none'; };
   refresh();
   guideBtn.addEventListener('click',()=>{ settings.guide=!settings.guide; saveSettings(); refresh(); });
   { const sr=[...document.querySelectorAll('input[name="swing"]')];                                    // swing method, remembered once chosen
     sr.forEach(r=>{ r.checked=(r.value===settings.swing); r.addEventListener('change',()=>{ if(r.checked){ settings.swing=r.value; saveSettings(); if(H) updateUI(); } }); }); }
-  optBtn.addEventListener('click',()=>{ settings.optimized=!settings.optimized; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); });
+  fpsBtn.addEventListener('click',()=>{ settings.fps=!settings.fps; saveSettings(); refresh(); });
+  document.querySelectorAll('input[name="swingsfx"]').forEach(r=>{ r.checked=(r.value===SWING_SFX);   // preview: a driver's downswing, then the hit
+    const play=()=>{ SWING_SFX=r.value; try{ sessionStorage.setItem('justgolf_swingsfx',SWING_SFX); }catch(e){} getAC(); setTimeout(()=>{ if(!audioOK()) return; const ci=clubIdx; clubIdx=CLUBS.findIndex(c=>c.n==='Driver'); swooshFor(0.32,0.9); clubIdx=ci;
+      setTimeout(()=>{ swooshEnd(); sfxStrike(CLUBS.findIndex(c=>c.n==='Driver'),0.9); },320); },40); };
+    r.addEventListener('change',play); r.parentElement.addEventListener('click',e=>{ if(e.target!==r&&r.checked) play(); }); });
+  document.querySelectorAll('input[name="woodsfx"]').forEach(r=>{ r.checked=(r.value===WOOD_SFX);
+    const play=()=>{ WOOD_SFX=r.value; try{ sessionStorage.setItem('justgolf_woodsfx',WOOD_SFX); }catch(e){} getAC(); setTimeout(()=>{ if(audioOK()) sfxStrike(CLUBS.findIndex(c=>c.n==='Driver'),0.9); },40); };
+    r.addEventListener('change',play); r.parentElement.addEventListener('click',e=>{ if(e.target!==r&&r.checked) play(); }); });   // tap again to replay
+  { const gr=[...document.querySelectorAll('input[name="gfx"]')]; document.getElementById('gfxAutoLbl').textContent=settings.gfx==='auto'?GFX_NAMES[resolveGfx()]:'';   // a new tier needs a fresh start of the page (the round carries on)
+    gr.forEach(r=>{ r.checked=(r.value===settings.gfx); r.addEventListener('change',()=>{ if(!r.checked) return; settings.gfx=r.value; if(r.value==='auto') settings.gfxAuto=null; saveSettings(); saveGame(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); }); }); }
   const pick=(name,key)=>{ const rs=[...document.querySelectorAll(`input[name="${name}"]`)], vals=rs.map(r=>+r.value); settings[key]=vals.reduce((a,b)=>Math.abs(b-settings[key])<Math.abs(a-settings[key])?b:a,vals[0]);
     rs.forEach(r=>{ r.checked=(+r.value===settings[key]); r.addEventListener('change',()=>{ if(r.checked){ settings[key]=+r.value; saveSettings(); } }); }); };
   pick('tod','tod'); pick('maxover','maxOver');
@@ -2332,7 +2541,9 @@ function boot(){
   initScene(); bindInput();
   H=HOLES[0]; buildHole(); envPrewarm(renderer,scene,camera); ball.p.set(H.tee[0],hAt(H.tee[0],H.tee[1])+BALL_R,H.tee[1]); aimAtPin(); phase='menu'; camMode='aim';
   resumeSave=loadGame(); OV_TITLE=document.querySelector('#ov h2').textContent; showStart(resumeSave?'resume':'start',false);
-  try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
+  try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); if(resumeSave){ document.getElementById('ov').classList.remove('show'); const g=resumeSave; resumeSave=null; resumeGame(g); } document.getElementById('settings').classList.add('open'); }
+    if(sessionStorage.getItem('gfxAutoReload')){ sessionStorage.removeItem('gfxAutoReload'); if(resumeSave){ document.getElementById('ov').classList.remove('show'); const g=resumeSave; resumeSave=null; resumeGame(g); }
+      const n=document.getElementById('gfxNote'); n.textContent='Graphics set to '+GFX_NAMES[GFX]+' for smoother play. You can change it in Settings.'; n.classList.add('show'); setTimeout(()=>n.classList.remove('show'),5000); } }catch(e){}
   buildHUD(); drawMap(true);
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
 }
