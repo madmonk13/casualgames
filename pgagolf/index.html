@@ -1359,7 +1359,7 @@ function blob(r,detail,jit,seed){                 // a lumpy low-poly canopy / s
 // ═══════════════════════════════════════════════════════
 //  SCENE
 // ═══════════════════════════════════════════════════════
-let cupMeshes=[], ballRing=null; let puttArrow=null, greenGrid=null, flowDots=null, renderer,scene,camera,raycaster,ballMesh,ballMat,shadowDisc,holeGroup=null,flagCloth=null,trail=null,landMark=null,aimLine=null,pinMesh=null;
+let cupMeshes=[], ballRing=null, cupRing=null; let puttArrow=null, greenGrid=null, flowDots=null, renderer,scene,camera,raycaster,ballMesh,ballMat,shadowDisc,holeGroup=null,flagCloth=null,trail=null,landMark=null,aimLine=null,pinMesh=null;
 const M={}, L={};
 const stage=document.getElementById('stage');
 let lastW=0,lastH=0;
@@ -1389,7 +1389,8 @@ function buildMaterials(){
   M.capR=new THREE.MeshStandardMaterial({color:0xd8262c,roughness:0.5}); M.capB=new THREE.MeshStandardMaterial({color:0x2a5ad8,roughness:0.5}); M.capW=M.white; M.handle=new THREE.MeshStandardMaterial({color:0xf2c21a,roughness:0.5});
   { const c=mkCanvas(64,64), g=c.getContext('2d'), rg=g.createRadialGradient(32,32,4,32,32,31); rg.addColorStop(0,'rgba(70,48,28,.95)'); rg.addColorStop(0.7,'rgba(92,66,40,.8)'); rg.addColorStop(1,'rgba(92,66,40,0)'); g.fillStyle=rg; g.fillRect(0,0,64,64);
     M.divot=new THREE.MeshStandardMaterial({map:toTex(c),transparent:true,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-4});
-    const p=mkCanvas(64,64), pg=p.getContext('2d'); pg.strokeStyle='rgba(40,70,30,.75)'; pg.lineWidth=7; pg.beginPath(); pg.arc(32,32,20,0,7); pg.stroke(); pg.fillStyle='rgba(60,90,40,.45)'; pg.beginPath(); pg.arc(32,32,15,0,7); pg.fill();
+    const p=mkCanvas(64,64), pg=p.getContext('2d');   // ball mark: a pale scuffed dent with a torn lip on the far side (light, so it never reads as a second hole)
+    pg.fillStyle='rgba(205,220,150,.35)'; pg.beginPath(); pg.ellipse(32,34,13,22,0,0,7); pg.fill(); pg.strokeStyle='rgba(225,230,170,.85)'; pg.lineWidth=5; pg.lineCap='round'; pg.beginPath(); pg.arc(32,30,13,Math.PI*1.15,Math.PI*1.85); pg.stroke();
     M.pitch=new THREE.MeshStandardMaterial({map:toTex(p),transparent:true,depthWrite:false,roughness:1,polygonOffset:true,polygonOffsetFactor:-4}); }
   for(const m of [M.ground,M.groundFar]) envPatch(m,{cloud:true}); envCloudAll(M);
 }
@@ -1475,7 +1476,10 @@ function buildAimBits(){
   landMark=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:toTex(rc),transparent:true,depthTest:false,depthWrite:false,toneMapped:false,color:0xffe14a}));
   landMark.rotation.x=-Math.PI/2; landMark.renderOrder=10; scene.add(landMark);
   { const bc=mkCanvas(64,64), b=bc.getContext('2d'); b.strokeStyle='rgba(0,0,0,.55)'; b.lineWidth=9; b.beginPath(); b.arc(32,32,25,0,7); b.stroke(); b.strokeStyle='#fff'; b.lineWidth=4; b.beginPath(); b.arc(32,32,25,0,7); b.stroke();
-    ballRing=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:toTex(bc),transparent:true,depthWrite:false,toneMapped:false,opacity:0.85})); ballRing.rotation.x=-Math.PI/2; ballRing.renderOrder=8; scene.add(ballRing); }
+    ballRing=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:toTex(bc),transparent:true,depthWrite:false,toneMapped:false,opacity:0.85})); ballRing.rotation.x=-Math.PI/2; ballRing.renderOrder=8; scene.add(ballRing);
+    // (a screen-facing oval, so from a low putting camera it never flattens into a line the way a ring on the ground does)
+    const cc=mkCanvas(128,128), q=cc.getContext('2d'); q.strokeStyle='rgba(0,0,0,.6)'; q.lineWidth=22; q.beginPath(); q.arc(64,64,48,0,7); q.stroke(); q.strokeStyle='#fff'; q.lineWidth=12; q.beginPath(); q.arc(64,64,48,0,7); q.stroke();
+    cupRing=new THREE.Sprite(new THREE.SpriteMaterial({map:toTex(cc),color:0xffe14a,transparent:true,depthTest:false,depthWrite:false,toneMapped:false,fog:false})); cupRing.renderOrder=12; cupRing.visible=false; scene.add(cupRing); }
   const c=mkCanvas(64,256), ag2=c.getContext('2d'); ag2.clearRect(0,0,64,256);
   ag2.fillStyle='rgba(0,0,0,.5)'; ag2.beginPath(); ag2.moveTo(32,0); ag2.lineTo(62,40); ag2.lineTo(44,40); ag2.lineTo(44,256); ag2.lineTo(20,256); ag2.lineTo(20,40); ag2.lineTo(2,40); ag2.closePath(); ag2.fill();
   ag2.fillStyle='#fff'; ag2.beginPath(); ag2.moveTo(32,8); ag2.lineTo(54,36); ag2.lineTo(40,36); ag2.lineTo(40,256); ag2.lineTo(24,256); ag2.lineTo(24,36); ag2.lineTo(10,36); ag2.closePath(); ag2.fill();
@@ -1600,18 +1604,22 @@ function buildGreenAids(){
     if(on(x0,z0)&&on(x1,z1)) pts.push(x0,hAt(x0,z0)+0.012,z0,x1,hAt(x1,z1)+0.012,z1); }
   const gg=new THREE.BufferGeometry(); gg.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
   greenGrid=new THREE.LineSegments(gg,new THREE.LineBasicMaterial({color:settings.tod===3?0x9fd8ff:0x0b3a9e,transparent:true,opacity:settings.tod===3?0.8:0.7,depthWrite:false,toneMapped:false,fog:false})); greenGrid.visible=false; holeGroup.add(greenGrid);
-  const N=PERF?90:180, fp=new Float32Array(N*3), life=new Float32Array(N);
+  // slope dots start from the grid's crossings (every 2nd line, wider apart on a big green) and run downhill for a set
+  // time before starting again from the same crossing; alternate crossings (a checkerboard) run half a cycle apart
+  const cap=PERF?140:360; let nodes=[]; for(let s2=sp*2;;s2+=sp){ nodes=[]; for(let i=0,x=cx-R;x<=cx+R;x+=s2,i++) for(let j=0,z=cz-R;z<=cz+R;z+=s2,j++) if(ellR(G,x,z)<0.97) nodes.push([x,z,((i+j)%2)*0.5]); if(nodes.length<=cap) break; }
+  const N=nodes.length, fp=new Float32Array(N*3), life=new Float32Array(N);
   const fg=new THREE.BufferGeometry(); fg.setAttribute('position',new THREE.BufferAttribute(fp,3));
-  flowDots=new THREE.Points(fg,new THREE.PointsMaterial({map:dotTex(),color:0x6fe0ff,size:7,sizeAttenuation:false,transparent:true,alphaTest:0.2,depthWrite:false,toneMapped:false})); flowDots.visible=false; flowDots.frustumCulled=false; flowDots.userData={life,R}; holeGroup.add(flowDots);
-  for(let i=0;i<N;i++) life[i]=-1;
+  flowDots=new THREE.Points(fg,new THREE.PointsMaterial({map:dotTex(),color:0x6fe0ff,size:7,sizeAttenuation:false,transparent:true,alphaTest:0.2,depthWrite:false,toneMapped:false})); flowDots.visible=false; flowDots.frustumCulled=false; flowDots.userData={life,nodes}; holeGroup.add(flowDots);
+  for(let i=0;i<N;i++){ const [x,z,ph]=nodes[i]; life[i]=FLOW_LIFE*(1-ph); const [gx,gz]=grad(x,z), t=FLOW_LIFE*ph; fp.set([x-gx*FLOW_V*t,0,z-gz*FLOW_V*t],i*3); }
 }
+const FLOW_LIFE=1.2, FLOW_V=26;   // each run: 1.2 s at a pace that grows with the slope (short enough to stay near its crossing)
 function stepGreenAids(dt){
   const show=clubIdx===PUTTER&&(phase==='aim'||phase==='flight')&&(ball.lie==='green'||ball.lie==='fringe');
   greenGrid.visible=show; flowDots.visible=show; if(!show) return;
-  const G=H.green, [cx,cz]=G.c, p=flowDots.geometry.attributes.position, {life,R}=flowDots.userData;
+  const G=H.green, p=flowDots.geometry.attributes.position, {life,nodes}=flowDots.userData;
   for(let i=0;i<p.count;i++){ let x=p.getX(i), z=p.getZ(i);
-    if(life[i]<=0||ellR(G,x,z)>1.05){ do{ x=cx+(Math.random()*2-1)*R; z=cz+(Math.random()*2-1)*R; }while(ellR(G,x,z)>1); life[i]=1.5+Math.random()*2; }
-    const [gx,gz]=grad(x,z); x-=gx*45*dt; z-=gz*45*dt; life[i]-=dt; p.setXYZ(i,x,hAt(x,z)+0.02,z); }
+    if(life[i]<=0||ellR(G,x,z)>1.05){ x=nodes[i][0]; z=nodes[i][1]; life[i]=FLOW_LIFE; }
+    const [gx,gz]=grad(x,z); x-=gx*FLOW_V*dt; z-=gz*FLOW_V*dt; life[i]-=dt; p.setXYZ(i,x,hAt(x,z)+0.02,z); }
   p.needsUpdate=true;
 }
 // trees: instanced trunks + canopies lining the hole and in clumps, kept off fairway, greens, tees and water
@@ -2067,7 +2075,8 @@ function aimCamera(P,d){
   const key=[P.x.toFixed(2),P.z.toFixed(2),aim.toFixed(3),clubIdx,camera.aspect.toFixed(2),holeIdx,H&&H.name].join('|');   // only recompute when something changed
   if(key===_aimCam.key){ _tp.copy(_aimCam.tp); _tl.copy(_aimCam.tl); return; }
   CAM_PUTT=camera.aspect>1.2?CAM_PUTT_WIDE:CAM_PUTT_TALL; const putting=clubIdx===PUTTER, by=P.y, vf=Math.tan(camera.fov*DEG/2);
-  let back=putting?CAM_PUTT[0]:7, up=putting?CAM_PUTT[1]:3.2, cx=0, cz=0, cy=0, side=0;   // side: swing the camera round the ball (radians) to dodge trees
+  let back=putting?CAM_PUTT[0]:7, up=putting?CAM_PUTT[1]:3.2, cx=0, cz=0, cy=0, side=0;
+  if(putting){ const far=clamp(toPin()-4,0,14); up+=far*0.09; back+=far*0.05; }        // longer putts: look down on the green a bit more   // side: swing the camera round the ball (radians) to dodge trees
   const tD=putting?Math.min(toPin(),12):Math.min(toPin(),carryOf(clubIdx,lieMul())*(1+rollFrac(clubIdx))), tx=P.x+d[0]*tD, tz=P.z+d[1]*tD, ty=hAt(tx,tz)+1.5;   // (aim to see ~where the landing ring floats)
   const place=()=>{ const c=Math.cos(side), sn=Math.sin(side), ox=d[0]*c-d[1]*sn, oz=d[0]*sn+d[1]*c; cx=P.x-ox*back; cz=P.z-oz*back; cy=Math.max(hAt(cx,cz)+0.8,by+up);
     for(let i=1;i<16;i++){ const u=i/16, x=mix(cx,P.x,u), z=mix(cz,P.z,u), need=hAt(x,z)+0.2, ly=mix(cy,by,u); if(ly<need) cy+=(need-ly)/(1-u); } };
@@ -2185,6 +2194,9 @@ function syncAim(){
   const show=settings.guide&&(phase==='aim'||phase==='swing'), putting=clubIdx===PUTTER, P=ball.p;
   ballRing.visible=(phase==='aim'||phase==='swing')&&ball.visible&&ball.mode==='rest';                         // find the ball at a glance (it stays true to size)
   if(ballRing.visible){ const d=camera.position.distanceTo(P), r=Math.max(0.09,d*0.016); ballRing.position.set(P.x,meshH(P.x,P.z)+0.012,P.z); ballRing.scale.set(r*2,r*2,1); }
+  // putting from a way off: a yellow ring round the cup, the same size on screen at any distance, so it's easy to pick out on a phone
+  cupRing.visible=!H.range&&putting&&(phase==='aim'||phase==='swing'||camMode==='putt')&&!(phase==='sunk')&&toPin()>3;
+  if(cupRing.visible){ const [px,pz]=H.pin, d=Math.hypot(camera.position.x-px,camera.position.y-hAt(px,pz),camera.position.z-pz), r=Math.max(CUP_R*2.4,d*0.04); cupRing.position.set(px,meshH(px,pz)+0.01,pz); cupRing.scale.set(r*2,r*1.1,1); }
   landMark.visible=show&&!putting; aimLine.visible=show&&(!putting||puttPow>0.02);
   puttArrow.visible=false;                                                   // (the dotted line itself is made of little arrows now)
   if(puttArrow.visible){ const len=0.15+puttPow*2.4, ang=Math.atan2(aimDir.x,aimDir.y), y=hAt(P.x,P.z)+0.02;
@@ -2403,7 +2415,8 @@ function shotMarks(dir,power){
   envBurst(holeGroup,x,P.y,z,{n:14,col:0x5a7a34,spd:0.6,up:2.4,size:0.04,life:0.9,dx:Math.sin(dir)*2,dz:Math.cos(dir)*2});
 }
 function landMarks(s,vn,P){
-  if((s==='green'||s==='fringe')&&vn>3&&!ball.marked){ ball.marked=true; decal(M.pitch,P.x,P.z,0.13,0.13,0); }
+  if((s==='green'||s==='fringe')&&vn>3&&!ball.marked){ ball.marked=true; const m=M.pitch.clone(), o=decal(m,P.x,P.z,0.07,0.1,Math.atan2(ball.v.x,ball.v.z));   // pointing the way the ball was going; fades after a few seconds
+    tween(2,u=>{ m.opacity=1-u; },()=>{ if(o.parent) o.parent.remove(o); o.geometry.dispose(); m.dispose(); },4); }
   if(s==='sand'&&vn>2) envBurst(holeGroup,P.x,P.y,P.z,{n:40,col:0xe2d2a6,spd:1,up:1.8,size:0.045,life:1.0});
 }
 // ═══════════════════════════════════════════════════════
