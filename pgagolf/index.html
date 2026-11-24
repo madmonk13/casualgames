@@ -2517,7 +2517,7 @@ document.getElementById('genPlay').addEventListener('click',()=>{ const sd=clean
 document.getElementById('genBack').addEventListener('click',()=>openGen(false));
 document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.c==='gen'){ openGen(true); return; } settings.course=b.dataset.c; saveSettings();
   document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGame(); refreshStats(); }); }));
-document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } });
+document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; busyThen(()=>resumeGame(g)); } });
 function boot(){
   setupSettings();
   document.querySelector('#ov p').innerHTML='<b>Drag sideways to aim</b>, then tap <b>SWING</b> three times: once to start, once to set power, and once on the white zone for a straight shot (early hooks, late slices). Pick clubs with ‹ ›; the ring shows where a full shot lands.<br>On the green, <b>touch the ball, pull back &amp; release</b> to putt. Watch the wind, the water and the bunkers.';
