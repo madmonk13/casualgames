@@ -209,6 +209,13 @@ body.lefty #row{flex-direction:row-reverse;}
         <label><input type="radio" name="maxover" value="0"><span>No limit</span></label>
       </div>
     </div>
+    <div class="sec"><div class="sec-label" id="mspdLbl">Power meter speed</div>
+      <div class="seg" role="radiogroup" aria-labelledby="mspdLbl">
+        <label><input type="radio" name="mspd" value="1"><span>Pro</span></label>
+        <label><input type="radio" name="mspd" value="0.9"><span>Amateur<small>10% slower</small></span></label>
+        <label><input type="radio" name="mspd" value="0.75"><span>Novice<small>25% slower</small></span></label>
+      </div>
+    </div>
     <div class="sec"><div class="sec-label" id="todLbl">Time of day</div>
       <div class="seg" role="radiogroup" aria-labelledby="todLbl">
         <label><input type="radio" name="tod" value="0"><span>Morning</span></label>
@@ -237,27 +244,12 @@ body.lefty #row{flex-direction:row-reverse;}
       </div>
     </div>
     <button class="toggle" id="setFps"></button>
-    <div class="sec"><div class="sec-label" id="swLbl">Swing sound <small style="text-transform:none;opacity:.7">(try them · tap to hear)</small></div>
-      <div class="seg" role="radiogroup" aria-labelledby="swLbl">
-        <label><input type="radio" name="swingsfx" value="off"><span>Off</span></label>
-        <label><input type="radio" name="swingsfx" value="air"><span>Air<small>Whoosh</small></span></label>
-        <label><input type="radio" name="swingsfx" value="whistle"><span>Whistle<small>Shaft</small></span></label>
-      </div>
-    </div>
-    <div class="sec"><div class="sec-label" id="woodLbl">Woods sound <small style="text-transform:none;opacity:.7">(try them · tap to hear)</small></div>
-      <div class="seg" role="radiogroup" aria-labelledby="woodLbl">
-        <label><input type="radio" name="woodsfx" value="cur"><span>Current</span></label>
-        <label><input type="radio" name="woodsfx" value="A"><span>A<small>Deep</small></span></label>
-        <label><input type="radio" name="woodsfx" value="B"><span>B<small>Hollow</small></span></label>
-        <label><input type="radio" name="woodsfx" value="C"><span>C<small>Persimmon</small></span></label>
-      </div>
-    </div>
     <div class="gen-info" id="genInfo" style="display:none"></div>
     <button class="toggle" id="newGameBtn">New Game</button>
     <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
       <div class="jump" id="jumpGrid"></div>
     </div>
-    <div class="stats"><div><b id="stBest">–</b>Best</div><div><b id="stGames">0</b>Rounds</div><div><b id="stAces">0</b>Birdies+</div><div><b id="stTix">0</b>Tickets</div></div>
+    <div class="stats"><div><b id="stBest">–</b>Best</div><div><b id="stGames">0</b>Rounds</div><div><b id="stAces">0</b>Birdies+</div></div>
   </div>
 </div>
 <div id="stage"></div>
@@ -1079,7 +1071,7 @@ function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){
 function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g)); if(e){ e.best=s; writeSaved(a); } }
 const courseLabel=g=>(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:1, swing:null, lefty:false, genTheme:'default', tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 // ═══════════════════════════════════════════════════════
@@ -1173,7 +1165,7 @@ const roundSkin=()=>ROUND_SKIN||(GEN?GEN.theme:'default');
 let _GEN_DUMMY=null;                                                            // {seed, theme} while a generated course is loaded
 function setGen(seed,theme){ GEN={seed,theme}; PLAY=genCourse(seed,theme); HOLE_NO0=0; }
 const bestKey=c=>c==='range'?'bestRange':c==='back'?'bestBack':c==='all'?'bestAll':'best';      // a best score per course (the front nine keeps the original 'best')
-const stats={ best:0, bestBack:0, bestAll:0, bestRange:0, games:0, aces:0, tickets:0 };
+const stats={ best:0, bestBack:0, bestAll:0, bestRange:0, games:0, aces:0 };
 
 // ═══════════════════════════════════════════════════════
 //  STATE
@@ -1675,49 +1667,33 @@ function applyQuality(){ if(!renderer) return; const dpr=window.devicePixelRatio
 function sfxStrike(club,q){ if(!audioOK()) return; const t=_ac.currentTime, c=CLUBS[club];             // driver "crack", iron "click", wedge "thwick"
   if(c.n==='Driver'||c.n.includes('Wood')){ sfxWood(t,q,c.n==='Driver'?1:1.12); }
   else { burst(t,0.012,0.5,'bandpass',3600,1.2); mode(2600,t,0.04,0.18*q); mode(880,t,0.06,0.12); burst(t+0.01,0.08,0.12,'lowpass',900); } }
-// woods: trying out "thwack" options (WOOD_SFX, picked in Settings while we choose). k raises the pitch a little for fairway woods
-let WOOD_SFX='A'; try{ WOOD_SFX=sessionStorage.getItem('justgolf_woodsfx')||'A'; }catch(e){}
+// woods: a deep "thwack" — a fat low thump under the smack of the face, with a dark low-passed rush that falls away.
+// k raises the pitch a little for fairway woods
 function sfxWood(t,q,k){ const v=0.55+0.45*q;
-  if(WOOD_SFX==='A'){            // A · deep thwack: a fat low thump under a smack, with a dark low-passed rush that falls away
-    burst(t,0.025,0.32*v,'bandpass',1100*k,1.1);                       // the smack of the face
-    burst(t,0.16,0.75*v,'lowpass',2200*k,0.9,260,0.002);               // LPF noise: the body of the thwack, darkening fast
-    mode(190*k,t,0.12,0.55*v,70);                                      // low thump, pitching down
-    mode(640*k,t,0.05,0.12*v,480); }
-  else if(WOOD_SFX==='B'){       // B · hollow titanium: a ringing "tank" from the hollow head, a tight crack and a long low-passed whoosh
-    burst(t,0.012,0.35*v,'highpass',3200*k);                           // tight crack
-    mode(1050*k,t,0.09,0.28*v,930); mode(2240*k,t,0.06,0.12*v,2050);   // the hollow head ringing
-    burst(t+0.004,0.24,0.5*v,'lowpass',3200*k,0.8,380,0.004);          // LPF noise: a whooshing tail
-    mode(140*k,t,0.1,0.4*v,80); }
-  else if(WOOD_SFX==='C'){       // C · persimmon "thock": woodier and rounder, a hard knock with a short dark puff of noise
-    burst(t,0.035,0.45*v,'bandpass',760*k,2.2,520);                    // the wooden knock
-    mode(560*k,t,0.06,0.3*v,430); mode(1380*k,t,0.035,0.12*v,1200);
-    burst(t,0.1,0.6*v,'lowpass',1500*k,1.0,300,0.002);                 // LPF noise puff
-    mode(230*k,t,0.08,0.35*v,110); }
-  else { burst(t,0.02,0.6,'highpass',2800); mode(1900,t,0.08,0.25*q,1500); mode(3600,t,0.05,0.1*q); mode(320,t,0.09,0.25,220); }   // the current crack
-}
+  burst(t,0.025,0.32*v,'bandpass',1100*k,1.1);                         // the smack of the face
+  burst(t,0.16,0.75*v,'lowpass',2200*k,0.9,260,0.002);                 // LPF noise: the body of the thwack, darkening fast
+  mode(190*k,t,0.12,0.55*v,70);                                        // low thump, pitching down
+  mode(640*k,t,0.05,0.12*v,480); }
 // the downswing: a whoosh that builds as the club comes down and peaks at the hit. Meter mode follows the meter's way back to
-// the white zone; Touch mode plays it over the moment between letting go and the strike. Trying options (SWING_SFX, in Settings)
-let SWING_SFX='air'; try{ SWING_SFX=sessionStorage.getItem('justgolf_swingsfx')||'air'; }catch(e){}
+// the white zone; Touch mode plays it over the moment between letting go and the strike
 let _sw=null;
 function swingK(){ const c=CLUBS[clubIdx]; return c.n==='Driver'||c.n.includes('Wood')?1:c.n.includes('Iron')?0.86:0.74; }   // club-head speed
 function swooshStart(){
-  if(!audioOK()||SWING_SFX==='off'||clubIdx===PUTTER) return null; if(_sw) swooshEnd();
-  const ac=_ac, t=ac.currentTime, src=ac.createBufferSource(), f=ac.createBiquadFilter(), g=ac.createGain(), wh=SWING_SFX==='whistle';
-  src.buffer=getNoise(); src.loop=true; f.type='bandpass'; f.Q.value=wh?3.5:0.8; f.frequency.setValueAtTime(260,t); g.gain.setValueAtTime(0.0001,t);
+  if(!audioOK()||clubIdx===PUTTER) return null; if(_sw) swooshEnd();
+  const ac=_ac, t=ac.currentTime, src=ac.createBufferSource(), f=ac.createBiquadFilter(), g=ac.createGain();
+  src.buffer=getNoise(); src.loop=true; f.type='bandpass'; f.Q.value=0.8; f.frequency.setValueAtTime(260,t); g.gain.setValueAtTime(0.0001,t);
   src.connect(f); f.connect(g); g.connect(master); src.start(t,Math.random()*0.5);
-  let o=null, og=null; if(wh){ o=ac.createOscillator(); og=ac.createGain(); o.type='triangle'; o.frequency.setValueAtTime(420,t); og.gain.setValueAtTime(0.0001,t); o.connect(og); og.connect(master); o.start(t); }   // the shaft's whistle
-  return _sw={src,f,g,o,og,k:swingK(),wh};
+  return _sw={src,f,g,k:swingK()};
 }
 function swooshAt(u,pow,t,ramp){                    // u: 0 → 1 at the ball (Meter mode: over the last 0.4 s before the white zone)
   const S=_sw; if(!S) return; const a=Math.pow(clamp(u,0,1),2)*(0.35+0.65*pow)*S.k, set=(prm,v)=>ramp?prm.linearRampToValueAtTime(v,t):prm.setTargetAtTime(v,t,0.02);
-  set(S.g.gain,Math.max(0.0001,a*(S.wh?0.45:0.8))); set(S.f.frequency,260+u*(S.wh?2200:1500)*S.k);
-  if(S.o){ set(S.og.gain,Math.max(0.0001,a*0.07)); set(S.o.frequency,420+u*900*S.k); }
+  set(S.g.gain,Math.max(0.0001,a*0.8)); set(S.f.frequency,260+u*1500*S.k);
 }
 function swooshEnd(){                               // at the hit: the whoosh carries on a moment into the follow-through and dies away
   const S=_sw; if(!S) return; _sw=null; const t=_ac.currentTime;
-  for(const prm of [S.g.gain,S.og&&S.og.gain]) if(prm){ prm.cancelScheduledValues(t); prm.setValueAtTime(Math.max(0.0001,prm.value),t); prm.setTargetAtTime(0.0001,t,0.045); }
+  { const prm=S.g.gain; prm.cancelScheduledValues(t); prm.setValueAtTime(Math.max(0.0001,prm.value),t); prm.setTargetAtTime(0.0001,t,0.045); }
   S.f.frequency.cancelScheduledValues(t); S.f.frequency.setTargetAtTime(S.f.frequency.value*0.6,t,0.06);
-  S.src.stop(t+0.35); if(S.o) S.o.stop(t+0.35);
+  S.src.stop(t+0.35);
 }
 function swooshFor(dur,pow){ if(!swooshStart()) return; const t=_ac.currentTime; swooshAt(0,pow,t,true); swooshAt(1,pow,t+dur,true); }   // Touch: a set length
 function sfxPutt(p){ if(!audioOK()) return; const t=_ac.currentTime, v=0.35+p*0.65; burst(t,0.012,0.45*v,'highpass',2400); mode(1250,t,0.05,0.2*v,900); mode(420,t,0.06,0.12*v,300); }
@@ -1923,14 +1899,14 @@ function endHole(sc){
 function roundOver(){
   clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=PLAY.reduce((a,h)=>a+h.par,0), rel=s-par, bk=bestKey(roundCourse), isGen=roundCourse==='gen'&&GEN, ge=isGen?savedFind(GEN):null;
   const newBest=!testRound&&(isGen?(!!ge&&(!ge.best||s<ge.best)):(!stats[bk]||s<stats[bk]));
-  const tix=Math.max(1,(par+Math.ceil(PLAY.length/4)-s)*4+2); if(!testRound){ stats.games++; stats.tickets+=tix; if(newBest){ if(isGen) setSavedBest(GEN,s); else stats[bk]=s; } saveStats(); } buildHUD();
+  if(!testRound){ stats.games++; if(newBest){ if(isGen) setSavedBest(GEN,s); else stats[bk]=s; } saveStats(); } buildHUD();
   const ov=document.getElementById('ov'); ov.querySelector('h2').textContent=`🏌️ ${s} (${rel===0?'E':rel>0?'+'+rel:rel})`;
   let tbl=''; for(let a=0;a<PLAY.length;a+=9){ const hs=PLAY.slice(a,a+9), sc=scores.slice(a,a+9);
     tbl+=`<table><tr><th>Hole</th>${hs.map((h,i)=>`<th>${HOLE_NO0+a+i+1}</th>`).join('')}<th>${PLAY.length>9?(a?'In':'Out'):'Tot'}</th></tr>`
       +`<tr><th>Par</th>${hs.map(h=>`<td>${h.par}</td>`).join('')}<td>${hs.reduce((x,h)=>x+h.par,0)}</td></tr>`
       +`<tr><th>You</th>${sc.map(v=>`<td>${v}</td>`).join('')}<td><b>${sc.reduce((x,v)=>x+v,0)}</b></td></tr></table>`; }
   ov.querySelector('p').innerHTML=tbl+(PLAY.length>9?`<br>Total <b>${s}</b> · par ${par}`:'')+'<br>'
-    +(newBest?'<b>New best!</b><br>':'')+(testRound?'Test round · not counted':`You won <b>${tix}</b> ticket${tix===1?'':'s'} 🎟️ &nbsp;·&nbsp; Best ${isGen?(newBest?s:(ge&&ge.best)||'–'):stats[bk]||'–'}`)
+    +(newBest?'<b>New best!</b><br>':'')+(testRound?'Test round · not counted':`Best ${isGen?(newBest?s:(ge&&ge.best)||'–'):stats[bk]||'–'}`)
     +(isGen?`<br>Course <b>${courseLabel(GEN)}</b> ${ge?'· saved':'<button class="mini" id="ovSave">Save course</button>'}`:'');
   showStart('over'); refreshStats();
   const sv=document.getElementById('ovSave'); if(sv) sv.addEventListener('click',()=>{ saveCourse(GEN); setSavedBest(GEN,s); sv.replaceWith(document.createTextNode('· saved')); });
@@ -1995,7 +1971,7 @@ function meterPuttGo(p){ meter.state='idle'; document.getElementById('mfill').st
 function finishSwing(accRaw){ const acc=clamp(accRaw,-1,1); meter.state='idle'; swooshEnd();
   missHint.note(Math.abs(acc)<0.35,'swing',3,'Your last few swings went way off line.<br>Stop the meter right on the white zone for a straight shot — or try <b>Swing: Touch</b> in <b>Settings</b>.'); document.getElementById('mfill').style.width='0'; strike(meter.power,acc); }
 function updateMeter(dt){
-  if(meter.state==='idle') return; const pm=clubIdx===PUTTER, sp=(pm?0.62:1.05)*settings.meter;
+  if(meter.state==='idle') return; const pm=clubIdx===PUTTER, sp=(pm?0.62:1.05)*settings.meter*settings.meterSpd;
   if(meter.state==='up'&&pm){ meter.x=Math.min(1,meter.x+sp*dt); puttPow=(meter.x-IMPACT)/(1-IMPACT); if(meter.x>=1){ meterPuttGo(1); return; } }
   else if(meter.state==='up'){ meter.x+=sp*dt; if(meter.x>=1){ meter.x=1; meter.power=1; meter.state='down'; meter.auto=performance.now(); const pw=document.getElementById('mpow'); pw.style.left='100%'; pw.style.display='block'; pw.style.background='#fff'; } }
   else if(meter.state==='down'){ meter.x-=sp*1.15*dt; if(!_sw&&audioOK()) swooshStart(); if(_sw) swooshAt(1-Math.max(0,meter.x-IMPACT)/(sp*1.15)/0.4,meter.power,_ac.currentTime); if(meter.x<=IMPACT-0.12){ finishSwing(1); return; } }          // never stopped it: a big slice
@@ -2445,7 +2421,7 @@ const meterPutt=()=>clubIdx===PUTTER&&!drawing();                 // Meter mode 
 function puttPowFor(d,dx,dz){ const key=[ball.p.x.toFixed(3),ball.p.z.toFixed(3),dx.toFixed(4),dz.toFixed(4),d.toFixed(2)].join('|'); if(puttPowFor.k===key) return puttPowFor.v;   // (aiming calls this on every move)
   let lo=0.02, hi=1; if(predictPutt(dx,dz,1)<d){ lo=hi; } else for(let i=0;i<12;i++){ const m=(lo+hi)/2; if(predictPutt(dx,dz,m)<d) lo=m; else hi=m; } puttPowFor.k=key; return puttPowFor.v=(lo+hi)/2; }
 function saveStats(){ try{ localStorage.setItem('justgolf_stats',JSON.stringify(stats)); }catch(e){} }
-function loadStats(){ try{ Object.assign(stats,JSON.parse(localStorage.getItem('justgolf_stats')||'{}')); }catch(e){} }
+function loadStats(){ try{ Object.assign(stats,JSON.parse(localStorage.getItem('justgolf_stats')||'{}')); }catch(e){} delete stats.tickets; }   // (tickets are no longer kept)
 // Settings → Course theme: re-dress the hole being played (colours, trees, canyon walls, haze); the ball stays where it is
 // cover the screen while a slow rebuild runs: paint the overlay first, do the work, draw a frame, then fade it out
 function busyThen(fn){ const B=document.getElementById('busy'); B.classList.add('show');
@@ -2455,7 +2431,7 @@ function setSkin(t){ ROUND_SKIN=t; if(!H) return; const P=ball.p, rest=ball.mode
 function drawGenInfo(){ const el=document.getElementById('genInfo'); if(!el) return; const on=roundCourse==='gen'&&GEN&&phase!=='menu'&&phase!=='over'; el.style.display=on?'':'none'; if(!on) return;
   const saved=!!savedFind(GEN); el.innerHTML=`<span>This course: ${courseLabel(GEN)}</span>`+(saved?'<span>Saved</span>':'<button class="mini" id="genSaveBtn">Save course</button>');
   const b=document.getElementById('genSaveBtn'); if(b) b.addEventListener('click',()=>{ saveCourse(GEN); drawGenInfo(); }); }
-function refreshStats(){ drawGenInfo(); document.querySelectorAll('input[name="skin"]').forEach(r=>r.checked=(r.value===roundSkin())); document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; document.getElementById('stTix').textContent=stats.tickets; }
+function refreshStats(){ drawGenInfo(); document.querySelectorAll('input[name="skin"]').forEach(r=>r.checked=(r.value===roundSkin())); document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; }
 function setupSettings(){
   loadSettings(); loadStats();
   const scrollToSel=(grid,sm)=>{ const sel=grid.querySelector('.tile.selected'); if(!sel) return; const cr=grid.getBoundingClientRect(), sr=sel.getBoundingClientRect(); grid.scrollTo({left:grid.scrollLeft+(sr.left-cr.left)-(grid.clientWidth-sel.offsetWidth)/2,behavior:sm?'smooth':'auto'}); };
@@ -2489,18 +2465,11 @@ function setupSettings(){
   { const sr=[...document.querySelectorAll('input[name="swing"]')];                                    // swing method, remembered once chosen
     sr.forEach(r=>{ r.checked=(r.value===settings.swing); r.addEventListener('change',()=>{ if(r.checked){ settings.swing=r.value; saveSettings(); if(H) updateUI(); } }); }); }
   fpsBtn.addEventListener('click',()=>{ settings.fps=!settings.fps; saveSettings(); refresh(); });
-  document.querySelectorAll('input[name="swingsfx"]').forEach(r=>{ r.checked=(r.value===SWING_SFX);   // preview: a driver's downswing, then the hit
-    const play=()=>{ SWING_SFX=r.value; try{ sessionStorage.setItem('justgolf_swingsfx',SWING_SFX); }catch(e){} getAC(); setTimeout(()=>{ if(!audioOK()) return; const ci=clubIdx; clubIdx=CLUBS.findIndex(c=>c.n==='Driver'); swooshFor(0.32,0.9); clubIdx=ci;
-      setTimeout(()=>{ swooshEnd(); sfxStrike(CLUBS.findIndex(c=>c.n==='Driver'),0.9); },320); },40); };
-    r.addEventListener('change',play); r.parentElement.addEventListener('click',e=>{ if(e.target!==r&&r.checked) play(); }); });
-  document.querySelectorAll('input[name="woodsfx"]').forEach(r=>{ r.checked=(r.value===WOOD_SFX);
-    const play=()=>{ WOOD_SFX=r.value; try{ sessionStorage.setItem('justgolf_woodsfx',WOOD_SFX); }catch(e){} getAC(); setTimeout(()=>{ if(audioOK()) sfxStrike(CLUBS.findIndex(c=>c.n==='Driver'),0.9); },40); };
-    r.addEventListener('change',play); r.parentElement.addEventListener('click',e=>{ if(e.target!==r&&r.checked) play(); }); });   // tap again to replay
   { const gr=[...document.querySelectorAll('input[name="gfx"]')]; document.getElementById('gfxAutoLbl').textContent=settings.gfx==='auto'?GFX_NAMES[resolveGfx()]:'';   // a new tier needs a fresh start of the page (the round carries on)
     gr.forEach(r=>{ r.checked=(r.value===settings.gfx); r.addEventListener('change',()=>{ if(!r.checked) return; settings.gfx=r.value; if(r.value==='auto') settings.gfxAuto=null; saveSettings(); saveGame(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); }); }); }
   const pick=(name,key)=>{ const rs=[...document.querySelectorAll(`input[name="${name}"]`)], vals=rs.map(r=>+r.value); settings[key]=vals.reduce((a,b)=>Math.abs(b-settings[key])<Math.abs(a-settings[key])?b:a,vals[0]);
     rs.forEach(r=>{ r.checked=(+r.value===settings[key]); r.addEventListener('change',()=>{ if(r.checked){ settings[key]=+r.value; saveSettings(); } }); }); };
-  pick('tod','tod'); pick('maxover','maxOver');
+  pick('tod','tod'); pick('maxover','maxOver'); pick('mspd','meterSpd');
   document.querySelectorAll('input[name="tod"]').forEach(r=>r.addEventListener('change',()=>applyTOD()));
   document.querySelectorAll('input[name="skin"]').forEach(r=>r.addEventListener('change',()=>{ if(r.checked) busyThen(()=>setSkin(r.value)); }));
     { const jg=document.getElementById('jumpGrid');                                   // testing: start a round at any hole (earlier holes count as par; stats untouched)

@@ -53,6 +53,13 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 #loader{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
   background:radial-gradient(ellipse at center,#1d2a3a 0%,#06040c 100%);transition:opacity .45s;}
 #loader.done{opacity:0;pointer-events:none;}
+#fps{position:fixed;left:50%;top:62px;transform:translateX(-50%);z-index:20;display:none;font:600 11px/1.35 ui-monospace,Menlo,Consolas,monospace;color:#eafff0;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:6px;pointer-events:none;white-space:pre;text-align:center;}
+#gfxNote{position:fixed;left:50%;top:18%;transform:translateX(-50%);z-index:35;max-width:86vw;font:600 .85rem 'Segoe UI',Arial,sans-serif;color:#fff;background:rgba(20,14,34,.88);border:1px solid #3d3058;padding:9px 14px;border-radius:9px;opacity:0;transition:opacity .4s;pointer-events:none;text-align:center;}
+#gfxNote.show{opacity:1;}
+#busy{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:rgba(6,4,12,.72);opacity:0;pointer-events:none;transition:opacity .2s;}
+#busy.show{opacity:1;pointer-events:auto;}
+#busy .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
+#busy small{color:#e6dcf5;font:600 .8rem 'Segoe UI',Arial,sans-serif;letter-spacing:2px;}
 #loader h1{margin:0;font-size:clamp(2rem,9vw,3.4rem);letter-spacing:3px;color:#ffd54a;text-shadow:0 0 24px rgba(255,170,0,.5);font-family:'Segoe UI',Arial,sans-serif;}
 #loader .spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
 #loader small{color:#a99bc6;font:600 .8rem 'Segoe UI',Arial,sans-serif;letter-spacing:2px;}
@@ -154,13 +161,22 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     </div>
     <button class="toggle" id="setCups"></button>
     <button class="toggle" id="setGuide"></button>
-    <button class="toggle" id="setOpt"></button>
+    <div class="sec"><div class="sec-label" id="gfxLbl">Graphics</div>
+      <div class="seg" role="radiogroup" aria-labelledby="gfxLbl">
+        <label><input type="radio" name="gfx" value="auto"><span>Auto<small id="gfxAutoLbl"></small></span></label>
+        <label><input type="radio" name="gfx" value="high"><span>High</span></label>
+        <label><input type="radio" name="gfx" value="medium"><span>Medium</span></label>
+        <label><input type="radio" name="gfx" value="low"><span>Low</span></label>
+      </div>
+    </div>
+    <button class="toggle" id="setFps"></button>
     <button class="toggle" id="newGameBtn">New Game</button>
     <div class="stats"><div><b id="stBest">0</b>Best</div><div><b id="stGames">0</b>Games</div><div><b id="stTix">0</b>Tickets</div></div>
   </div>
 </div>
 <div id="stage"></div>
 
+<div id="fps"></div><div id="gfxNote"></div><div id="busy"><div class="spin"></div><small>LOADING</small></div>
 <div id="loader"><h1>🎯 JUST ROLL</h1><div class="spin"></div><small>LOADING</small></div>
 <div id="ov">
   <h2>🎯 JUST ROLL</h2>
@@ -283,7 +299,7 @@ function buildLips(){
 let POCKETS=[], LIPS=[];
 
 // live settings
-const settings={ theme:'classic', ball:'classic', power:1.1, cups:true, guide:true, muted:false, optimized:false };
+const settings={ theme:'classic', ball:'classic', power:1.1, cups:true, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false };
 
 // ── themes: every look-dependent value lives here ──
 const THEMES=[
@@ -422,7 +438,7 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 // ═══════════════════════════════════════════════════════
 //  PROCEDURAL TEXTURES (wood, rubber, steel, paint, carpet…)
 // ═══════════════════════════════════════════════════════
-let PERF=false, ANISO=4;
+let PERF=false, ANISO=4, GFX=2, RES_SCALE=1;
 const NZ=(function(){
   let s=1337; const rnd=()=>{ s=(Math.imul(s,1664525)+1013904223)>>>0; return s/4294967296; };
   const P=new Uint16Array(512), V=new Float32Array(256), perm=[...Array(256).keys()];
@@ -1807,12 +1823,12 @@ function buildEnvironment(t){
 }
 
 function initScene(){
-  PERF=!!settings.optimized;
-  renderer=new THREE.WebGLRenderer({antialias:!PERF,powerPreference:PERF?'low-power':'high-performance'});
+  GFX=resolveGfx(); PERF=GFX===0; settings.optimized=PERF;
+  renderer=new THREE.WebGLRenderer({antialias:GFX===2,powerPreference:PERF?'low-power':'high-performance'});
   renderer.outputEncoding=THREE.sRGBEncoding;
   renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.15;
-  if(!PERF){ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; }
-  ANISO=Math.min(8,renderer.capabilities.getMaxAnisotropy());
+  if(!PERF){ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFShadowMap; renderer.shadowMap.autoUpdate=false; renderer.shadowMap.needsUpdate=true; }
+  ANISO=Math.min(GFX===2?8:2,renderer.capabilities.getMaxAnisotropy());
   applyQuality();
   stage.appendChild(renderer.domElement);
   scene=new THREE.Scene();
@@ -1827,10 +1843,10 @@ function initScene(){
   const fill=new THREE.DirectionalLight(0xffe8d0,0.25); fill.position.set(60,200,-120); scene.add(fill); L.fill=fill;
   const key=new THREE.SpotLight(0xfff1dc,1.5,520,0.5,0.55,1.0);
   key.position.set(8,175,-10); key.target.position.set(0,40,70); scene.add(key); scene.add(key.target); L.key=key;
-  if(!PERF){ key.castShadow=true; key.shadow.mapSize.set(2048,2048); key.shadow.camera.near=60; key.shadow.camera.far=360; key.shadow.bias=-0.0004; key.shadow.normalBias=0.03; }
+  if(!PERF){ key.castShadow=true; key.shadow.mapSize.set(GFX===2?2048:1024,GFX===2?2048:1024); key.shadow.camera.near=60; key.shadow.camera.far=360; key.shadow.bias=-0.0004; key.shadow.normalBias=0.03; }
   const tgt=new THREE.SpotLight(0xfff6ea,1.25,340,0.42,0.5,1.0);
   tgt.position.set(0,150,58); tgt.target.position.copy(boardPt(0,WC)); scene.add(tgt); scene.add(tgt.target); L.tgt=tgt;
-  if(!PERF){ tgt.castShadow=true; tgt.shadow.mapSize.set(1024,1024); tgt.shadow.camera.near=40; tgt.shadow.camera.far=240; tgt.shadow.bias=-0.0004; tgt.shadow.normalBias=0.03; }
+  if(GFX===2){ tgt.castShadow=true; tgt.shadow.mapSize.set(1024,1024); tgt.shadow.camera.near=40; tgt.shadow.camera.far=240; tgt.shadow.bias=-0.0004; tgt.shadow.normalBias=0.03; }
   const mag=new THREE.PointLight(0xff2fa8,0.7,420,1.5); mag.position.set(-110,90,150); scene.add(mag); L.acc1=mag;
   const cyn=new THREE.PointLight(0x19e3ff,0.6,420,1.5); cyn.position.set(110,90,20); scene.add(cyn); L.acc2=cyn;
 
@@ -1979,7 +1995,7 @@ function resize(){
 }
 window.addEventListener('resize',()=>{ if(renderer) resize(); });
 function applyQuality(){ if(!renderer) return; const dpr=window.devicePixelRatio||1;
-  renderer.setPixelRatio(settings.optimized?Math.min(1,dpr):Math.min(1.75,dpr)); lastW=lastH=0; resize(); }
+  renderer.setPixelRatio(Math.min(GFX===2?1.5:1,dpr)*RES_SCALE); lastW=lastH=0; resize(); }
 
 // ═══════════════════════════════════════════════════════
 //  AUDIO (Web Audio: sampled roll loop + synthesized wood/metal hits & bells)
@@ -2062,7 +2078,7 @@ function clearGame(){ try{ sessionStorage.removeItem('justroll_game'); }catch(e)
 function showTray(){ trayBalls.forEach((b,i)=>{ b.visible=i<tray; b.position.copy(traySlot(i)); }); }
 function updateScoreDisplays(){ buildHUD(); if(mainLED) drawLED(mainLED,total(),phase==='over'?null:Math.min(BALLS_PER_GAME,balls.length+1)); }
 
-function newGame(animated){
+function newGame(animated){ gfxSettle();
   anims=[]; balls=[]; clearGame(); ball.mode='hold'; ballMesh.visible=false; stopRoll();
   updateScoreDisplays();
   if(!animated){ tray=BALLS_PER_GAME; showTray(); feedNext(true); return; }
@@ -2253,9 +2269,71 @@ function updateCamera(dt){
   camera.position.copy(_cp); camera.lookAt(_cl);
 }
 let lastT=0, marqT=0, rainT=0;
+// ═══════════════════════════════════════════════════════
+//  GRAPHICS: Auto / High / Medium / Low tiers, frame pacing, still frame, frame-rate readout and Auto quality
+// ═══════════════════════════════════════════════════════
+const GFX_NAMES=['Low','Medium','High'];
+// Auto's first guess from the GPU name: software renderers → Low, discrete / Pro-class Apple GPUs → High, the rest Medium
+function gpuGuess(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl'); if(!gl) return 0;
+    const e=gl.getExtension('WEBGL_debug_renderer_info'), s=String(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)), lose=gl.getExtension('WEBGL_lose_context'); if(lose) lose.loseContext();
+    if(/swiftshader|llvmpipe|software|basic render/i.test(s)) return 0;
+    if(/nvidia|geforce|quadro|radeon (rx|pro)|apple m\d (pro|max|ultra)|apple m[3-9]/i.test(s)) return 2;
+    return 1; }catch(e){ return 1; } }
+function resolveGfx(){ const g=settings.gfx; if(g==='high') return 2; if(g==='medium') return 1; if(g==='low') return 0;
+  if(settings.gfxAuto==null){ settings.gfxAuto=gpuGuess(); saveSettings(); } return Math.max(0,Math.min(2,settings.gfxAuto|0)); }
+function gfxNote(txt){ const n=document.getElementById('gfxNote'); n.textContent=txt; n.classList.add('show'); setTimeout(()=>n.classList.remove('show'),5000); }
+// Settings: the tier radios (a new tier rebuilds the scene, so the page reloads and comes back to Settings)
+function gfxRadios(beforeReload){ const gr=[...document.querySelectorAll('input[name="gfx"]')]; document.getElementById('gfxAutoLbl').textContent=settings.gfx==='auto'?GFX_NAMES[resolveGfx()]:'';
+  gr.forEach(r=>{ r.checked=(r.value===settings.gfx); r.addEventListener('change',()=>{ if(!r.checked) return; settings.gfx=r.value; if(r.value==='auto') settings.gfxAuto=null; saveSettings(); if(beforeReload) beforeReload();
+    try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); }); }); }
+let _busyT=0, _idle=false, _frameN=0, _rafPrev=0, _refresh=16.67, _target=16.67; const _rafD=[];
+function noteRaf(t){ if(_rafPrev){ const d=t-_rafPrev; if(d>2&&d<60){ _rafD.push(d); if(_rafD.length>=45){ _rafD.sort((a,b)=>a-b); _refresh=_rafD[22]; _rafD.length=0; } } } _rafPrev=t; }
+// with nothing moving the frame rate eases off (30, then 15 after 3 s), and a scene with nothing animated holds still;
+// any touch, key, mouse move or resize brings it straight back
+function wake(){ _busyT=performance.now(); }
+['pointerdown','pointermove','keydown','wheel','touchstart','resize','visibilitychange'].forEach(ev=>window.addEventListener(ev,wake,{passive:true}));
+function gfxActive(){ return !(phase==='menu'||phase==='over'||phase==='aim')||dragging||anims.length>0; }
+function gfxStill(){ return false; }
+function gfxPlaying(){ return !(phase==='menu'||phase==='over')&&!document.getElementById('settings').classList.contains('open'); }
+// frames land on whole display refreshes (60 fps is 60 on a 60 Hz screen and 72 on a 144 Hz one, not a jittery 65)
+function frameGap(t){ if(gfxActive()) _busyT=t; _idle=t-_busyT>1500; const want=_idle?(t-_busyT>3000?66.7:(PERF?50:33.3)):16.7, r=_refresh, k=Math.max(1,Math.floor(want/r+0.25)); _target=k*r; return _target-r*0.5; }
+function gfxFrameSkip(t){ return t-lastT<frameGap(t)||(_idle&&t-_busyT>3000&&_frameN>30&&gfxStill()); }
+function gfxShadows(){ if(renderer&&renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate=!_idle||(_frameN&1)===0; }   // idle: shadows every other frame
+const PF={t:0,n:0,sum:0,max:0,cpu:0,hitch:0,el:null,skip:0}, AT={t:0,n:0,sum:0,fast:0,hold:0}; let gfxPending=false;
+function gfxSettle(){ AT.hold=2500; AT.t=AT.n=AT.sum=0; PF.skip=2; }   // a new hole / game: its first frames (and the load) aren't counted
+function perfSample(raw,cpu){
+  if(raw>250||document.hidden||PF.skip>0){ PF.skip--; return; }
+  if(raw>_target*2.5&&!_idle) PF.hitch++;
+  if(settings.fps){ PF.n++; PF.sum+=raw; PF.max=Math.max(PF.max,raw); PF.cpu+=cpu; PF.t+=raw;
+    if(PF.t>=500){ const el=PF.el||(PF.el=document.getElementById('fps')), a=PF.sum/PF.n, ri=renderer.info.render;
+      el.textContent=`${Math.round(1000/a)} fps${_idle?' (idle)':''} · ${a.toFixed(1)} ms · worst ${PF.max.toFixed(0)} · cpu ${(PF.cpu/PF.n).toFixed(1)} · hitches ${PF.hitch}\n${GFX_NAMES[GFX]}${settings.gfx==='auto'?' (auto)':''} · ${renderer.getPixelRatio().toFixed(2)}× · ${Math.round(1000/_refresh)} Hz · ${ri.calls} draws · ${Math.round(ri.triangles/1000)}k tris`;
+      el.style.display='block'; PF.t=PF.n=PF.sum=PF.max=PF.cpu=0; } }
+  if(settings.gfx!=='auto'||_idle||!gfxPlaying()) return;
+  if(AT.hold>0){ AT.hold-=raw; return; }
+  AT.sum+=raw; AT.n++; AT.t+=raw; if(AT.t<3000) return;
+  const a=AT.sum/AT.n; AT.t=AT.sum=AT.n=0;
+  if(a>_target*1.3){ AT.fast=0;                           // running slow: trim the resolution, then (at the next new game) drop a tier
+    if(RES_SCALE>0.76){ RES_SCALE=Math.max(0.75,RES_SCALE-0.125); applyQuality(); AT.hold=800; }
+    else if(GFX>0&&!gfxPending){ settings.gfxAuto=GFX-1; saveSettings(); gfxPending=true; } }
+  else if(a<_target*1.08&&RES_SCALE<1){ if(++AT.fast>=2){ AT.fast=0; RES_SCALE=Math.min(1,RES_SCALE+0.125); applyQuality(); AT.hold=800; } }
+  else AT.fast=0;
+}
+// Auto stepping down a tier: done with a reload at a natural break, picking up where play left off
+function gfxSwitch(){ if(!gfxPending) return false; try{ sessionStorage.setItem('gfxAutoReload','1'); }catch(e){} location.reload(); return true; }
+let gfxResumed=false;
+function gfxSwitched(){ try{ if(!sessionStorage.getItem('gfxAutoReload')) return false; sessionStorage.removeItem('gfxAutoReload'); }catch(e){ return false; }
+  gfxResumed=true;
+  setTimeout(()=>gfxNote('Graphics set to '+GFX_NAMES[GFX]+' for smoother play. You can change it in Settings.'),600); return true; }
+// loading spinner over anything slow (a new hole or theme): it shows, the work runs and the first frame draws, then it fades
+function busyThen(fn){ const B=document.getElementById('busy'); B.classList.add('show');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(()=>{ try{ fn(); if(renderer){ if(renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate=true; renderer.render(scene,camera); } gfxSettle(); }finally{ requestAnimationFrame(()=>B.classList.remove('show')); } },0))); }
+
 function loop(t){
+  noteRaf(t);
+  if(gfxFrameSkip(t)){ requestAnimationFrame(loop); return; }
+  const c0=performance.now(), raw=t-lastT; _frameN++; gfxShadows();
   try{
-    const dt=Math.min((t-lastT)/1000,0.033); lastT=t;
+    const dt=Math.min(raw/1000,0.033); lastT=t;
     if(renderer&&(lastW<2||lastH<2)) resize();
     if(phase==='rolling'){ const n=Math.max(1,Math.ceil(dt*1200)); for(let k=0;k<n&&phase==='rolling';k++) physStep(dt/n); }
     stepAnims(dt);
@@ -2266,6 +2344,7 @@ function loop(t){
     if(marqT>(marqFlash>0?0.09:(PERF?0.3:0.16))){ marqT=0; marqPhase++; drawMarquee(); }
     if(renderer){ syncBall(dt); syncAim(); updateCamera(dt); renderer.render(scene,camera); }
   }catch(err){ showFatal(err); }
+  perfSample(raw,performance.now()-c0);
   requestAnimationFrame(loop);
 }
 
@@ -2320,7 +2399,7 @@ function bindInput(){
 //  SETTINGS
 // ═══════════════════════════════════════════════════════
 function saveSettings(){ try{ localStorage.setItem('justroll',JSON.stringify(settings)); }catch(e){} }
-function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('justroll')||'{}')); }catch(e){} }
+function loadSettings(){ try{ const raw=JSON.parse(localStorage.getItem('justroll')||'{}'); Object.assign(settings,raw); if(raw.gfx==null&&raw.optimized) settings.gfx='low'; }catch(e){} }
 function saveStats(){ try{ localStorage.setItem('justroll_stats',JSON.stringify(stats)); }catch(e){} }
 function loadStats(){ try{ Object.assign(stats,JSON.parse(localStorage.getItem('justroll_stats')||'{}')); }catch(e){} }
 function refreshStats(){ document.getElementById('stBest').textContent=stats.best; document.getElementById('stGames').textContent=stats.games; document.getElementById('stTix').textContent=stats.tickets; }
@@ -2330,7 +2409,7 @@ function setupSettings(){
   for(const th of THEMES){ const t=document.createElement('div'); t.className='tile mtile'; t.dataset.key=th.id;
     const pv=marqueeBase(th,mkCanvas(1024,512)), sm=mkCanvas(256,128); sm.getContext('2d').drawImage(pv,0,0,256,128);
     t.innerHTML=`<div class="thumb" style="background-image:url('${sm.toDataURL('image/jpeg',0.85)}')"></div><div class="label">${th.label}</div>`;
-    t.addEventListener('click',()=>{ applyTheme(th.id); highlightTheme(); }); tg.appendChild(t); }
+    t.addEventListener('click',()=>{ if(settings.theme===th.id) return; busyThen(()=>{ applyTheme(th.id); highlightTheme(); }); }); tg.appendChild(t); }
   const highlightTheme=()=>document.querySelectorAll('#themeGrid .tile').forEach(t=>t.classList.toggle('selected',t.dataset.key===settings.theme));
   highlightTheme();
   const scrollToSel=(grid,smooth)=>{ const sel=grid.querySelector('.tile.selected'); if(!sel) return;   // centre the selected tile in its strip
@@ -2353,26 +2432,26 @@ function setupSettings(){
   document.getElementById('cog').addEventListener('click',()=>{ refreshStats(); modal.classList.add('open'); highlightTheme(); requestAnimationFrame(()=>scrollToTheme(false)); });
   document.getElementById('settingsClose').addEventListener('click',()=>modal.classList.remove('open'));
   modal.addEventListener('click',e=>{ if(e.target===modal) modal.classList.remove('open'); });
-  const cupBtn=document.getElementById('setCups'), guideBtn=document.getElementById('setGuide'), optBtn=document.getElementById('setOpt');
+  const cupBtn=document.getElementById('setCups'), guideBtn=document.getElementById('setGuide'), optBtn=document.getElementById('setFps');
   const refresh=()=>{
     cupBtn.classList.toggle('on',settings.cups); cupBtn.textContent='100-point corner pockets: '+(settings.cups?'On':'Off (classic)');
     guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide: '+(settings.guide?'On':'Off');
-    optBtn.classList.toggle('on',settings.optimized); optBtn.textContent='Low graphics: '+(settings.optimized?'On':'Off'); };
+    optBtn.classList.toggle('on',!!settings.fps); optBtn.textContent='Frame rate readout: '+(settings.fps?'On':'Off'); document.getElementById('fps').style.display=settings.fps?'block':'none'; };
   refresh();
   cupBtn.addEventListener('click',()=>{ applyCups(!settings.cups); refresh(); });
   guideBtn.addEventListener('click',()=>{ settings.guide=!settings.guide; saveSettings(); refresh(); });
-  optBtn.addEventListener('click',()=>{ settings.optimized=!settings.optimized; saveSettings(); try{ sessionStorage.setItem('lowgfxReload','1'); }catch(e){} location.reload(); });
+  optBtn.addEventListener('click',()=>{ settings.fps=!settings.fps; saveSettings(); refresh(); }); gfxRadios();
   // sensitivity presets (flick → roll speed multiplier); older saved slider values snap to the nearest preset
   const sens=[...document.querySelectorAll('input[name="sens"]')], SENS=sens.map(r=>+r.value);
   settings.power=SENS.reduce((a,b)=>Math.abs(b-settings.power)<Math.abs(a-settings.power)?b:a,SENS[0]);
   sens.forEach(r=>{ r.checked=(+r.value===settings.power); r.addEventListener('change',()=>{ if(r.checked){ settings.power=+r.value; saveSettings(); } }); });
   document.getElementById('newGameBtn').addEventListener('click',()=>{
-    getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); newGame(true); });
+    if(gfxSwitch()) return; getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); newGame(true); });
 }
 
 document.getElementById('startbtn').addEventListener('click',()=>{
   document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); resize();
-  if(phase==='over'){ newGame(true); return; }
+  if(phase==='over'){ if(gfxSwitch()) return; newGame(true); return; }
   phase=(ball.mode==='hold')?'aim':phase;
 });
 function boot(){
@@ -2384,13 +2463,14 @@ function boot(){
   phase='menu';
   try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload');
     document.getElementById('ov').classList.remove('show'); phase='aim'; document.getElementById('settings').classList.add('open'); } }catch(e){}
+  if(gfxSwitched()){ document.getElementById('ov').classList.remove('show'); newGame(true); }
   buildHUD();
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
 }
 // show the title + spinner first, then build the scene; the start card appears once the first frames have drawn
 // (that first render is where the shaders compile, so it's part of the wait)
 function bootDone(){ requestAnimationFrame(()=>requestAnimationFrame(()=>{ const L=document.getElementById('loader'); if(!L) return; L.classList.add('done'); setTimeout(()=>L.remove(),500);
-  const st=document.getElementById('settings'); if(!(st&&st.classList.contains('open'))) document.getElementById('ov').classList.add('show'); })); }
+  const st=document.getElementById('settings'); if(!(st&&st.classList.contains('open'))&&!gfxResumed) document.getElementById('ov').classList.add('show'); })); }
 function bootFail(err){ const L=document.getElementById('loader'); if(L) L.remove(); showFatal(err); }
 requestAnimationFrame(()=>setTimeout(()=>{ try{ boot(); bootDone(); }catch(err){ bootFail(err); } },0));
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
