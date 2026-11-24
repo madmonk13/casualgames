@@ -232,8 +232,8 @@ body.lefty #row{flex-direction:row-reverse;}
     </div>
     <div class="sec"><div class="sec-label" id="skinLbl">Course theme</div>
       <select id="skinSel" class="dd" aria-labelledby="skinLbl">
-        <option value="default">Default</option><option value="dunes">Dunes</option><option value="canyon">Canyon</option><option value="desert">Desert</option><option value="winter">Winter</option>
-      <option value="8bit">8 Bit</option><option value="synth">Synthwave</option><option value="cyber">Cyber</option><option value="sketch">Sketch</option><option value="apoc">Post-Apocalypse</option>
+      <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
+      <option value="dunes">Dunes</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="synth">Synthwave</option><option value="winter">Winter</option>
       </select>
     </div>
     <button class="toggle" id="setGuide"></button>
@@ -267,8 +267,8 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button data-c="front">Front 9<small>holes 1–9</small></button><button data-c="back">Back 9<small>holes 10–18</small></button><button data-c="all">All 18<small>full round</small></button><button data-c="gen">Generate<small>new course</small></button><button data-c="range">Range<small>10-ball bucket</small></button></div></div>
   <div id="genPanel"><div class="cp-label" id="genThemeLbl">Theme</div>
     <select id="genThemeSel" class="dd gen-dd" aria-labelledby="genThemeLbl">
-      <option value="default">Default</option><option value="dunes">Dunes</option><option value="canyon">Canyon</option><option value="desert">Desert</option><option value="winter">Winter</option>
-      <option value="8bit">8 Bit</option><option value="synth">Synthwave</option><option value="cyber">Cyber</option><option value="sketch">Sketch</option><option value="apoc">Post-Apocalypse</option>
+      <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
+      <option value="dunes">Dunes</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="synth">Synthwave</option><option value="winter">Winter</option>
     </select>
     <div class="cp-label">Seed</div>
     <div class="gen-seed"><input id="genSeed" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Course seed"><button id="genRoll" title="New seed" aria-label="New seed">🎲</button></div>
@@ -600,6 +600,9 @@ function pixTex(kind){ const k='pix'+kind; if(ENV[k]) return ENV[k]; const c=mkC
   const t=toTex(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return ENV[k]=t; }
 function envTemplate(sp){
   if(ENV.tpl[sp]) return ENV.tpl[sp];
+  if(sp==='crystal'){ const wood=[], n=3+((NZ.rnd()*3)|0); let top=0;              // crystal spires: a cluster of tall six-sided points
+    for(let i=0;i<n;i++){ const a=i/n*6.28+NZ.rnd(), lean=i?0.25+NZ.rnd()*0.35:0.05, h=(i?1.6:3.2)+NZ.rnd()*1.6, r=i?0.22+NZ.rnd()*0.12:0.42; wood.push(envCyl(r,0.02,h,6,new THREE.Vector3(Math.cos(a)*(i?0.3:0),0,Math.sin(a)*(i?0.3:0)),new THREE.Vector3(Math.cos(a)*lean,1,Math.sin(a)*lean))); top=Math.max(top,h); }
+    const T={leaf:'leaf',h:top,cy:top*0.6,r:0.6,trunkR:0.4,trunkH:top,flat:false}; T.wood=envMerge(wood); T.wood.userData.shared=true; T.leaves=null; return ENV.tpl[sp]=T; }
   if(sp==='snowpine'||sp==='neonpalm') return ENV.tpl[sp]=envTemplate(sp==='snowpine'?'pine':'palm');   // same shape, own colours
   if(sp==='block'||sp==='blockpine'){ const wood=[], lv=[], T=sp==='block'?{h:7,cy:5,r:2.4,trunkR:0.4,trunkH:5}:{h:9.2,cy:5.6,r:2.4,trunkR:0.4,trunkH:8};
     wood.push(blockBox(0.8,T.trunkH,0.8,0,T.trunkH/2,0));
@@ -656,7 +659,7 @@ function envTemplate(sp){
   }
   T.wood=wood.length?envMerge(wood):null; T.leaves=cards.length?envCards(cards,T.flat):null; if(T.wood) T.wood.userData.shared=true; if(T.leaves) T.leaves.userData.shared=true; return ENV.tpl[sp]=T;
 }
-const ENV_LEAF={snowpine:0xffffff,neonpalm:0x2a0a3a,ashbush:0x5c4c44,dead:0x2e2420,oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e,palm:0xcfe68e,juniper:0x86a088,dunegrass:0xd8c890,sage:0xb4bea2,cactus:0x6f9a52};
+const ENV_LEAF={crystal:0x7fe6ff,snowpine:0xffffff,neonpalm:0x2a0a3a,ashbush:0x5c4c44,dead:0x2e2420,oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e,palm:0xcfe68e,juniper:0x86a088,dunegrass:0xd8c890,sage:0xb4bea2,cactus:0x6f9a52};
 const ENV_BARK={neonpalm:0x2a1a3a,dead:0x40332c,poplar:0xd8d2c4,palm:0xffffff,juniper:0xa08a78};   // bark tints (×the bark texture); a cactus is plain ribbed green
 function envCactusCanvas(){ const c=mkCanvas(64,128), g=c.getContext('2d');                  // vertical ribs, light and dark green
   for(let x=0;x<64;x++){ const k=0.5+0.5*Math.cos(x/64*Math.PI*2*6); g.fillStyle=`rgb(${Math.round(70+k*40)},${Math.round(112+k*44)},${Math.round(58+k*26)})`; g.fillRect(x,0,1,128); } return c; }
@@ -666,6 +669,7 @@ function envMaterials(sp,heightW){                  // per species: leaves + bar
   const key=sp+'|'+heightW.toFixed(1); if(ENV.mats[key]) return ENV.mats[key];
   if(sp==='block'||sp==='blockpine') return ENV.mats[key]={leaf:envPatch(new THREE.MeshStandardMaterial({map:pixTex('leaf'),vertexColors:true,roughness:0.9}),{cloud:true}),bark:envPatch(new THREE.MeshStandardMaterial({map:pixTex('bark'),vertexColors:true,roughness:0.95}),{cloud:true})};   // solid cubes, no sway
   if(!ENV.leafTex){ ENV.leafTex=toTex(envLeafCanvas('leaf')); ENV.needleTex=toTex(envLeafCanvas('needle')); ENV.barkTex=toTex(envBarkCanvas(),{repeat:[2,3]}); }
+  if(sp==='crystal'){ const cm=new THREE.MeshStandardMaterial({color:0x7fe6ff,emissive:0x1d7a99,roughness:0.15,metalness:0.2,flatShading:true}); return ENV.mats[key]={leaf:cm,bark:cm}; }   // glassy, faintly glowing
   if(sp==='snowpine'&&!ENV.snowTex){ const c=envLeafCanvas('needle'), g=c.getContext('2d'), im=g.getImageData(0,0,c.width,c.height), d=im.data;   // needles mostly under snow
     for(let i=0;i<d.length;i+=4){ const k=(i>>2)%7<5?0.82:0.35; d[i]=d[i]+(242-d[i])*k; d[i+1]=d[i+1]+(246-d[i+1])*k; d[i+2]=d[i+2]+(252-d[i+2])*k; } g.putImageData(im,0,0); ENV.snowTex=toTex(c); }
   const T=envTemplate(sp), map=sp==='snowpine'?ENV.snowTex:T.leaf==='needle'?ENV.needleTex:ENV.leafTex, K=(sp==='shrub'?0.05:0.3)*ENV.U;
@@ -1010,6 +1014,8 @@ const THEMES={
     surf:{fairway:[214,224,234],tee:[226,232,240],fringe:[200,214,228],green:[168,204,228],rough:[236,240,246],deep:[246,248,252],ob:[240,244,250],sand:[150,128,104]}},
   synth:{name:'Synthwave',hills:[0.6,1.4],mounds:[0,1.0],dense:0.4,water:0.45,wind:0.8,bunk:1,neon:true,trees:{neonpalm:1},haze:0x2a0a40,   // a neon grid under a striped sunset
     surf:{fairway:[34,12,58],tee:[40,14,66],fringe:[28,14,60],green:[18,30,66],rough:[20,8,38],deep:[14,5,28],ob:[12,4,24],sand:[60,24,40]}},
+  scifi:{name:'Sci-Fi',hills:[0.5,1.2],mounds:[0,0.9],dense:0.45,water:0.4,wind:0.6,bunk:0.9,space:true,trees:{crystal:1},haze:0x05060c,   // a platform floating in space
+    surf:{fairway:[78,98,110],tee:[96,116,128],fringe:[64,86,98],green:[40,132,140],rough:[52,62,74],deep:[42,50,62],ob:[6,8,14],sand:[118,104,150]}},
   sketch:{name:'Sketch',hills:[0.9,2.0],mounds:[0,1.4],dense:0.9,water:0.5,wind:1,bunk:1,sketch:true},   // pencil on paper
   apoc:{name:'Post-Apocalypse',hills:[1.2,2.3],mounds:[0.6,1.8],dense:0.35,water:0.65,wind:1.2,bunk:0.9,apoc:true,trees:{dead:0.7,ashbush:0.3},haze:0x5a1808,   // scorched wasteland; water is lava
     surf:{fairway:[98,84,74],tee:[106,90,78],fringe:[84,66,58],green:[112,58,48],rough:[62,48,42],deep:[46,34,30],ob:[40,30,26],sand:[150,142,132]}},
@@ -1022,6 +1028,7 @@ const THEME_WORDS={default:['Oak','Willow','Meadow','Brook','Hollow','Ridge','Gl
   '8bit':['Block','Pixel','Creeper','Cube','Voxel','Chunk','Redstone','Cobble','Spawn','Biome','Torch','Crafting'],
   winter:['Frost','Glacier','Snowdrift','Icicle','Blizzard','Tundra','Aspen','Powder','Northwind','Hoarfrost','Sleigh','Evergreen'],
   synth:['Neon','Laser','Sunset','Chrome','Magenta','Vapor','Midnight','Turbo','Cassette','Horizon','Velvet','Grid'],
+  scifi:['Orbit','Nebula','Quasar','Station','Airlock','Comet','Ion','Pulsar','Docking','Warp','Zero-G','Hangar'],
   sketch:['Pencil','Graphite','Margin','Doodle','Draft','Inkwell','Charcoal','Easel','Folio','Linework','Notebook','Eraser'],
   apoc:['Fallout','Cinder','Rust','Ash','Ruin','Scorch','Wreck','Rubble','Ember','Ashfall','Husk','Wasteland'],
   cyber:['Signal','Node','Kernel','Vector','Cipher','Proxy','Daemon','Packet','Root','Cache','Socket','Binary']};
@@ -1406,6 +1413,7 @@ function buildMaterials(){
   M.groundFar=detailed(new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.95}));   // beyond it: vertex-coloured rough
   M.sandDetail=toTex(sg.color,{repeat:[1,1]});
   M.ice=new THREE.MeshStandardMaterial({map:toTex(iceCanvas(),{repeat:[2,2]}),roughness:0.18,metalness:0.05});
+  M.plasma=new THREE.MeshBasicMaterial({map:toTex(plasmaCanvas(),{repeat:[2,2]})});
   M.neonPool=new THREE.MeshBasicMaterial({map:toTex(neonPoolCanvas(),{repeat:[3,3]})});
   M.lava=new THREE.MeshBasicMaterial({map:toTex(lavaCanvas(),{repeat:[2,2]})});      // glows on its own, whatever the light
   M.water=envWaterMat(new THREE.MeshStandardMaterial({map:toTex(waterTexG(),{repeat:[1,1]}),color:0xbfe0ff,roughness:0.08,metalness:0.1,transparent:true,opacity:0.88,envMapIntensity:1.5}));
@@ -1643,17 +1651,46 @@ function synthPanoCanvas(){ const W=2048, Hh=1024, base=Hh-24, c=mkCanvas(W,Hh),
     g.fillStyle=fill; g.beginPath(); g.moveTo(0,Hh); for(const [x,y] of pts) g.lineTo(x,y); g.lineTo(W,Hh); g.closePath(); g.fill();
     g.strokeStyle=line; g.lineWidth=3; g.shadowColor=line; g.shadowBlur=14; g.beginPath(); pts.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y)); g.stroke(); g.shadowBlur=0; };
   ridge(5,300,base-40,'#1a0636','#7a3aff',2.2); ridge(8,200,base-10,'#0e0320','#ff3ad0',5.7); return c; }
+// Sci-Fi: the course as a floating platform — the cut edge gets a dark metal wall down to an underside, and a glowing rim
+function buildPlatformEdge(pos,tri){ const cnt=new Map(), key=(a,b)=>a<b?a*1e7+b:b*1e7+a;
+  for(let t=0;t<tri.length;t+=3) for(const [a,b] of [[tri[t],tri[t+1]],[tri[t+1],tri[t+2]],[tri[t+2],tri[t]]]){ const k=key(a,b), e=cnt.get(k); if(e) e[2]++; else cnt.set(k,[a,b,1]); }
+  const wp=[], rim=[], D=4;
+  for(const [a,b,n] of cnt.values()){ if(n!==1) continue; const ax=pos[a*3], ay=pos[a*3+1], az=pos[a*3+2], bx=pos[b*3], by=pos[b*3+1], bz=pos[b*3+2];
+    wp.push(ax,ay,az, bx,by,bz, bx,by-D,bz,  ax,ay,az, bx,by-D,bz, ax,ay-D,az); rim.push(ax,ay+0.03,az,bx,by+0.03,bz); }
+  if(!wp.length) return;
+  const wg=new THREE.BufferGeometry(); wg.setAttribute('position',new THREE.Float32BufferAttribute(wp,3)); wg.computeVertexNormals();
+  holeGroup.add(new THREE.Mesh(wg,new THREE.MeshStandardMaterial({color:0x3a4250,metalness:0.6,roughness:0.45,side:THREE.DoubleSide})));
+  const rg=new THREE.BufferGeometry(); rg.setAttribute('position',new THREE.Float32BufferAttribute(rim,3));
+  holeGroup.add(new THREE.LineSegments(rg,new THREE.LineBasicMaterial({color:0x5ce8ff,toneMapped:false,fog:false})));
+  const ug=new THREE.BufferGeometry(); ug.setAttribute('position',new THREE.BufferAttribute(Float32Array.from(pos),3)); ug.setIndex(tri.slice()); for(let k=1;k<ug.attributes.position.count*3;k+=3) ug.attributes.position.array[k]-=D;
+  ug.computeVertexNormals(); holeGroup.add(new THREE.Mesh(ug,new THREE.MeshStandardMaterial({color:0x232833,metalness:0.5,roughness:0.6,side:THREE.DoubleSide}))); }
+function spacePixel(x,z,res,o){ if(surfAt(x,z)==='ob') return o; const e=res*0.5;   // deck panels: faint seams every 5 m
+  if(Math.abs(x-Math.round(x/5)*5)<e||Math.abs(z-Math.round(z/5)*5)<e){ o[0]*=0.6; o[1]*=0.6; o[2]*=0.66; } return o; }
+function plasmaCanvas(){ const S=128, c=mkCanvas(S,S), g=c.getContext('2d'), img=g.createImageData(S,S), d=img.data;   // a swirling blue-violet energy pool (seamless)
+  for(let y=0;y<S;y++) for(let x=0;x<S;x++){ const u=x/S*6.283, v=y/S*6.283, f=Math.sin(u*2+Math.sin(v*3))*0.5+Math.sin(v*2+Math.cos(u*3))*0.5, k=0.5+0.5*f, i=(y*S+x)*4;
+    d[i]=40+k*k*150; d[i+1]=80+k*150; d[i+2]=200+k*55; d[i+3]=255; } g.putImageData(img,0,0); return c; }
+function spaceSkyCanvas(){ const W=2048, Hh=1024, c=mkCanvas(W,Hh), g=c.getContext('2d'); g.fillStyle='#020309'; g.fillRect(0,0,W,Hh);
+  for(const [x,y,r,col] of [[W*0.3,Hh*0.35,260,'rgba(120,60,200,.16)'],[W*0.38,Hh*0.42,180,'rgba(40,120,220,.14)'],[W*0.78,Hh*0.6,300,'rgba(200,60,140,.10)'],[W*0.6,Hh*0.25,200,'rgba(60,160,200,.08)']]){
+    const gr=g.createRadialGradient(x,y,0,x,y,r); gr.addColorStop(0,col); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=gr; g.fillRect(x-r,y-r,2*r,2*r); }   // nebulae
+  for(let i=0;i<2600;i++){ const b=Math.random(), s=b>0.985?2:1; g.fillStyle=`rgba(${200+((Math.random()*55)|0)},${210+((Math.random()*45)|0)},255,${(0.25+b*0.75).toFixed(2)})`; g.fillRect(Math.random()*W,Math.random()*Hh,s,s); }
+  const px=W*0.68, py=Hh*0.36, R=70, pg=g.createRadialGradient(px-R*0.4,py-R*0.4,R*0.1,px,py,R); pg.addColorStop(0,'#f0c890'); pg.addColorStop(0.6,'#b0703a'); pg.addColorStop(1,'#2a1408');   // a ringed planet
+  g.save(); g.translate(px,py); g.rotate(-0.35); g.strokeStyle='rgba(220,200,160,.55)'; g.lineWidth=6; g.beginPath(); g.ellipse(0,0,R*1.9,R*0.45,0,Math.PI,2*Math.PI); g.stroke(); g.restore();
+  g.fillStyle=pg; g.beginPath(); g.arc(px,py,R,0,7); g.fill();
+  g.save(); g.translate(px,py); g.rotate(-0.35); g.strokeStyle='rgba(220,200,160,.7)'; g.lineWidth=6; g.beginPath(); g.ellipse(0,0,R*1.9,R*0.45,0,0,Math.PI); g.stroke(); g.restore();
+  return c; }
 // swap in a theme's own sky and backdrop (Synthwave), or put the usual ones back
 function themeSky(){ if(!M.skyMesh) return; if(!M.skyTex0) M.skyTex0=M.skyMesh.material.map;
+  if(H.space&&!M.skySpace) M.skySpace=toTex(spaceSkyCanvas());
+  if(M.pano) M.pano.visible=!H.space;
   if(H.neon&&!M.skySynth){ M.skySynth=toTex(synthSkyCanvas()); M.panoSynth=toTex(synthPanoCanvas()); M.panoSynth.wrapS=THREE.RepeatWrapping; }
-  M.skyMesh.material.map=H.neon?M.skySynth:M.skyTex0; M.skyMesh.material.needsUpdate=true;
+  M.skyMesh.material.map=H.neon?M.skySynth:H.space?M.skySpace:M.skyTex0; M.skyMesh.material.needsUpdate=true;
   if(M.pano){ M.pano.material.map=H.neon?M.panoSynth:(H.pixel?M.panoPx:M.panoTex); M.pano.material.needsUpdate=true; } }
 function flagPixTex(){ if(flagPixTex.t) return flagPixTex.t; const c=mkCanvas(10,7), g=c.getContext('2d');
   for(let y=0;y<7;y++) for(let x=0;x<10;x++){ const r=Math.random(); g.fillStyle=y===0||y===6||x===9?'#9a0a0a':r<0.25?'#d81010':r<0.5?'#ff3a2a':'#ff1a1a'; g.fillRect(x,y,1,1); }
   const t=toTex(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return flagPixTex.t=t; }
 function buildHole(){
   { const SK=THEMES[roundSkin()]||THEMES.default, own=THEMES[H.theme]||THEMES.default;          // dress the hole in the round's theme (its layout stays as made)
-    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.pixel=!!SK.pixel; H.cyber=!!SK.cyber; H.apoc=!!SK.apoc; H.snow=!!SK.snow; H.neon=!!SK.neon; H.sketch=!!SK.sketch; H.denseK=SK.dense/own.dense; }
+    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.pixel=!!SK.pixel; H.cyber=!!SK.cyber; H.apoc=!!SK.apoc; H.snow=!!SK.snow; H.neon=!!SK.neon; H.sketch=!!SK.sketch; H.space=!!SK.space; H.denseK=SK.dense/own.dense; }
   SURF_COL=H.surf?Object.assign({},SURF_BASE,H.surf):SURF_BASE;
   pixelLook(!!H.pixel); postLook(H.cyber?0:H.sketch?1:-1); themeSky();
   if(holeGroup) disposeGroup(holeGroup);
@@ -1675,7 +1712,7 @@ function buildHole(){
   for(let py=0;py<SH;py++) for(let px=0;px<SW;px++){ const x=SX0+(px+0.5)*res, z=SZ1-(py+0.5)*res, i=(py*SW+px)*4;
     if(H.pixel){ const bx=Math.floor(x), bz=Math.floor(z), key=bx*100003+bz; let b=blk.get(key); if(!b){ b=surfPixel(bx+0.5,bz+0.5,[0,0,0,255]).slice(); const v=0.94+0.12*hsh(bx,bz); b[0]*=v; b[1]*=v; b[2]*=v; blk.set(key,b); }
       const t=0.84+0.3*hsh(Math.floor(x*4),Math.floor(z*4)); c3[0]=clamp(b[0]*t,0,255); c3[1]=clamp(b[1]*t,0,255); c3[2]=clamp(b[2]*t,0,255); c3[3]=b[3]; }
-    else { surfPixel(x,z,c3); if(H.neon) neonPixel(x,z,res,c3); } sd[i]=c3[0]; sd[i+1]=c3[1]; sd[i+2]=c3[2]; sd[i+3]=c3[3]==null?255:c3[3]; c3[3]=255; }
+    else { surfPixel(x,z,c3); if(H.neon) neonPixel(x,z,res,c3); else if(H.space) spacePixel(x,z,res,c3); } sd[i]=c3[0]; sd[i+1]=c3[1]; sd[i+2]=c3[2]; sd[i+3]=c3[3]==null?255:c3[3]; c3[3]=255; }
   // anti-alias: wherever neighbouring pixels differ (surface edges, mowing stripes), re-shade from a 4×4 grid of sub-samples
   if(!H.pixel&&!H.neon){ const edge=new Uint8Array(SW*SH), dif=(i,j)=>Math.abs(sd[i]-sd[j])+Math.abs(sd[i+1]-sd[j+1])+Math.abs(sd[i+2]-sd[j+2])+Math.abs(sd[i+3]-sd[j+3])>9;
     for(let py=0;py<SH;py++) for(let px=0;px<SW;px++){ const k=py*SW+px, i=k*4; if(px+1<SW&&dif(i,i+4)){ edge[k]=1; edge[k+1]=1; } if(py+1<SH&&dif(i,i+SW*4)){ edge[k]=1; edge[k+SW]=1; } }
@@ -1688,20 +1725,22 @@ function buildHole(){
   for(const gm of [M.ground,M.groundFar]){ gm.flatShading=!!H.pixel; gm.needsUpdate=true; }      // 8 Bit: faceted ground
   for(let k=0;k<nx*nz;k++){ uv[k*2]=(pos[k*3]-SX0)/(SX1-SX0); uv[k*2+1]=(pos[k*3+2]-SZ0)/(SZ1-SZ0); }
   const inR=k=>pos[k*3]>=SX0&&pos[k*3]<=SX1&&pos[k*3+2]>=SZ0&&pos[k*3+2]<=SZ1, inner=[], outer=[];
-  for(let t=0;t<idx.length;t+=3){ const a=idx[t], b=idx[t+1], c=idx[t+2]; (inR(a)&&inR(b)&&inR(c)?inner:outer).push(a,b,c); }
+  for(let t=0;t<idx.length;t+=3){ const a=idx[t], b=idx[t+1], c=idx[t+2];
+    if(H.space&&surfAt((pos[a*3]+pos[b*3]+pos[c*3])/3,(pos[a*3+2]+pos[b*3+2]+pos[c*3+2])/3)==='ob') continue;   // Sci-Fi: out of bounds is empty space
+    (inR(a)&&inR(b)&&inR(c)?inner:outer).push(a,b,c); }
   TER={X0,Z0,cs,nx,nz,pos};
   const tg=new THREE.BufferGeometry(); tg.setAttribute('position',new THREE.BufferAttribute(pos,3)); tg.setAttribute('color',new THREE.BufferAttribute(col,3)); tg.setAttribute('uv',new THREE.BufferAttribute(uv,2));
   tg.setIndex(idx); tg.computeVertexNormals();
   const gIn=tg.clone(); gIn.setIndex(inner); const gOut=tg.clone(); gOut.setIndex(outer); tg.dispose();
   for(const [geo,m] of [[gIn,M.ground],[gOut,M.groundFar]]){ const o=new THREE.Mesh(geo,m); o.receiveShadow=!PERF; holeGroup.add(o); }
-  buildOuterLand(gOut);
+  if(H.space) buildPlatformEdge(pos,inner.concat(outer)); else buildOuterLand(gOut);
   // far fields so the horizon isn't empty
-  const far=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshBasicMaterial({color:H.apoc?0x2a1410:H.snow?0xdfe6ee:H.neon?0x12041e:0x2f5a26})); far.rotation.x=-Math.PI/2; far.position.y=-6; holeGroup.add(far);   // hazed like the backdrop's base
+  if(!H.space){ const far=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshBasicMaterial({color:H.apoc?0x2a1410:H.snow?0xdfe6ee:H.neon?0x12041e:0x2f5a26})); far.rotation.x=-Math.PI/2; far.position.y=-6; holeGroup.add(far); }   // hazed like the backdrop's base
   // water
-  for(const W of H.water){ const w=new THREE.Mesh(waterGeo(W),H.apoc?M.lava:H.snow?M.ice:H.neon?M.neonPool:M.water); w.position.set(W.c[0],waterLevel(W),W.c[1]); holeGroup.add(w); w.updateMatrixWorld(); if(!(H.apoc||H.snow||H.neon)) envAddWater(w,waterLevel(W)); }
+  for(const W of H.water){ const w=new THREE.Mesh(waterGeo(W),H.apoc?M.lava:H.snow?M.ice:H.neon?M.neonPool:H.space?M.plasma:M.water); w.position.set(W.c[0],waterLevel(W),W.c[1]); holeGroup.add(w); w.updateMatrixWorld(); if(!(H.apoc||H.snow||H.neon||H.space)) envAddWater(w,waterLevel(W)); }
   // tee markers, yardage posts, OB stakes
   const [tx,tz]=H.tee; buildFurniture();
-  for(let s=0;s<H.len+20;s+=22) for(const side of [-1,1]){ const [px,pz,dx,dz]=routePoint(s), o=H.ob+NZ.n2(s*0.02,1)*4, x=px-dz*o*side, z=pz+dx*o*side; if(Math.hypot(x-H.tee[0],z-H.tee[1])<30) continue; const st=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1,6),M.stake); st.position.set(x,hAt(x,z)+0.5,z); holeGroup.add(st); }
+  if(!H.space) for(let s=0;s<H.len+20;s+=22) for(const side of [-1,1]){ const [px,pz,dx,dz]=routePoint(s), o=H.ob+NZ.n2(s*0.02,1)*4, x=px-dz*o*side, z=pz+dx*o*side; if(Math.hypot(x-H.tee[0],z-H.tee[1])<30) continue; const st=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,1,6),M.stake); st.position.set(x,hAt(x,z)+0.5,z); holeGroup.add(st); }
   if(H.range){ pinMesh=null; flagCloth=null; cupMeshes=[]; buildTrees(); buildGreenAids(); buildTargets(); return; }
   // pin, cup and flag
   const [px,pz]=H.pin, py=hAt(px,pz);
@@ -1783,7 +1822,7 @@ function squatchTex(){ if(squatchTex.t) return squatchTex.t; const W=128, Hh=256
   g.quadraticCurveTo(14,110,24,74); g.quadraticCurveTo(30,50,50,44); g.quadraticCurveTo(50,32,58,22); g.closePath(); g.fill();
   g.globalCompositeOperation='source-atop'; for(let i=0;i<900;i++){ g.fillStyle=Math.random()<0.5?'rgba(60,40,26,.35)':'rgba(0,0,0,.3)'; g.fillRect(Math.random()*W,Math.random()*Hh,1+Math.random()*2,3+Math.random()*5); }   // shaggy fur
   return squatchTex.t=toTex(c); }
-function buildSquatch(){ if(!TREES.length) return; const L=H.len, cands=TREES.filter(T=>{ const R=routeInfo(T.x,T.z), F=fairInfo(T.x,T.z); return R.s>L*0.25&&R.s<L*0.8&&F.d>F.hw+22&&T.cr>1.6; });
+function buildSquatch(){ if(!TREES.length||H.space) return; const L=H.len, cands=TREES.filter(T=>{ const R=routeInfo(T.x,T.z), F=fairInfo(T.x,T.z); return R.s>L*0.25&&R.s<L*0.8&&F.d>F.hw+22&&T.cr>1.6; });
   const T=cands.length?cands[Math.floor(Math.random()*cands.length)]:null; if(!T) return;
   const R=routeInfo(T.x,T.z), [rx,rz,dx,dz]=routePoint(R.s), ox=T.x-rx, oz=T.z-rz, ol=Math.hypot(ox,oz)||1, side=Math.random()<0.5?-1:1;
   const x=T.x+ox/ol*(T.trunkR+0.9)+dx*side*(T.trunkR+0.5), z=T.z+oz/ol*(T.trunkR+0.9)+dz*side*(T.trunkR+0.5);   // just behind the trunk, a shoulder showing
@@ -1792,7 +1831,7 @@ function buildTrees(){
   TREES=[]; const want=Math.round((PERF?100:180)*(H.dense||1)*(H.denseK||1)*clamp(H.len/350,0.6,1.4)), rnd=NZ.rnd;
   for(let tries=0;TREES.length<want&&tries<6000;tries++){
     const [rpx,rpz,rdx,rdz]=routePoint(-40+rnd()*(H.len+90)), side=rnd()<0.5?-1:1, off=(H.dense?16:24)+rnd()*(H.ob+30), x=rpx-rdz*off*side, z=rpz+rdx*off*side, s=surfAt(x,z);
-    if(s==='fairway'||s==='green'||s==='fringe'||s==='tee'||s==='water'||s==='sand') continue;
+    if(s==='fairway'||s==='green'||s==='fringe'||s==='tee'||s==='water'||s==='sand'||(H.space&&s==='ob')) continue;
     const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
     if(TREES.some(t=>Math.hypot(t.x-x,t.z-z)<4.5)||onCart(x,z)||onCart(x+2,z)||onCart(x-2,z)) continue;
     let k=rnd(), sp=k<(H.dense?0.3:0.5)?'oak':k<(H.dense?0.85:0.78)?'pine':'poplar';
@@ -1855,6 +1894,7 @@ function sfxLand(v,s){ if(!audioOK()) return; const vol=clamp(v/25,0,1); if(vol<
   if(s==='sand'){ burst(t,0.12,0.4*vol,'lowpass',700); return; } if(s==='green'||s==='fringe'){ burst(t,0.02,0.3*vol,'lowpass',1600); mode(180,t,0.06,0.2*vol,120); return; }
   burst(t,0.03,0.28*vol,'lowpass',900); mode(110,t,0.08,0.2*vol,80); }
 function sfxLeaves(){ if(!audioOK()) return; const t=gate('leaves',0.2); if(t<0) return; burst(t,0.35,0.25,'highpass',2500,0.7,null,0.02); mode(260,t,0.05,0.15); }
+function sfxZap(){ if(!audioOK()) return; const t=_ac.currentTime; mode(1400,t,0.35,0.25,180); mode(2100,t+0.02,0.2,0.1,300); burst(t,0.25,0.25,'bandpass',2400,2,600,0.01); }   // a falling electric zap
 function sfxIce(){ if(!audioOK()) return; const t=_ac.currentTime; burst(t,0.02,0.55,'highpass',3600); mode(1900,t,0.05,0.22,950); mode(3100,t+0.01,0.04,0.12,1700); burst(t+0.07,0.45,0.32,'bandpass',900,0.6,380,0.02); mode(140,t+0.07,0.12,0.18,80); }   // a crack, then the plunge
 function sfxLava(){ if(!audioOK()) return; const t=_ac.currentTime; burst(t,0.9,0.42,'highpass',2600,0.7,null,0.01); burst(t,0.5,0.3,'lowpass',500,1,180,0.01); mode(70,t+0.05,0.35,0.3,45); mode(110,t+0.3,0.2,0.18,70); }   // a hiss and a deep gloop
 function sfxSplash(){ if(!audioOK()) return; const t=_ac.currentTime; burst(t,0.05,0.5,'lowpass',1800); burst(t+0.02,0.7,0.35,'bandpass',900,0.6,380,0.02); mode(140,t,0.12,0.2,80); }
@@ -1863,7 +1903,7 @@ function sfxChime(kind){ if(!audioOK()) return; const t=_ac.currentTime+0.05;
   if(kind==='great'){ [1046.5,1318.5,1568,2093].forEach((f,i)=>bell(f,t+i*0.09,0.28,0.9)); } else if(kind==='par'){ bell(659.25,t,0.22,0.6); bell(987.77,t+0.1,0.24,0.8); } else bell(523.25,t,0.2,0.7); }
 let ambient=null;
 function startAmbient(){}                           // (the old breeze loop is gone; birds still chirp from the render loop)
-function birdChirp(){ if(!audioOK()||(H&&(H.apoc||H.neon))) return; const t=_ac.currentTime, f=2600+Math.random()*1800; for(let i=0;i<2+((Math.random()*3)|0);i++) mode(f*(1+Math.random()*0.1),t+i*0.11,0.07,0.025,f*1.3); }
+function birdChirp(){ if(!audioOK()||(H&&(H.apoc||H.neon||H.space))) return; const t=_ac.currentTime, f=2600+Math.random()*1800; for(let i=0;i<2+((Math.random()*3)|0);i++) mode(f*(1+Math.random()*0.1),t+i*0.11,0.07,0.025,f*1.3); }
 
 // ═══════════════════════════════════════════════════════
 //  BALL FLIGHT & ROLL
@@ -1887,6 +1927,7 @@ function flightStep(dt){
   // water surface
   for(const W of H.water) if(ellR(W,P.x,P.z)<1.18&&P.y<=waterLevel(W)){ penalty('water'); return; }
   const gy=meshH(P.x,P.z);
+  if(H.space&&surfAt(P.x,P.z)==='ob'){ if(P.y<gy-6) penalty('ob'); return; }              // Sci-Fi: off the platform there's only space — it falls away
   if(P.y<=gy+BALL_R&&V.y<0){                                                               // landing / bounce
     const s=surfAt(P.x,P.z); if(s==='water'){ penalty('water'); return; }
     const [gx,gz]=grad(P.x,P.z); _n.set(-gx,1,-gz).normalize(); P.y=gy+BALL_R;
@@ -1901,6 +1942,7 @@ function flightStep(dt){
 function rollStep(dt){
   const P=ball.p, V=ball.v, s=surfAt(P.x,P.z), S2=SURF[s]; ball.lie=s;
   if(s==='water'||inWater(P.x,P.z)){ penalty('water'); return; }
+  if(H.space&&s==='ob'){ ball.mode='fly'; V.y=-0.3; ball.rpm=0; return; }                  // rolled off the edge
   const [gx,gz]=grad(P.x,P.z), slopeA=(5/7)*G*Math.hypot(gx,gz), sp0=Math.hypot(V.x,V.z);
   if(sp0<0.04&&slopeA<S2.roll*0.98){ V.set(0,0,0); ballStopped(); return; }
   V.x-=(5/7)*G*gx*dt; V.z-=(5/7)*G*gz*dt;
@@ -2026,8 +2068,8 @@ function ballStopped(){
 function penalty(kind){
   ball.mode='rest'; phase='penalty'; strokes++; const P=ball.p; lastPuttFrom=null;
   missHint.count('pen',3,'Water and out-of-bounds are adding up.<br>Tap the <b>map button</b> to see the whole hole, and check the <b>landing ring</b> sits somewhere safe before you swing. A shorter club to lay up is often the smart play.');
-  if(kind==='water'){ if(H.apoc) sfxLava(); else if(H.snow) sfxIce(); else sfxSplash(); ball.visible=false; { let lv=P.y; for(const W of H.water) if(ellR(W,P.x,P.z)<1.3) lv=waterLevel(W);
-      if(H.apoc) envBurst(holeGroup,P.x,lv+0.05,P.z,{n:60,col:0xff7a20,spd:1.6,up:3.2,size:0.07,life:1.3}); else if(H.snow) envBurst(holeGroup,P.x,lv+0.05,P.z,{n:50,col:0xeaf6ff,spd:1.8,up:2.4,size:0.06,life:1.0}); else envSplash(holeGroup,P.x,lv+0.02,P.z,1.6); }
+  if(kind==='water'){ if(H.apoc) sfxLava(); else if(H.snow) sfxIce(); else if(H.space) sfxZap(); else sfxSplash(); ball.visible=false; { let lv=P.y; for(const W of H.water) if(ellR(W,P.x,P.z)<1.3) lv=waterLevel(W);
+      if(H.apoc) envBurst(holeGroup,P.x,lv+0.05,P.z,{n:60,col:0xff7a20,spd:1.6,up:3.2,size:0.07,life:1.3}); else if(H.space) envBurst(holeGroup,P.x,lv+0.05,P.z,{n:50,col:0x7ad8ff,spd:2,up:2.6,size:0.06,life:1.0}); else if(H.snow) envBurst(holeGroup,P.x,lv+0.05,P.z,{n:50,col:0xeaf6ff,spd:1.8,up:2.4,size:0.06,life:1.0}); else envSplash(holeGroup,P.x,lv+0.02,P.z,1.6); }
     // drop: back along the line toward where it was hit, two clubs-lengths clear of the hazard
     let x=P.x, z=P.z; const dx=ball.last[0]-x, dz=ball.last[1]-z, l=Math.hypot(dx,dz)||1;
     // (clear of the pond's sunken bank too: the flight check counts anything below the water level near a pond as wet)
@@ -2036,9 +2078,9 @@ function penalty(kind){
     // ponds are ringed by deep rough, which saps a quarter of the swing: keep going back along the line (up to 30 m, never past
     // where it was hit) to the first rough/fairway, so the next shot has a fair chance of clearing the water
     for(let k=0;k<30&&surfAt(x,z)==='deep'&&Math.hypot(ball.last[0]-x,ball.last[1]-z)>3;k++){ const nx=x+dx/l, nz=z+dz/l, ns=surfAt(nx,nz); if(wetAt(nx,nz)||ns==='sand'||ns==='ob') break; x=nx; z=nz; }   // …but never into another hazard
-    showMsg((H.apoc?'Lava!':H.snow?'Through the ice!':'Splash!')+'<small>1-STROKE PENALTY · DROP</small>',1.8);
+    showMsg((H.apoc?'Lava!':H.snow?'Through the ice!':H.space?'Zapped!':'Splash!')+'<small>1-STROKE PENALTY · DROP</small>',1.8);
     tween(0.01,()=>{},()=>{ ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); ball.visible=true; nextShot(); },1.8); }
-  else { showMsg('Out of bounds<small>STROKE AND DISTANCE</small>',1.8);
+  else { showMsg((H.space?'Lost in space!':'Out of bounds')+'<small>STROKE AND DISTANCE</small>',1.8);
     tween(0.01,()=>{},()=>{ const [x,z]=ball.last; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); nextShot(); },1.8); }
 }
 function holed(){
@@ -2449,6 +2491,7 @@ function loop(t){
       if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').innerHTML=''; }
       if(M.water.map) M.water.map.offset.x+=dt*0.01;
       if(H.neon) M.neonPool.map.offset.y+=dt*0.05;
+      if(H.space){ M.plasma.map.offset.x+=dt*0.03; M.plasma.map.offset.y-=dt*0.02; }
       if(H.apoc){ M.lava.map.offset.x+=dt*0.006; M.lava.map.offset.y+=dt*0.004; M.lava.color.setScalar(0.88+0.12*Math.sin(clock*1.3)); }   // slow churn and a breathing glow
       stepEmbers(dt); envStep(dt,wind.x||0.4,wind.z||0.15,0.25+(wind.mph||0)/11); if(M.skyMesh) M.skyMesh.rotation.y+=dt*0.002*(1+(wind.mph||0)/8);
       birdT-=dt; if(birdT<0){ birdT=5+Math.random()*12; birdChirp(); }
@@ -2471,6 +2514,8 @@ function applyTOD(){ if(!L.sun) return; wake(); envApplyTOD(settings.tod,{sun:L.
     L.sun.color.lerp(r,0.45); L.hemi.color.lerp(r,0.5); L.hemi.groundColor.set(0x3a1006); }
   if(H&&H.snow){ if(M.skyMesh) M.skyMesh.material.color.lerp(new THREE.Color(0xb8c2cc),0.7); if(M.pano) M.pano.material.color.lerp(new THREE.Color(0xe8eef4),0.5); if(settings.tod!==3) scene.fog.color.set(0xdfe6ee);   // overcast and snowy
     L.hemi.groundColor.set(0xc8d4e0); L.sun.color.lerp(new THREE.Color(0xe8f0ff),0.5); }
+  if(H&&H.space){ if(M.skyMesh) M.skyMesh.material.color.set(0xffffff); scene.fog.color.set(0x05060c); ENV.cloudAmt.value=0;   // deep space: hard white sunlight, a dim blue fill
+    L.sun.color.set(0xffffff); L.hemi.color.set(0x5866a0); L.hemi.groundColor.set(0x0c0e18); L.hemi.intensity*=0.7; }
   if(H&&H.neon){ if(M.skyMesh) M.skyMesh.material.color.set(settings.tod===3?0x9a9ab8:0xffffff); if(M.pano) M.pano.material.color.set(0xffffff); scene.fog.color.set(0x2a0a40);   // sunset sky, purple haze
     L.sun.color.set(0xff70c0); L.hemi.color.set(0x9040ff); L.hemi.groundColor.set(0x1a0430); }   // a themed course's warm/sandy haze
   if(H&&holeGroup&&GFX<2) buildTreeShade();
@@ -2498,7 +2543,7 @@ function cartLine(){
 }
 function drawCartPath(g,SX0,SZ1,res){
   const L=cartLine(), ok=([x,z])=>{ const s=surfAt(x,z); return s!=='water'&&s!=='sand'&&s!=='green'&&s!=='fringe'&&s!=='tee'&&s!=='ob'; }, px=([x,z])=>[(x-SX0)/res,(SZ1-z)/res];
-  for(const [w,col] of H.apoc?[[2.9,'#3a2e2a'],[2.3,'#5a4a42']]:H.neon?[[2.9,'#ff3ad0'],[2.3,'#1a0630']]:[[2.9,'#8f8b7f'],[2.3,'#bdb8aa']]){ g.strokeStyle=col; g.lineWidth=w/res; g.lineCap='round'; g.lineJoin='round'; g.beginPath(); let on=false;
+  for(const [w,col] of H.apoc?[[2.9,'#3a2e2a'],[2.3,'#5a4a42']]:H.neon?[[2.9,'#ff3ad0'],[2.3,'#1a0630']]:H.space?[[2.9,'#3ab8d0'],[2.3,'#1c2430']]:[[2.9,'#8f8b7f'],[2.3,'#bdb8aa']]){ g.strokeStyle=col; g.lineWidth=w/res; g.lineCap='round'; g.lineJoin='round'; g.beginPath(); let on=false;
     for(const p of L){ if(!ok(p)){ on=false; continue; } const [x,y]=px(p); if(on) g.lineTo(x,y); else { g.moveTo(x,y); on=true; } } g.stroke(); }
   H.cart=L;
 }
