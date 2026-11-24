@@ -1851,7 +1851,7 @@ function resumeGame(g){
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function startHole(){
-  H=PLAY[holeIdx]; strokes=0; buildHole(); envPrewarm(renderer,scene,camera); AT.hold=2500; AT.t=AT.n=AT.sum=0; PF.hitch=0; PF.skip=2;
+  H=PLAY[holeIdx]; strokes=0; resetMeter(); buildHole(); envPrewarm(renderer,scene,camera); AT.hold=2500; AT.t=AT.n=AT.sum=0; PF.hitch=0; PF.skip=2;
   const [tx,tz]=H.tee; ball.p.set(tx,meshH(tx,tz)+BALL_R+0.03,tz); ball.v.set(0,0,0); ball.mode='rest'; ball.lie='tee'; ball.visible=true; ball.sink=0; ball.last=[tx,tz];
   const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14*(H.wind||1)); wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};   // exposed holes blow harder
   buildTufts(); if(H.range){ clubIdx=0; aim=0; rangeShot={bonus:0,hit:null}; } else { suggestClub(); aimDefault(); } phase='intro'; camMode='intro'; introT=0;
@@ -1859,7 +1859,7 @@ function startHole(){
   if(H.range) showMsg(`DRIVING RANGE<small>${BUCKET} BALLS · DISTANCE + TARGETS</small>`,3); else showMsg(`HOLE ${HOLE_NO0+holeIdx+1}<small>PAR ${H.par} · ${Math.round(H.len*YD)} YARDS${GEN&&holeIdx===0?' · '+courseLabel(GEN).toUpperCase():''}</small>`,3);
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
-function nextShot(){
+function nextShot(){ resetMeter();
   if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }      // also catches penalty strokes
   buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); avoidWater(); updateUI(); buildHUD(); saveGame();
 }
@@ -1978,6 +1978,7 @@ function hint(t){ document.getElementById('hint').textContent=t; }
 
 // ── 3-click swing meter: start, set power, then stop it on the impact zone for accuracy ──
 let meter={state:'idle',x:0,power:0};
+function resetMeter(){ meter={state:'idle',x:IMPACT,power:0}; const g=id=>document.getElementById(id); g('mfill').style.width='0'; g('mmark').style.left=(IMPACT*100)+'%'; g('mpow').style.display='none'; }   // clear the last swing's marks
 const IMPACT=0.12;
 let _lastSwingTap=0;
 function swingClick(){
