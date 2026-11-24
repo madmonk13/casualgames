@@ -1918,7 +1918,7 @@ function endHole(sc){
   const term=sc===1?'HOLE IN ONE!':rel<=-3?'ALBATROSS!':rel===-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':rel===2?'DOUBLE BOGEY':'+'+rel;
   if(rel<0){ celebrate(term,rel<=-2?'pink':'gold'); sfxChime('great'); if(!testRound){ stats.aces++; saveStats(); } } else if(rel===0){ celebrate(term,'green'); sfxChime('par'); } else { showMsg(term,1.6); sfxChime('over'); }
   buildHUD(); tween(0.01,()=>{},()=>{ if(gfxPending&&holeIdx+1<PLAY.length){ saveGame(true); try{ sessionStorage.setItem('gfxAutoReload','1'); }catch(e){} location.reload(); return; }   // Auto graphics stepping down: reload into the next hole
-    holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else startHole(); },2.4);
+    holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else busyThen(startHole); },2.4);
 }
 function roundOver(){
   clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=PLAY.reduce((a,h)=>a+h.par,0), rel=s-par, bk=bestKey(roundCourse), isGen=roundCourse==='gen'&&GEN, ge=isGen?savedFind(GEN):null;
