@@ -91,6 +91,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 @media (max-width:520px){ .modal-card{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;border:none;} }
 .app-title{text-align:center;color:#ffd54a;font-size:1.6rem;font-weight:900;letter-spacing:2px;text-shadow:0 0 18px rgba(255,170,0,.45);margin-bottom:-4px;}
 .app-title .emoji{text-shadow:none;}
+.modal-top{position:sticky;top:-22px;z-index:3;margin:-22px -22px 0;padding:22px 22px 12px;background:inherit;display:flex;flex-direction:column;gap:16px;border-bottom:1px solid rgba(255,255,255,.08);}
 .modal-head{display:flex;align-items:center;justify-content:space-between;}
 .modal-head h3{color:#ffd54a;font-size:1.2rem;letter-spacing:1px;}
 #settingsClose{background:none;border:none;color:#b7a6d6;font-size:1.3rem;line-height:1;padding:4px 6px;cursor:pointer;}
@@ -144,8 +145,10 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
 <button id="mute" title="Mute"></button>
 <div id="settings">
   <div class="modal-card">
-    <div class="app-title">Just Hoop <span class="emoji">🏀</span></div>
-    <div class="modal-head"><h3>Settings</h3><button id="settingsClose" aria-label="Close">✕</button></div>
+    <div class="modal-top">
+      <div class="app-title">Just Hoop <span class="emoji">🏀</span></div>
+      <div class="modal-head"><h3>Settings</h3><button id="settingsClose" aria-label="Close">✕</button></div>
+    </div>
     <div class="sec"><div class="sec-label">Theme</div>
       <div class="picker"><button class="navbtn" data-grid="themeGrid" data-dir="-1" aria-label="Previous theme">‹</button><div id="themeGrid" class="grid scroll"></div><button class="navbtn" data-grid="themeGrid" data-dir="1" aria-label="Next theme">›</button></div>
     </div>
