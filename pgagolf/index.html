@@ -101,6 +101,7 @@ body.lefty #row{flex-direction:row-reverse;}
 #ov{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;
   background:radial-gradient(ellipse at center, rgba(6,4,12,.3) 0%, rgba(6,4,12,.75) 100%);gap:12px;text-align:center;pointer-events:none;opacity:0;transition:opacity .25s;padding:20px;}
 #ov.show{opacity:1;pointer-events:auto;}
+#ver{font-size:.7rem;color:#a99bc6;opacity:.75;letter-spacing:.5px;text-shadow:0 1px 4px #000;}
 #ov h2{font-size:clamp(1.5rem,6vw,2.4rem);letter-spacing:2px;color:#ffd54a;text-shadow:0 0 20px rgba(255,170,0,.5);}
 #ov p{color:#ddd3ee;font-size:clamp(.82rem,2.4vw,1rem);line-height:1.6;max-width:420px;text-shadow:0 1px 6px #000;}
 #ov table{border-collapse:collapse;font-size:.9rem;color:#ddd3ee;table-layout:fixed;width:min(92vw,440px);margin:0 auto 6px;}   /* every nine's card is the same grid */
@@ -275,6 +276,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small>18 holes · par 72</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
+  <div id="ver">Version 0.9 · Updated Nov 24, 2026</div>
 </div>
 <!-- "Having trouble?" hint: shown after 3 scoreless throws in a row (once per visit; can be switched off) -->
 <style>
