@@ -129,6 +129,34 @@ body.lefty #row{flex-direction:row-reverse;}
 #ov td,#ov th{border:1px solid #3a2d50;padding:3px 2px;text-align:center;} #ov th{color:#a08cc0;font-weight:600;}
 #genPanel{display:none;flex-direction:column;align-items:center;gap:8px;width:min(92vw,420px);}
 #genPanel.open{display:flex;}
+#histPanel{display:none;flex-direction:column;align-items:center;gap:8px;width:min(94vw,460px);max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#histPanel.open{display:flex;}
+.hist-open .iconbtn{visibility:hidden;} .hist-open #ov{background:rgba(6,4,12,.88);}   /* the calendar is wide: nothing peeks over or through it */
+#histList{width:100%;display:flex;flex-direction:column;gap:6px;}
+.cal-head{display:flex;align-items:center;justify-content:space-between;width:100%;}
+#calTitle{font-weight:800;color:#f2ecff;font-size:1.05rem;}
+.cal-head .mini:disabled{opacity:.3;cursor:default;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%;}
+.cal-dow{color:#a08cc0;font-size:.68rem;font-weight:700;text-align:center;padding-bottom:2px;}
+.cal-day{aspect-ratio:1;border-radius:8px;background:rgba(29,22,48,.75);border:1px solid #3a2d50;color:#9b8cb8;font:600 .72rem 'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;padding:3px 0 0;position:relative;}
+.cal-day.blank{visibility:hidden;}
+.cal-day.has{cursor:pointer;color:#f2ecff;border-color:#5d4c82;}
+.cal-day img{width:50%;margin:auto 0 14%;filter:drop-shadow(0 1px 1px rgba(0,0,0,.5));}
+.cal-day .cnt{position:absolute;right:3px;bottom:1px;font-size:.62rem;color:#ffd54a;font-weight:800;}
+.cal-day.today{box-shadow:inset 0 0 0 1px rgba(255,213,74,.45);}
+.cal-day.sel{background:rgba(255,213,74,.18);border-color:#ffd54a;}
+.cal-sum{color:#ddd3ee;font-size:.85rem;min-height:1.2em;}
+.cal-sum button{margin-left:6px;}
+#histList .hdel{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin-top:6px;color:#ddd3ee;font-size:.8rem;}
+#histList .hrow{border:1px solid #3a2d50;border-radius:9px;background:rgba(29,22,48,.9);text-align:left;}
+#histList .hhead{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:0;color:#f2ecff;cursor:pointer;text-align:left;font:inherit;}
+#histList .hhead .hwhen{color:#a08cc0;font-size:.75rem;font-weight:700;}
+#histList .hhead .hname{font-weight:800;}
+#histList .hhead .hopt{color:#a08cc0;font-size:.75rem;}
+#histList .hhead .hscore{margin-left:auto;font-weight:800;font-size:1.05rem;white-space:nowrap;}
+#histList .hcard{display:none;padding:2px 8px 10px;} #histList .hrow.open .hcard{display:block;}
+#histList table{width:100%;}
+#histList .hempty{color:#a08cc0;padding:14px;text-align:center;}
 #genPanel .gen-diff{width:min(15.5em,100%);border-color:#ffd54a;}
 #genPanel .cp-row button.sel{background:#ffd54a;color:#181000;} #genPanel .cp-row button.sel small{color:#4a3a00;}
 #genPanel .gen-dd{width:min(15.5em,100%);margin:0 auto;display:block;border-color:#ffd54a;background-color:rgba(29,22,48,.9);font-size:1rem;}
@@ -147,10 +175,10 @@ body.lefty #row{flex-direction:row-reverse;}
 #coursePick .cp-course{grid-column:1/-1;text-align:center;color:#ffd54a;font-size:.85rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:-2px;}
 #coursePick button{justify-content:center;padding:13px 10px;font-size:1rem;}
 #ov p:empty,#cpLabel:empty{display:none;}
-#coursePick .cp-label,#genPanel .cp-label{color:#a08cc0;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
-#coursePick .cp-row,#genPanel .cp-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
-#coursePick button,#genPanel .cp-row button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:92px;padding:10px 14px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;font-size:.95rem;cursor:pointer;}
-#coursePick button small,#genPanel .cp-row button small{font-weight:600;font-size:.68rem;color:#bfb2d8;}
+#coursePick .cp-label,#genPanel .cp-label,#histPanel .cp-label{color:#a08cc0;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
+#coursePick .cp-row,#genPanel .cp-row,#histPanel .cp-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+#coursePick button,#genPanel .cp-row button,#histPanel .cp-row button{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:92px;padding:10px 14px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;font-size:.95rem;cursor:pointer;}
+#coursePick button small,#genPanel .cp-row button small,#histPanel .cp-row button small{font-weight:600;font-size:.68rem;color:#bfb2d8;}
 #coursePick button.last,#genPanel .cp-row button.last{background:#ffd54a;color:#181000;} #coursePick button.last small,#genPanel .cp-row button.last small{color:#4a3a00;}
 #startbtn{margin-top:6px;padding:11px 34px;background:#ffd54a;color:#181000;border:none;border-radius:8px;
   font-size:clamp(.95rem,2.6vw,1.15rem);font-weight:800;cursor:pointer;letter-spacing:1px;}
@@ -189,9 +217,6 @@ body.lefty #row{flex-direction:row-reverse;}
 .tile.selected{border-color:#ffd54a;background:rgba(255,213,74,.14);}
 .tile img.ball3d{width:100%;aspect-ratio:1;display:block;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45));}
 .tile .label{font-size:.68rem;color:#ddd3ee;margin-top:5px;}
-.jump{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;}
-.jump button{padding:7px 0;border:1px solid #3d3058;border-radius:7px;background:#1d1630;color:#ddd3ee;font-size:.8rem;font-weight:700;cursor:pointer;}
-.jump button:active{background:#ffd54a;color:#181000;}
 .toggle{width:100%;padding:11px;border:1px solid #3d3058;border-radius:9px;background:#1d1630;color:#ddd3ee;font-size:.9rem;font-weight:700;letter-spacing:.5px;cursor:pointer;transition:all .12s;}
 .toggle:hover{border-color:#6a5a90;}
 .toggle.on{background:#ffd54a;color:#181000;border-color:#ffd54a;}
@@ -207,8 +232,6 @@ body.lefty #row{flex-direction:row-reverse;}
 .cyber #map{filter:grayscale(1) sepia(1) hue-rotate(70deg) saturate(3.5) brightness(.85);}
 .dd:focus-visible{outline:2px solid #fff;outline-offset:1px;}
 .seg input:checked+span{background:#ffd54a;color:#181000;}
-.stats{display:flex;justify-content:space-around;color:#ddd3ee;font-size:.85rem;}
-.stats b{display:block;font-size:1.25rem;color:#ffd54a;text-align:center;}
 </style>
 </head>
 <body>
@@ -268,7 +291,6 @@ body.lefty #row{flex-direction:row-reverse;}
       <option value="dunes">Dunes</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
       </select>
     </div>
-    <button class="toggle" id="setGuide"></button>
     <button class="toggle" id="setLefty"></button>
     <button class="toggle" id="setTour"></button>
     <div class="sec"><div class="sec-label" id="gfxLbl">Graphics</div>
@@ -282,10 +304,6 @@ body.lefty #row{flex-direction:row-reverse;}
     <button class="toggle" id="setFps"></button>
     <div class="gen-info" id="genInfo" style="display:none"></div>
     <button class="toggle" id="newGameBtn">Home</button>
-    <div class="sec"><div class="sec-label">Jump to hole <small style="text-transform:none;opacity:.7">(testing · round won't count)</small></div>
-      <div class="jump" id="jumpGrid"></div>
-    </div>
-    <div class="stats"><div><b id="stBest">–</b>Best</div><div><b id="stGames">0</b>Rounds</div><div><b id="stAces">0</b>Birdies+</div></div>
   </div>
 </div>
 <div id="stage"></div>
@@ -297,7 +315,11 @@ body.lefty #row{flex-direction:row-reverse;}
   <h2>🏌️ JUST GOLF</h2>
   <p></p>
   <div id="coursePick"><div class="cp-label" id="cpLabel">Choose a course</div>
-    <div class="cp-grid"><div class="cp-course">Noonan Hills</div><button data-c="front">Front 9</button><button data-c="back">Back 9</button><button data-c="all">All 18</button><button data-c="gen" class="wide">Generated Course</button><button data-c="range" class="wide">Driving Range</button></div></div>
+    <div class="cp-grid"><div class="cp-course">Noonan Hills</div><button data-c="front">Front 9</button><button data-c="back">Back 9</button><button data-c="all">All 18</button><button data-c="gen" class="wide">Generated Course</button><button data-c="range" class="wide">Driving Range</button><button data-c="hist" class="wide">History</button></div></div>
+  <div id="histPanel"><div class="cp-label">History</div>
+    <div class="cal-head"><button class="mini" id="calPrev" aria-label="Previous month">‹</button><span id="calTitle"></span><button class="mini" id="calNext" aria-label="Next month">›</button></div>
+    <div class="cal-grid" id="calGrid"></div><div class="cal-sum" id="calSum"></div><div id="histList"></div>
+    <div class="cp-row"><button id="histBack">Back<small>to courses</small></button></div></div>
   <div id="genPanel"><div class="cp-label" id="genThemeLbl">Theme</div>
     <select id="genThemeSel" class="dd gen-dd" aria-labelledby="genThemeLbl">
       <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
@@ -316,7 +338,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.4 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.5 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1216,7 +1238,7 @@ function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g))
 const COURSE_NAME='Noonan Hills', builtinLabel=c=>COURSE_NAME+' · '+(c==='back'?'Back 9':c==='all'?'All 18':'Front 9');   // the built-in course
 const courseLabel=g=>(diffKey(g.diff)==='normal'?'':DIFFS[g.diff].name+' · ')+(THEMES[g.theme]||THEMES.default).name+' · '+g.seed+(holesKey(g.holes)===18?'':' · '+holesKey(g.holes)+' holes');
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, tour:true, genTheme:'default', genDiff:'normal', genHoles:18, tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, tour:true, genTheme:'default', genDiff:'normal', genHoles:18, tod:1, course:'front', maxOver:0 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 // ═══════════════════════════════════════════════════════
@@ -2216,20 +2238,33 @@ function endHole(sc){
   buildHUD(); tween(0.01,()=>{},()=>{ if(gfxPending&&holeIdx+1<PLAY.length){ saveGame(true); try{ sessionStorage.setItem('gfxAutoReload','1'); }catch(e){} location.reload(); return; }   // Auto graphics stepping down: reload into the next hole
     holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else busyThen(startHole); },2.4);
 }
+// a scorecard: one table per nine (hole numbers, par, your scores), each with its own total
+function cardHTML(nos,pars,sc){ let t=''; for(let a=0;a<pars.length;a+=9){ const p=pars.slice(a,a+9), v=sc.slice(a,a+9);
+    t+=`<table><tr><th>Hole</th>${p.map((x,i)=>`<th>${nos[a+i]}</th>`).join('')}<th>${pars.length>9?(a?'In':'Out'):'Tot'}</th></tr>`
+      +`<tr><th>Par</th>${p.map(x=>`<td>${x}</td>`).join('')}<td>${p.reduce((x,y)=>x+y,0)}</td></tr>`
+      +`<tr><th>You</th>${v.map(x=>`<td>${x}</td>`).join('')}<td><b>${v.reduce((x,y)=>x+y,0)}</b></td></tr></table>`; }
+  return t; }
+// finished rounds (not test rounds or the range), newest first: when, which course (and a generated course's options), the card
+const HIST_KEY='justgolf_history';
+function roundHistory(){ try{ const a=JSON.parse(localStorage.getItem(HIST_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function recordRound(){ try{ const g=roundCourse==='gen'&&GEN, e=g?savedFind(GEN):null;
+  const rec={at:Date.now(),course:roundCourse,name:g?(e&&e.name)||'Generated course':builtinLabel(roundCourse),
+    opts:g?`${DIFFS[diffKey(GEN.diff)].name} · ${(THEMES[GEN.theme]||THEMES.default).name} · seed ${GEN.seed} · ${PLAY.length} holes`:'',
+    gen:g?{seed:GEN.seed,theme:GEN.theme,diff:diffKey(GEN.diff),holes:holesKey(GEN.holes)}:null,
+    nos:PLAY.map((h,i)=>HOLE_NO0+i+1),pars:PLAY.map(h=>h.par),scores:scores.slice(),ball:settings.ball};
+  const a=roundHistory(); a.unshift(rec); localStorage.setItem(HIST_KEY,JSON.stringify(a.slice(0,200))); }catch(err){} }
 function roundOver(){
   clearGame(); phase='over'; const s=scores.reduce((a,b)=>a+b,0), par=PLAY.reduce((a,h)=>a+h.par,0), rel=s-par, bk=bestKey(roundCourse), isGen=roundCourse==='gen'&&GEN, ge=isGen?savedFind(GEN):null;
   const newBest=!testRound&&(isGen?(!!ge&&(!ge.best||s<ge.best)):(!stats[bk]||s<stats[bk]));
   if(!testRound){ stats.games++; if(newBest){ if(isGen) setSavedBest(GEN,s); else stats[bk]=s; } saveStats(); } buildHUD();
   const ov=document.getElementById('ov'); ov.querySelector('h2').textContent=`🏌️ ${s} (${rel===0?'E':rel>0?'+'+rel:rel})`;
-  let tbl=''; for(let a=0;a<PLAY.length;a+=9){ const hs=PLAY.slice(a,a+9), sc=scores.slice(a,a+9);
-    tbl+=`<table><tr><th>Hole</th>${hs.map((h,i)=>`<th>${HOLE_NO0+a+i+1}</th>`).join('')}<th>${PLAY.length>9?(a?'In':'Out'):'Tot'}</th></tr>`
-      +`<tr><th>Par</th>${hs.map(h=>`<td>${h.par}</td>`).join('')}<td>${hs.reduce((x,h)=>x+h.par,0)}</td></tr>`
-      +`<tr><th>You</th>${sc.map(v=>`<td>${v}</td>`).join('')}<td><b>${sc.reduce((x,v)=>x+v,0)}</b></td></tr></table>`; }
+  if(!testRound) recordRound();
+  const tbl=cardHTML(PLAY.map((h,i)=>HOLE_NO0+i+1),PLAY.map(h=>h.par),scores);
   ov.querySelector('p').innerHTML=tbl+(PLAY.length>9?`<br>Total <b>${s}</b> · par ${par}`:'')+'<br>'
     +(newBest?'<b>New best!</b><br>':'')+(testRound?'Test round · not counted':`Best ${isGen?(newBest?s:(ge&&ge.best)||'–'):stats[bk]||'–'}`)
     +(isGen?`<br>Course <b>${courseTitle(GEN)}</b> ${ge?'· saved':'<button class="mini" id="ovSave">Save course</button>'}`:`<br>Course <b>${builtinLabel(roundCourse)}</b>`);
   showStart('over'); refreshStats();
-  const sv=document.getElementById('ovSave'); if(sv) sv.addEventListener('click',()=>nameSaver(sv,n=>{ saveCourse(GEN,n); setSavedBest(GEN,s); const w=ov.querySelector('.name-save'); if(w) w.replaceWith(document.createTextNode(n?'· saved as '+n:'· saved')); }));
+  const sv=document.getElementById('ovSave'); if(sv) sv.addEventListener('click',()=>nameSaver(sv,n=>{ saveCourse(GEN,n); if(n&&!testRound) try{ const a=roundHistory(); if(a[0]&&a[0].gen&&sameCourse(a[0].gen,GEN)){ a[0].name=n; localStorage.setItem(HIST_KEY,JSON.stringify(a)); } }catch(err){} setSavedBest(GEN,s); const w=ov.querySelector('.name-save'); if(w) w.replaceWith(document.createTextNode(n?'· saved as '+n:'· saved')); }));
 }
 function celebrate(text,cls){ const el=document.getElementById('celebrate'); el.className=''; void el.offsetWidth; el.textContent=text; el.classList.add('show',cls); }
 function showMsg(html,t){ document.getElementById('msg').innerHTML=html; msgT=t||1.4; }
@@ -2508,7 +2543,7 @@ function predictPutt(dx,dz,pow){ let v2=Math.pow(7.2*Math.pow(pow,1.15)*settings
     v2-=2*((SURF[sf]||SURF.fairway).roll+(5/7)*G*(gx*dx+gz*dz))*ds; if(v2<=0) break; x+=dx*ds; z+=dz*ds; s+=ds; }
   return s; }
 function syncAim(){
-  const show=settings.guide&&(phase==='aim'||phase==='swing'), putting=clubIdx===PUTTER, P=ball.p;
+  const show=phase==='aim'||phase==='swing', putting=clubIdx===PUTTER, P=ball.p;
   ballRing.visible=(phase==='aim'||phase==='swing')&&ball.visible&&ball.mode==='rest';                         // find the ball at a glance (it stays true to size)
   if(ballRing.visible){ const d=camera.position.distanceTo(P), r=Math.max(0.09,d*0.016); ballRing.position.set(P.x,meshH(P.x,P.z)+0.012,P.z); ballRing.scale.set(r*2,r*2,1); }
   // putting from a way off: a yellow ring round the cup, the same size on screen at any distance, so it's easy to pick out on a phone
@@ -2770,7 +2805,7 @@ function setSkin(t){ ROUND_SKIN=t; if(!H) return; const P=ball.p, rest=ball.mode
 function drawGenInfo(){ const el=document.getElementById('genInfo'); if(!el) return; const on=roundCourse==='gen'&&GEN&&phase!=='menu'&&phase!=='over'; el.style.display=on?'':'none'; if(!on) return;
   const saved=!!savedFind(GEN); el.innerHTML=`<span>This course: ${courseTitle(GEN)}</span>`+(saved?'<span>Saved</span>':'<button class="mini" id="genSaveBtn">Save course</button>');
   const b=document.getElementById('genSaveBtn'); if(b) b.addEventListener('click',()=>nameSaver(b,n=>{ saveCourse(GEN,n); drawGenInfo(); })); }
-function refreshStats(){ drawGenInfo(); document.getElementById('skinSel').value=roundSkin(); document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; }
+function refreshStats(){ drawGenInfo(); document.getElementById('skinSel').value=roundSkin(); }
 function setupSettings(){
   loadSettings(); loadStats();
   const scrollToSel=(grid,sm)=>{ const sel=grid.querySelector('.tile.selected'); if(!sel) return; const cr=grid.getBoundingClientRect(), sr=sel.getBoundingClientRect(); grid.scrollTo({left:grid.scrollLeft+(sr.left-cr.left)-(grid.clientWidth-sel.offsetWidth)/2,behavior:sm?'smooth':'auto'}); };
@@ -2800,11 +2835,10 @@ function setupSettings(){
     refreshTourBtn(); tb.addEventListener('click',()=>{ settings.tour=settings.tour===false; saveSettings(); refreshTourBtn(); }); }
   document.getElementById('tourNext').addEventListener('click',()=>tourStep(1)); document.getElementById('tourBack').addEventListener('click',()=>tourStep(-1)); document.getElementById('tourSkip').addEventListener('click',closeTour);
   window.addEventListener('resize',()=>{ if(tour.open) requestAnimationFrame(drawTour); });
-  const guideBtn=document.getElementById('setGuide'), fpsBtn=document.getElementById('setFps');
-  const refresh=()=>{ guideBtn.classList.toggle('on',settings.guide); guideBtn.textContent='Aim guide & landing ring: '+(settings.guide?'On':'Off');
+  const fpsBtn=document.getElementById('setFps');
+  const refresh=()=>{
     fpsBtn.classList.toggle('on',!!settings.fps); fpsBtn.textContent='Frame rate readout: '+(settings.fps?'On':'Off'); document.getElementById('fps').style.display=settings.fps?'block':'none'; };
   refresh();
-  guideBtn.addEventListener('click',()=>{ settings.guide=!settings.guide; saveSettings(); refresh(); });
   { const sr=[...document.querySelectorAll('input[name="swing"]')];                                    // swing method, remembered once chosen
     sr.forEach(r=>{ r.checked=(r.value===settings.swing); r.addEventListener('change',()=>{ if(r.checked){ settings.swing=r.value; saveSettings(); if(H) updateUI(); } }); }); }
   fpsBtn.addEventListener('click',()=>{ settings.fps=!settings.fps; saveSettings(); refresh(); });
@@ -2815,8 +2849,6 @@ function setupSettings(){
   pick('tod','tod'); pick('maxover','maxOver'); pick('mspd','meterSpd');
   document.querySelectorAll('input[name="tod"]').forEach(r=>r.addEventListener('change',()=>applyTOD()));
   document.getElementById('skinSel').addEventListener('change',e=>{ const v=e.target.value; busyThen(()=>setSkin(v)); });
-    { const jg=document.getElementById('jumpGrid');                                   // testing: start a round at any hole (earlier holes count as par; stats untouched)
-    for(let i=0;i<HOLES.length;i++){ const b=document.createElement('button'); b.textContent=i+1; b.addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); document.getElementById('ov').classList.remove('show'); jumpTo(i); }); jg.appendChild(b); } }
   document.getElementById('newGameBtn').addEventListener('click',()=>{ getAC(); initSfx(); modal.classList.remove('open'); if(phase==='menu') showStart(resumeSave?'resume':'start'); else if(phase!=='over') showStart('newgame'); });
 }
 // the start card: pick a course to start a new round (it's remembered and highlighted next time); START/CONTINUE only
@@ -2856,7 +2888,7 @@ function drawTour(){ if(!tour.open) return; const S=TOUR[tour.i], W=innerWidth, 
     else if(U.t-12>=ch+8){ x=cx-cw/2; y=U.t-12-ch; }
     else { const room=Math.max(W-U.r,U.l)-24; cw=Math.min(340,room); card.style.width=cw+'px'; ch=card.offsetHeight; x=W-U.r>U.l?U.r+12:U.l-12-cw; y=cy-ch/2; } }
   card.style.left=Math.max(12,Math.min(W-cw-12,x))+'px'; card.style.top=Math.max(12,Math.min(Hh-ch-12,y))+'px'; }
-function showStart(mode,show){ const ov=document.getElementById('ov'), sb=document.getElementById('startbtn'); document.getElementById('genPanel').classList.remove('open'); document.getElementById('coursePick').style.display=''; delete sb.dataset.was;
+function showStart(mode,show){ const ov=document.getElementById('ov'), sb=document.getElementById('startbtn'); if(document.getElementById('histPanel').classList.contains('open')) openHist(false); document.getElementById('genPanel').classList.remove('open'); document.getElementById('coursePick').style.display=''; delete sb.dataset.was;
   sb.style.display=mode==='resume'||mode==='newgame'?'':'none'; sb.textContent=mode==='resume'?'CONTINUE ROUND':'BACK TO ROUND';
   document.getElementById('cpLabel').textContent=mode==='resume'?'Or start a new round':mode==='over'?'Play again':mode==='newgame'?'Start a new round':'';
   if((mode==='start'||mode==='resume')&&OV_TITLE){ ov.querySelector('h2').textContent=OV_TITLE; ov.querySelector('p').innerHTML=''; }
@@ -2882,7 +2914,54 @@ document.getElementById('genRoll').addEventListener('click',()=>{ document.getEl
 document.getElementById('genSeed').addEventListener('input',e=>{ const v=cleanSeed(e.target.value); if(v!==e.target.value) e.target.value=v; });
 document.getElementById('genPlay').addEventListener('click',()=>{ const sd=cleanSeed(document.getElementById('genSeed').value)||newSeed(); startGen(sd,genTheme,genDiff,genHoles); });
 document.getElementById('genBack').addEventListener('click',()=>openGen(false));
-document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.c==='gen'){ openGen(true); return; } settings.course=b.dataset.c; saveSettings();
+// ── History: every finished round, tap one for its scorecard ──
+function openHist(on){ document.getElementById('histPanel').classList.toggle('open',on); document.body.classList.toggle('hist-open',on); document.getElementById('coursePick').style.display=on?'none':'';
+  const sb=document.getElementById('startbtn'), p=document.querySelector('#ov p'), h2=document.querySelector('#ov h2');
+  if(on){ sb.dataset.hwas=sb.style.display; sb.style.display='none'; p.dataset.hwas=p.style.display; p.style.display='none'; h2.dataset.hwas=h2.style.display; h2.style.display='none'; openCal(); }
+  else { if(sb.dataset.hwas!=null){ sb.style.display=sb.dataset.hwas; delete sb.dataset.hwas; } if(p.dataset.hwas!=null){ p.style.display=p.dataset.hwas; delete p.dataset.hwas; } if(h2.dataset.hwas!=null){ h2.style.display=h2.dataset.hwas; delete h2.dataset.hwas; } } }
+// History is a month calendar: a day you played shows the ball you finished with (a count if there's more than one round);
+// tap it for that day's rounds, and a round for its scorecard
+const cal={y:0,m:0,day:null}, thumbCache={};
+const ballIcon=id=>thumbCache[id]||(thumbCache[id]=ballThumb(BALL_TYPES.some(b=>b.id===id)?id:'white',48));
+const dayKey=t=>{ const d=new Date(t); return d.getFullYear()+'-'+d.getMonth()+'-'+d.getDate(); };
+const relStr=r=>r===0?'E':r>0?'+'+r:String(r);
+function openCal(){ const a=roundHistory(), d=new Date(a.length?a[0].at:Date.now()); cal.y=d.getFullYear(); cal.m=d.getMonth(); cal.day=a.length?dayKey(a[0].at):null; drawHist(); }
+function drawHist(){ const all=roundHistory(), first=new Date(cal.y,cal.m,1), days=new Date(cal.y,cal.m+1,0).getDate(), today=dayKey(Date.now());
+  const inMonth=all.filter(r=>{ const d=new Date(r.at); return d.getFullYear()===cal.y&&d.getMonth()===cal.m; }), byDay={};
+  for(const r of inMonth){ (byDay[dayKey(r.at)]=byDay[dayKey(r.at)]||[]).push(r); }
+  document.getElementById('calTitle').textContent=first.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  const oldest=all.length?new Date(all[all.length-1].at):new Date(), newest=new Date(Math.max(Date.now(),all.length?all[0].at:0));
+  document.getElementById('calPrev').disabled=cal.y*12+cal.m<=oldest.getFullYear()*12+oldest.getMonth();
+  document.getElementById('calNext').disabled=cal.y*12+cal.m>=newest.getFullYear()*12+newest.getMonth();
+  const g=document.getElementById('calGrid'); g.innerHTML='';
+  for(let i=0;i<7;i++){ const h=document.createElement('div'); h.className='cal-dow'; h.textContent=new Date(2026,10,1+i).toLocaleDateString(undefined,{weekday:'narrow'}); g.appendChild(h); }   // (Nov 1 2026 is a Sunday)
+  for(let i=0;i<first.getDay();i++){ const b=document.createElement('div'); b.className='cal-day blank'; g.appendChild(b); }
+  for(let n=1;n<=days;n++){ const k=cal.y+'-'+cal.m+'-'+n, rs=byDay[k], c=document.createElement('div'); c.className='cal-day'+(rs?' has':'')+(k===today?' today':'')+(k===cal.day&&rs?' sel':'');
+    c.innerHTML=`<span>${n}</span>`+(rs?`<img alt="" src="${ballIcon(rs[0].ball)}">`+(rs.length>1?`<span class="cnt">${rs.length}</span>`:''):'');
+    if(rs){ c.setAttribute('role','button'); c.setAttribute('aria-label',`${n}: ${rs.length} round${rs.length>1?'s':''}`); c.tabIndex=0; c.addEventListener('click',()=>{ cal.day=k; drawHist(); }); }
+    g.appendChild(c); }
+  // the month in a line: rounds, best and average against par
+  const sum=document.getElementById('calSum');
+  if(inMonth.length){ const rel=inMonth.map(r=>r.scores.reduce((x,y)=>x+y,0)-r.pars.reduce((x,y)=>x+y,0)), bi=rel.indexOf(Math.min(...rel)), avg=rel.reduce((x,y)=>x+y,0)/rel.length;
+    sum.textContent=`${inMonth.length} round${inMonth.length>1?'s':''} · best ${relStr(rel[bi])} (${inMonth[bi].name}) · average ${avg>0?'+':''}${avg.toFixed(1)}`; }
+  else { sum.textContent=all.length?'No rounds this month.':'No finished rounds yet.';
+    if(all.length){ const b=document.createElement('button'); b.className='mini'; b.textContent='Latest round'; b.addEventListener('click',openCal); sum.appendChild(b); } }
+  // the chosen day's rounds
+  const box=document.getElementById('histList'), list=cal.day&&byDay[cal.day]||[]; box.innerHTML='';
+  for(const r of list){ const s=r.scores.reduce((x,y)=>x+y,0), rel=s-r.pars.reduce((x,y)=>x+y,0), d=new Date(r.at);
+    const when=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
+    const row=document.createElement('div'); row.className='hrow'+(list.length===1?' open':'');
+    row.innerHTML=`<button class="hhead"><span><span class="hwhen">${when}</span><br><span class="hname">${escH(r.name)}</span>${r.opts?`<br><span class="hopt">${escH(r.opts)}</span>`:''}</span><span class="hscore">${s} <small>(${relStr(rel)})</small></span></button>`
+      +`<div class="hcard">${cardHTML(r.nos,r.pars,r.scores)}<div class="hdel"><button class="mini" data-act="del">Delete round</button></div></div>`;
+    row.querySelector('.hhead').addEventListener('click',()=>row.classList.toggle('open'));
+    row.querySelector('[data-act=del]').addEventListener('click',e=>{ const w=e.target.parentNode; w.innerHTML='Delete this round? <button class="mini" data-act="yes">Delete</button><button class="mini" data-act="no">Keep</button>';
+      w.querySelector('[data-act=no]').addEventListener('click',drawHist);
+      w.querySelector('[data-act=yes]').addEventListener('click',()=>{ try{ localStorage.setItem(HIST_KEY,JSON.stringify(roundHistory().filter(x=>x.at!==r.at))); }catch(err){} drawHist(); }); });
+    box.appendChild(row); } }
+document.getElementById('calPrev').addEventListener('click',()=>{ if(--cal.m<0){ cal.m=11; cal.y--; } cal.day=null; drawHist(); });
+document.getElementById('calNext').addEventListener('click',()=>{ if(++cal.m>11){ cal.m=0; cal.y++; } cal.day=null; drawHist(); });
+document.getElementById('histBack').addEventListener('click',()=>openHist(false));
+document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.c==='gen'){ openGen(true); return; } if(b.dataset.c==='hist'){ openHist(true); return; } settings.course=b.dataset.c; saveSettings();
   document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGame(); refreshStats(); }); }));
 document.getElementById('startbtn').addEventListener('click',()=>{ document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); if(resumeSave){ const g=resumeSave; resumeSave=null; busyThen(()=>resumeGame(g)); } });
 function boot(){
