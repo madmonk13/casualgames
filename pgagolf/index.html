@@ -129,6 +129,7 @@ body.lefty #row{flex-direction:row-reverse;}
 #ov td,#ov th{border:1px solid #3a2d50;padding:3px 2px;text-align:center;} #ov th{color:#a08cc0;font-weight:600;}
 #genPanel{display:none;flex-direction:column;align-items:center;gap:8px;width:min(92vw,420px);}
 #genPanel.open{display:flex;}
+#genPanel .gen-diff{width:min(15.5em,100%);border-color:#ffd54a;}
 #genPanel .cp-row button.sel{background:#ffd54a;color:#181000;} #genPanel .cp-row button.sel small{color:#4a3a00;}
 #genPanel .gen-dd{width:min(15.5em,100%);margin:0 auto;display:block;border-color:#ffd54a;background-color:rgba(29,22,48,.9);font-size:1rem;}
 .gen-seed{display:flex;gap:8px;align-items:center;}
@@ -299,12 +300,16 @@ body.lefty #row{flex-direction:row-reverse;}
       <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
       <option value="dunes">Dunes</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
     </select>
+    <div class="cp-label" id="genDiffLbl">Difficulty</div>
+    <div class="seg gen-diff" role="radiogroup" aria-labelledby="genDiffLbl">
+      <label><input type="radio" name="genDiff" value="easy"><span>Easy</span></label><label><input type="radio" name="genDiff" value="normal"><span>Normal</span></label><label><input type="radio" name="genDiff" value="hard"><span>Hard</span></label>
+    </div>
     <div class="cp-label">Seed</div>
     <div class="gen-seed"><input id="genSeed" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Course seed"><button id="genRoll" title="New seed" aria-label="New seed">🎲</button></div>
     <div class="cp-row"><button id="genPlay" class="last">Play course<small>18 holes · par 72</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.2 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.3 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1142,26 +1147,58 @@ function holeOK(h){ const keep=H; H=h; try{
   let run=0, maxRun=0, wetN=0; for(let s=0;s<=h.len;s+=2){ const [x,z]=routePoint(s), sf=surfAt(x,z); if(sf==='ob') return false; if(sf==='water'){ run+=2; wetN++; maxRun=Math.max(maxRun,run); } else run=0; }
   const crossing=h.kind==='carry'||h.kind==='creek'; return crossing?(wetN>0&&maxRun<=75):wetN===0;
   } finally { H=keep; } }
-function genCourse(seed,theme){
-  const T=THEMES[theme]||THEMES.default, R=seededRng(seedNum(seed+'|'+theme));
+// difficulty: the same layout from the same seed, made easier or harder. Hole lengths scale from the tee, fairways and greens
+// widen or narrow, greens tilt more or less, and wind and trees change; Easy also clears side ponds and half the sand,
+// Hard adds sand where drives land and by the green, and sometimes a pond beside it. Normal is the generator as it always was
+const DIFFS={easy:{name:'Easy',fw:1.3,green:1.25,tilt:0.6,len:0.92,wind:0.6,dense:0.75},
+  normal:{name:'Normal',fw:1,green:1,tilt:1,len:1,wind:1,dense:1},
+  hard:{name:'Hard',fw:0.75,green:0.8,tilt:1.4,len:1.08,wind:1.4,dense:1.3}};
+const diffKey=d=>DIFFS[d]?d:'normal';
+// raw: a hole straight from genHole(); hazards: false keeps only the size changes (used if the extra hazards don't fit)
+function diffHole(raw,dk,R,hazards){
+  const D=DIFFS[dk], h=JSON.parse(JSON.stringify(raw)), G=h.green, g0=G.c.slice(), gr=(G.rx+G.rz)/2;
+  const near=p=>Math.hypot(p[0]-g0[0],p[1]-g0[1])<gr+25, gc=[g0[0]*D.len,g0[1]*D.len];
+  const move=(p,k)=>{ if(near(p)){ p[0]=gc[0]+(p[0]-g0[0])*k; p[1]=gc[1]+(p[1]-g0[1])*k; } else { p[0]*=D.len; p[1]*=D.len; } };
+  h.fair.forEach(p=>{ p[0]*=D.len; p[1]*=D.len; }); move(h.pin,D.green); h.bunkers.forEach(b=>move(b.c,D.green)); h.water.forEach(w=>{ if(!(dk==='easy'&&h.kind==='creek')) move(w.c,1); }); G.c=gc;   // (an Easy creek stays put, out past where drives land)
+  h.fw=h.fw.map(w=>w*D.fw); G.rx*=D.green; G.rz*=D.green; G.tilt=G.tilt.map(t=>t*D.tilt); h.wind*=D.wind; h.dense*=D.dense; h.diff=dk;
+  if(!hazards) return h;
+  const r=(a,b)=>a+R()*(b-a), sgn=()=>R()<0.5?-1:1, route=[h.tee,...h.fair,h.pin];
+  const at=s=>{ for(let i=0;i<route.length-1;i++){ const a=route[i], b=route[i+1], l=Math.hypot(b[0]-a[0],b[1]-a[1])||1; if(s<=l||i===route.length-2){ const t=clamp(s/l,0,1), dx=(b[0]-a[0])/l, dz=(b[1]-a[1])/l; return [a[0]+dx*l*t,a[1]+dz*l*t,dx,dz]; } s-=l; } };
+  let len=0; for(let i=0;i<route.length-1;i++) len+=Math.hypot(route[i+1][0]-route[i][0],route[i+1][1]-route[i][1]);
+  const ge=Math.atan2(h.pin[0]-at(len-40)[0],h.pin[1]-at(len-40)[1]), ggr=(G.rx+G.rz)/2;
+  if(dk==='easy'){ h.water=['carry','creek','lakeside'].includes(h.kind)?h.water.slice(0,1):[]; h.halfSand=true; }
+  if(dk==='hard'){
+    if(h.par>3&&h.kind!=='short'){ const s1=Math.min(len-80,r(200,250)), k=sgn();                 // a pair pinching the landing area
+      for(const [s,side] of [[s1,k],[s1+r(12,24),-k]]){ const p=at(s), off=h.fw[Math.min(h.fw.length-1,Math.round(s/len*(h.fw.length-1)))]/2+r(0.5,2.5);
+        h.bunkers.push(E(p[0]-p[3]*side*off,p[1]+p[2]*side*off,r(3.5,5),r(7,11),Math.atan2(p[2],p[3]))); } }
+    { const a=ge+Math.PI+sgn()*r(0.9,1.6), d=ggr+r(2.5,4); h.bunkers.push(E(G.c[0]+Math.sin(a)*d,G.c[1]+Math.cos(a)*d,r(4,6),r(2.4,3.4),a)); }   // one more by the green
+    if(h.par===4&&!h.water.length&&R()<0.4){ const a=ge+sgn()*r(1.3,1.8), d=ggr+r(14,19); h.water.push(E(G.c[0]+Math.sin(a)*d,G.c[1]+Math.cos(a)*d,r(9,13),r(14,22),a)); } }
+  return h;
+}
+const prepDiff=h=>{ prepHole(h); if(h.halfSand) h.bunkers=h.bunkers.filter((b,i)=>i%2===0); return h; };
+function genCourse(seed,theme,diff){
+  const T=THEMES[theme]||THEMES.default, R=seededRng(seedNum(seed+'|'+theme)), dk=diffKey(diff), R2=seededRng(seedNum(seed+'|'+theme+'|'+dk));
   const nine=()=>{ for(;;){ const p=[3,3,5,5,4,4,4,4,4]; for(let i=p.length-1;i>0;i--){ const j=Math.floor(R()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; } if(p[0]!==3&&!p.some((v,i)=>v===3&&p[i+1]===3)) return p; } };
   const pars=[...nine(),...nine()], holes=[];
-  for(let i=0;i<18;i++){ let h=null, c=null; for(let t=0;t<30&&!h;t++){ c=prepHole(genHole(pars[i],T,R,theme)); if(holeOK(c)) h=c; }
-    for(let t=0;t<30&&!h;t++){ c=prepHole(genHole(pars[i],T,R,theme,pars[i]===3?'plain':pars[i]===4?'straight':'sbend')); if(holeOK(c)) h=c; }   // fallback: a plain version of the hole
-    holes.push(h||c); }
+  const raw=g=>dk==='normal'?null:JSON.parse(JSON.stringify(g));                  // the hole as generated, before prepHole adds to it
+  for(let i=0;i<18;i++){ let h=null, c=null, g=null, src=null; for(let t=0;t<30&&!h;t++){ g=genHole(pars[i],T,R,theme); src=raw(g); c=prepHole(g); if(holeOK(c)) h=c; }
+    for(let t=0;t<30&&!h;t++){ g=genHole(pars[i],T,R,theme,pars[i]===3?'plain':pars[i]===4?'straight':'sbend'); src=raw(g); c=prepHole(g); if(holeOK(c)) h=c; }   // fallback: a plain version of the hole
+    h=h||c;
+    if(src) for(const hz of [true,false]){ const m=prepDiff(diffHole(src,dk,R2,hz)); if(holeOK(m)){ h=m; break; } }   // the same hole at this difficulty
+    holes.push(h); }
   return holes;
 }
 // saved courses (kept for good, with a best score each) — {seed, theme, best, at}
 const SAVED_KEY='justgolf_courses';
 function savedCourses(){ try{ const a=JSON.parse(localStorage.getItem(SAVED_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function writeSaved(a){ try{ localStorage.setItem(SAVED_KEY,JSON.stringify(a)); }catch(e){} }
-const sameCourse=(e,g)=>!!e&&!!g&&e.seed===g.seed&&e.theme===g.theme;
+const sameCourse=(e,g)=>!!e&&!!g&&e.seed===g.seed&&e.theme===g.theme&&diffKey(e.diff)===diffKey(g.diff);
 function savedFind(g){ return savedCourses().find(e=>sameCourse(e,g))||null; }
-function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){ a.unshift({seed:g.seed,theme:g.theme,best:0,at:Date.now()}); writeSaved(a); } }
+function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){ a.unshift({seed:g.seed,theme:g.theme,diff:diffKey(g.diff),best:0,at:Date.now()}); writeSaved(a); } }
 function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g)); if(e){ e.best=s; writeSaved(a); } }
-const courseLabel=g=>(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
+const courseLabel=g=>(diffKey(g.diff)==='normal'?'':DIFFS[g.diff].name+' · ')+(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, tour:true, genTheme:'default', tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, tour:true, genTheme:'default', genDiff:'normal', tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 // ═══════════════════════════════════════════════════════
@@ -1253,7 +1290,7 @@ function setCourse(c){ GEN=null; PLAY=c==='range'?[RANGE]:c==='back'?HOLES.slice
 let GEN=null, ROUND_SKIN=null;                                         // ROUND_SKIN: the theme picked in Settings for this round (null = the course's own)
 const roundSkin=()=>ROUND_SKIN||(GEN?GEN.theme:'default');
 let _GEN_DUMMY=null;                                                            // {seed, theme} while a generated course is loaded
-function setGen(seed,theme){ GEN={seed,theme}; PLAY=genCourse(seed,theme); HOLE_NO0=0; }
+function setGen(seed,theme,diff){ GEN={seed,theme,diff:diffKey(diff)}; PLAY=genCourse(seed,theme,diff); HOLE_NO0=0; }
 const bestKey=c=>c==='range'?'bestRange':c==='back'?'bestBack':c==='all'?'bestAll':'best';      // a best score per course (the front nine keeps the original 'best')
 const stats={ best:0, bestBack:0, bestAll:0, bestRange:0, games:0, aces:0 };
 
@@ -2021,8 +2058,9 @@ function flyCarry(ci,powMul,wa,wl,dh){
     vz+=(-Cd*q*rz/sp-Cl*q*vy/sp)*dt; vy+=(-Cd*q*vy/sp+Cl*q*rz/sp-G)*dt; vl+=(-Cd*q*rl/sp)*dt; pz+=vz*dt; py+=vy*dt; pl+=vl*dt; rpm*=Math.exp(-dt/22); t+=dt; if(py<-dh&&vy<0) break; }
   return carryCache[key]=[pz,pl];
 }
-function carryInfo(ci,powMul,a){ if(CLUBS[ci].putter) return [0,0];
-  if(a==null) a=aim; const dx=Math.sin(a), dz=Math.cos(a), lx=Math.cos(a), lz=-Math.sin(a), W=wind||{x:0,z:0}, wa=W.x*dx+W.z*dz, wl=W.x*lx+W.z*lz, bx=ball.p.x, bz=ball.p.z, g0=hAt(bx,bz);
+// calm air unless real is set: the club pick, power mark, line, ring and map leave the wind for the player to judge
+function carryInfo(ci,powMul,a,real){ if(CLUBS[ci].putter) return [0,0];
+  if(a==null) a=aim; const dx=Math.sin(a), dz=Math.cos(a), lx=Math.cos(a), lz=-Math.sin(a), W=real&&wind||{x:0,z:0}, wa=W.x*dx+W.z*dz, wl=W.x*lx+W.z*lz, bx=ball.p.x, bz=ball.p.z, g0=hAt(bx,bz);
   let r=flyCarry(ci,powMul,wa,wl,0);
   for(let k=0;k<2;k++){ const x=bx+dx*r[0]+lx*r[1], z=bz+dz*r[0]+lz*r[1]; r=flyCarry(ci,powMul,wa,wl,clamp(g0-hAt(x,z),-40,60)); }
   return r; }
@@ -2072,24 +2110,19 @@ function suggestClub(){
   clubIdx=best;
 }
 function aimAtPin(){ aim=Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z); }
-function aimDefault(){
-  if(H&&H.range) return;                              // the range keeps your line from ball to ball
-  if(clubIdx===PUTTER){ aimAtPin(); return; }
-  const reach=carryOf(clubIdx,lieMul(),Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z))*(1+rollFrac(clubIdx)), R=routeInfo(ball.p.x,ball.p.z);
-  if(toPin()<=reach*1.02){ aimAtPin(); return; }
-  const [x,z]=routePoint(R.s+reach); aim=Math.atan2(x-ball.p.x,z-ball.p.z);
-}
+// every shot starts aimed straight at the hole (the range keeps your line from ball to ball); steering round doglegs and hazards is up to you
+function aimDefault(){ if(H&&H.range) return; aimAtPin(); }
 let testRound=false;
 function newGame(){ tourPending=true; clearGame(); setCourse(settings.course); ROUND_SKIN=null; roundCourse=settings.course; testRound=false; anims=[]; scores=[]; rangeLog=[]; holeIdx=0; startHole(); }
-function newGenGame(seed,theme){ tourPending=true; clearGame(); setGen(seed,theme); ROUND_SKIN=null; roundCourse='gen'; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
+function newGenGame(seed,theme,diff){ tourPending=true; clearGame(); setGen(seed,theme,diff); ROUND_SKIN=null; roundCourse='gen'; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
 function jumpTo(i){ clearGame(); setCourse('all'); roundCourse='all'; testRound=true; anims=[]; scores=PLAY.slice(0,i).map(h=>h.par); holeIdx=i; startHole(); }
 // the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
 let resumeSave=null;
 function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; localStorage.setItem('justgolf_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n||H.range?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound,gen:roundCourse==='gen'?GEN:null,skin:ROUND_SKIN,range:roundCourse==='range'?rangeLog:null})); }catch(e){} }
-function loadGame(){ try{ const g=JSON.parse(localStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; if(g.course==='gen'&&g.gen) setGen(g.gen.seed,g.gen.theme); else setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
+function loadGame(){ try{ const g=JSON.parse(localStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; if(g.course==='gen'&&g.gen) setGen(g.gen.seed,g.gen.theme,g.gen.diff); else setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
 function clearGame(){ try{ localStorage.removeItem('justgolf_game'); }catch(e){} }
 function resumeGame(g){ tourPending=false;
-  if(g.course==='gen'&&g.gen){ if(!sameCourse(GEN,g.gen)) setGen(g.gen.seed,g.gen.theme); } else setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; ROUND_SKIN=THEMES[g.skin]?g.skin:null; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
+  if(g.course==='gen'&&g.gen){ if(!sameCourse(GEN,g.gen)) setGen(g.gen.seed,g.gen.theme,g.gen.diff); } else setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; ROUND_SKIN=THEMES[g.skin]?g.skin:null; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
   if(g.course==='range'){ rangeLog=(g.range||[]).slice(0,scores.length); strokes=scores.length; }
   else if(g.strokes>0){ strokes=g.strokes; const [x,z]=g.p; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=g.lie||surfAt(x,z); ball.last=g.last||[x,z]; buildTufts(); suggestClub(); aimDefault(); }
   updateUI(); buildHUD(); drawMap(true); saveGame();
@@ -2117,7 +2150,7 @@ function strike(power,acc){ swooshEnd();                        // power 0..1, a
   ball.spinAxis.applyAxisAngle(V3(Math.sin(dir),0,Math.cos(dir)),acc*0.55);                 // tilted axis → curve (right for a slice, left for a hook)
   ball.mode='fly'; ball.t=0; ball.inTree=false; ball.marked=false; strokes++; phase='flight'; camMode='flight'; flightPts=0; trail.geometry.setDrawRange(0,0);
   shotMarks(dir,power); sfxStrike(clubIdx,power);
-  { const cy=carryOf(clubIdx,lm*power), roll=cy*rollFrac(clubIdx)*1.4, bx=ball.p.x, bz=ball.p.z;              // grass ready before the ball gets there
+  { const cy=carryInfo(clubIdx,lm*power,dir,true)[0], roll=cy*rollFrac(clubIdx)*1.4, bx=ball.p.x, bz=ball.p.z;              // grass ready before the ball gets there
     ensureTufts(bx+Math.sin(dir)*cy,bz+Math.cos(dir)*cy); ensureTufts(bx+Math.sin(dir)*(cy+roll),bz+Math.cos(dir)*(cy+roll)); } buildHUD(); updateUI();
   showMsg(Math.abs(acc)<0.06?'Pure!':acc<0?(acc<-0.35?'Hook!':'Draw'):(acc>0.35?'Slice!':'Fade'),1.0);
 }
@@ -2775,10 +2808,10 @@ let tourPending=false;
 const tour={open:false,i:0};
 const TOUR=[
   {t:'Clubs',el:['.clubset'],b:()=>'<p>Tap <b>‹ ›</b> to change clubs. The best club for the distance is picked for you, and the number under its name is how far it carries.</p><p>The ring out on the course shows where the shot lands at the suggested power.</p>'},
-  {t:'Power meter &amp; SWING',el:['#meter','#swing'],b:()=>(drawing()?'<p>Tap <b>SWING</b> to open the swing pad, then follow its prompts to take your swing.</p>':'<p>Tap <b>SWING</b> to start the meter, tap again to set your power, then once more as the marker comes back to the <b>white zone</b> for a straight shot. Early hooks, late slices.</p>')+'<p>When a shot needs less than full power, a <b class="yl">yellow line</b> on the meter marks the perfect power.</p>'},
+  {t:'Power meter &amp; SWING',el:['#meter','#swing'],b:()=>(drawing()?'<p>Tap <b>SWING</b> to open the swing pad, then follow its prompts to take your swing.</p>':'<p>Tap <b>SWING</b> to start the meter, tap again to set your power, then once more as the marker comes back to the <b>white zone</b> for a straight shot. Early hooks, late slices.</p>')+'<p>When a shot needs less than full power, a <b class="yl">yellow line</b> on the meter marks the suggested power.</p>'},
   {t:'Mini-map',el:['#map'],b:()=>'<p>The whole hole at a glance: your ball, the pin, the hazards and where your shot is aimed.</p>'},
-  {t:'Map view',el:['#view'],b:()=>'<p>Tap for an overhead view of where your shot will land, so you can check what\'s waiting there before you swing. You can still drag to aim from up there. Tap again to come back down.</p>'},
-  {t:'Before you tee off',el:[],b:()=>'<ul><li><b>Aiming</b> starts pointed at the hole. It\'s up to you to steer clear of water, bunkers and trees.</li><li><b>Putting:</b> the suggested power only takes distance and elevation into account, not break. Aim to the high side of a breaking putt.</li></ul>'},
+  {t:'Map view',el:['#view'],b:()=>'<p>Tap for an overhead view of the landing spot, so you can check what\'s waiting there before you swing. You can still drag to aim from up there. Tap again to come back down.</p>'},
+  {t:'Before you tee off',el:[],b:()=>'<ul><li><b>Aiming:</b> every shot starts pointed straight at the hole, even on a dogleg or when the hole is out of reach. Drag sideways to aim down the fairway and steer clear of water, bunkers and trees.</li><li><b>Wind:</b> the suggested club, power and landing ring are all for still air. Check the wind and aim off or club up or down to allow for it.</li><li><b>Putting:</b> the suggested power only takes distance and elevation into account, not break. Aim to the high side of a breaking putt.</li></ul>'},
   {t:'Sound &amp; Settings',el:['#mute','#cog'],b:()=>'<p>Turn the sound on or off, and open <b>Settings</b> for your ball, swing style, power meter speed, course theme, graphics and more. These tips can be switched back on there too.</p>'}
 ];
 function maybeTour(){ if(!tourPending) return; tourPending=false; if(settings.tour===false||holeIdx!==0||!H||H.range||testRound) return; openTour(); }
@@ -2813,21 +2846,22 @@ function showStart(mode,show){ const ov=document.getElementById('ov'), sb=docume
   if(show!==false) ov.classList.add('show'); }
 let OV_TITLE='';
 // ── Generate: pick a theme and a seed (a fresh one is offered; type one to replay a course), or a saved course ──
-let genTheme='default';
+let genTheme='default', genDiff='normal';
 function openGen(on){ document.getElementById('genPanel').classList.toggle('open',on); document.getElementById('coursePick').style.display=on?'none':''; const sb=document.getElementById('startbtn');
-  if(on){ sb.dataset.was=sb.style.display; sb.style.display='none'; genTheme=THEMES[settings.genTheme]?settings.genTheme:'default'; document.getElementById('genSeed').value=newSeed(); drawGenPanel(); } else if(sb.dataset.was!=null){ sb.style.display=sb.dataset.was; } }
-function drawGenPanel(){ document.getElementById('genThemeSel').value=genTheme;
+  if(on){ sb.dataset.was=sb.style.display; sb.style.display='none'; genTheme=THEMES[settings.genTheme]?settings.genTheme:'default'; genDiff=diffKey(settings.genDiff); document.getElementById('genSeed').value=newSeed(); drawGenPanel(); } else if(sb.dataset.was!=null){ sb.style.display=sb.dataset.was; } }
+function drawGenPanel(){ document.getElementById('genThemeSel').value=genTheme; document.querySelectorAll('input[name=genDiff]').forEach(i=>i.checked=i.value===genDiff);
   const a=savedCourses(), box=document.getElementById('genSaved'); document.getElementById('genSavedLbl').style.display=a.length?'':'none'; box.innerHTML='';
   for(const e of a){ const row=document.createElement('div'); row.className='row';
     row.innerHTML=`<span><b>${courseLabel(e)}</b> <small>${e.best?'best '+e.best:'no score yet'}</small></span><button class="mini" data-act="play">Play</button><button class="mini" data-act="del" aria-label="Delete">✕</button>`;
-    row.querySelector('[data-act=play]').addEventListener('click',()=>startGen(e.seed,e.theme));
+    row.querySelector('[data-act=play]').addEventListener('click',()=>startGen(e.seed,e.theme,e.diff));
     row.querySelector('[data-act=del]').addEventListener('click',()=>{ writeSaved(savedCourses().filter(x=>!sameCourse(x,e))); drawGenPanel(); });
     box.appendChild(row); } }
-function startGen(seed,theme){ settings.genTheme=theme; saveSettings(); openGen(false); document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGenGame(seed,theme); refreshStats(); }); }
+function startGen(seed,theme,diff){ settings.genTheme=theme; settings.genDiff=diffKey(diff); saveSettings(); openGen(false); document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGenGame(seed,theme,diff); refreshStats(); }); }
 document.getElementById('genThemeSel').addEventListener('change',e=>{ genTheme=e.target.value; drawGenPanel(); });
+document.querySelectorAll('input[name=genDiff]').forEach(i=>i.addEventListener('change',()=>{ if(i.checked) genDiff=i.value; }));
 document.getElementById('genRoll').addEventListener('click',()=>{ document.getElementById('genSeed').value=newSeed(); });
 document.getElementById('genSeed').addEventListener('input',e=>{ const v=cleanSeed(e.target.value); if(v!==e.target.value) e.target.value=v; });
-document.getElementById('genPlay').addEventListener('click',()=>{ const sd=cleanSeed(document.getElementById('genSeed').value)||newSeed(); startGen(sd,genTheme); });
+document.getElementById('genPlay').addEventListener('click',()=>{ const sd=cleanSeed(document.getElementById('genSeed').value)||newSeed(); startGen(sd,genTheme,genDiff); });
 document.getElementById('genBack').addEventListener('click',()=>openGen(false));
 document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.c==='gen'){ openGen(true); return; } settings.course=b.dataset.c; saveSettings();
   document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGame(); refreshStats(); }); }));
