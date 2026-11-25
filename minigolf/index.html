@@ -232,7 +232,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <div class="cal-grid" id="calGrid"></div><div class="cal-sum" id="calSum"></div><div id="histList"></div>
     <div class="cp-row"><button id="histBack">Back<small>to courses</small></button></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.1 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.2 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1588,7 +1588,7 @@ function physStep(dt){
   if((phase==='aim'||phase==='pad')&&GATES.length) gateNudge();
   if(phase!=='roll') return;
   if(LOOP&&LOOP.active){ stepLoop(dt); return; }
-  prevZ=ball.z;
+  prevZ=ball.z; const ox=ball.x, oz=ball.z;          // where this step starts, for the cup's swept check
   const sand=ZONES.length&&zoneAt(ball.x,ball.z,'sand'), cur=ZONES.length&&zoneAt(ball.x,ball.z,'current');
   const SPIN=SPINS.find(S=>Math.hypot(ball.x-S.x,ball.z-S.z)<S.r+BALL_R+0.3);                       // the turntable the ball is on (or still touching)
   const onSpin=SPIN&&Math.hypot(ball.x-SPIN.x,ball.z-SPIN.z)<SPIN.r, dvx=onSpin?-SPIN.w*(ball.z-SPIN.z):0, dvz=onSpin?SPIN.w*(ball.x-SPIN.x):0;
@@ -1613,11 +1613,15 @@ function physStep(dt){
   for(const S of bladeSegs()){ const v=hitSeg(S,S.vx,0); if(v){ sfxBlade(v); } }
   if(ZONES.length&&zoneAt(ball.x,ball.z,'water')){ splash(); return; }
   for(const T of TUNNELS) if((T.rect?ball.x>=T.rect[0]&&ball.x<=T.rect[2]&&ball.z>=T.rect[1]&&ball.z<=T.rect[3]:Math.hypot(ball.x-T.x,ball.z-T.z)<T.r)&&Math.hypot(ball.vx,ball.vz)<140){ enterTunnel(T); return; }
-  // the cup: drops in if slow enough, otherwise it can catch the lip and swing round
+  // the cup (as in Just Golf): judged at the ball's closest pass over the hole this step, at the speed it had as it reached
+  // the hole (before the lip's pull speeds it up). Through the middle it drops in up to SINK_V; the allowance eases off
+  // gently toward the edge, so a firm putt that's on line still goes in, while a fast one or a glancing edge lips out
   const dx=H.cup[0]-ball.x, dz=H.cup[1]-ball.z, d=Math.hypot(dx,dz);
-  if(d<CUP_R){ const sp2=Math.hypot(ball.vx,ball.vz);
-    if(sp2<SINK_V*(1-0.45*d/CUP_R)) { sinkBall(); return; }
-    const pull=900*(1-d/CUP_R); ball.vx+=dx/d*pull*dt; ball.vz+=dz/d*pull*dt; }
+  { const sx=ball.x-ox, sz=ball.z-oz, L2=sx*sx+sz*sz, u=L2>0?clamp(((H.cup[0]-ox)*sx+(H.cup[1]-oz)*sz)/L2,0,1):1, dm=Math.hypot(ox+sx*u-H.cup[0],oz+sz*u-H.cup[1]);
+    if(dm<CUP_R){ if(ball.cupV==null) ball.cupV=Math.hypot(ball.vx,ball.vz); const k=dm/CUP_R;
+      if(ball.cupV<SINK_V*(1-0.55*k*k)){ ball.x=ox+sx*u; ball.z=oz+sz*u; sinkBall(); return; } }
+    else if(d>CUP_R) ball.cupV=null; }
+  if(d<CUP_R){ const pull=900*(1-d/CUP_R); ball.vx+=dx/d*pull*dt; ball.vz+=dz/d*pull*dt; }
   if(clock-rollStart>40){ ballStopped(); }
 }
 
@@ -1643,7 +1647,7 @@ function resumeGame(g){ tourPending=false;
   if(g.strokes>0){ strokes=g.strokes; ball.x=g.bx; ball.z=g.bz; lastPos=g.lastPos||[g.bx,g.bz]; buildHUD(); saveGame(); }
 }
 function startHole(){
-  H=PLAY[holeIdx]; strokes=0; buildHole(); envPrewarm(renderer,scene,camera); gfxSettle();
+  H=PLAY[holeIdx]; strokes=0; buildHole(); prewarmTOD(); gfxSettle();
   ball.x=H.tee[0]; ball.z=H.tee[1]; ball.vx=ball.vz=0; ball.sink=0; ball.visible=true; ballMesh.visible=true;
   { const [ax,az]=pathAhead(ball.x,ball.z); viewDir.set(ax-ball.x,az-ball.z); if(viewDir.lengthSq()>4) viewDir.normalize(); else viewDir.set(0,1); }   // face down this hole now, or the fly-in starts along the last hole's final roll and swings round
   phase='intro'; camMode='intro'; introT=0; viewOn=false; document.getElementById('view').classList.remove('on');
@@ -1651,7 +1655,7 @@ function startHole(){
   buildHUD(); saveGame();
 }
 function putt(dirx,dirz,pow){
-  puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.15)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
+  ball.cupV=null; puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.15)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
   strokes++; phase='roll'; rollStart=clock; sfxPutt(pow); startRoll(); buildHUD();
 }
 let puttFrom=1e9;
@@ -1960,7 +1964,7 @@ function loop(t){
 
 
 // ═══════════════════════════════════════════════════════
-//  SURROUNDINGS: neighbouring holes, a picket fence, lamp posts, a clubhouse, a gazebo and boulders,
+//  SURROUNDINGS: a picket fence, lamp posts, a clubhouse, a gazebo and boulders,
 //  plus the outdoor soundscape (breeze and birds)
 // ═══════════════════════════════════════════════════════
 function sceneryMats(){
@@ -1985,36 +1989,11 @@ function rockGeo(r,seed){                            // a weathered boulder: a d
     const s=seen[k]||(seen[k]=0.78+NZ.fbm(x/r*1.3+seed,z/r*1.3+y/r*0.7,3,0,0)*0.5); p.setXYZ(i,x*s,Math.max(y*s*0.72,-r*0.18),z*s); }
   g.computeVertexNormals(); return g;
 }
-// a neighbouring hole glimpsed beyond the bed: felt, rails, a cup and flag on its own little deck
-function decoyHole(g,cx,cz,rot,kind){
-  const grp=new THREE.Group(); grp.position.set(cx,0,cz); grp.rotation.y=rot; g.add(grp);
-  const W=34, L=kind===0?190:kind===1?150:120, pts=kind===2?[[-W/2,0],[W/2,0],[W/2,L-W],[W/2+80,L-W],[W/2+80,L],[-W/2,L]]:[[-W/2,0],[W/2,0],[W/2,L],[-W/2,L]];
-  const shp=new THREE.Shape(pts.map(([x,z])=>new THREE.Vector2(x,-z))), fg=new THREE.ShapeGeometry(shp); fg.rotateX(-Math.PI/2);
-  const uv=fg.attributes.uv, ps=fg.attributes.position; for(let i=0;i<uv.count;i++) uv.setXY(i,ps.getX(i)/14,ps.getZ(i)/14);
-  const felt=new THREE.Mesh(fg,M.felt); felt.position.y=6; felt.receiveShadow=!PERF; grp.add(felt);
-  for(let i=0;i<pts.length;i++){ const a=pts[i], b=pts[(i+1)%pts.length], dx=b[0]-a[0], dz=b[1]-a[1], l=Math.hypot(dx,dz);
-    const r=new THREE.Mesh(new THREE.BoxGeometry(l+RAIL_T,RAIL_H+6,RAIL_T),M.rail); r.position.set((a[0]+b[0])/2,(RAIL_H+6)/2,(a[1]+b[1])/2); r.rotation.y=-Math.atan2(dz,dx); grp.add(r);
-    const c=new THREE.Mesh(new THREE.BoxGeometry(l+RAIL_T+0.6,0.6,RAIL_T+0.6),M.cap); c.position.set(r.position.x,RAIL_H+6.2,r.position.z); c.rotation.y=r.rotation.y; grp.add(c);
-    if(!PERF){ r.castShadow=true; r.receiveShadow=true; } }
-  const [qx,qz]=kind===2?[W/2+55,L-W/2]:[0,L-28];
-  const cup=new THREE.Mesh(new THREE.CircleGeometry(CUP_R,24),M.dark); cup.rotation.x=-Math.PI/2; cup.position.set(qx,6.05,qz); grp.add(cup);
-  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,34,8),M.white); pole.position.set(qx,6+17,qz); grp.add(pole);
-  const fl=new THREE.Mesh(new THREE.PlaneGeometry(11,7),M.flag); fl.position.set(qx+5.5,6+29,qz); grp.add(fl);
-  const tee=new THREE.Mesh(new THREE.BoxGeometry(16,0.2,12),M.tee); tee.position.set(0,6.1,14); grp.add(tee);
-  return {cx,cz,r:Math.hypot(L,W+80)/2+20};
-}
 function buildSurroundings(){
   buildPieceMats(); sceneryMats();
-  const g=courseGroup, [x0,z0,x1,z1]=bbox(H.pts), cx=(x0+x1)/2, cz=(z0+z1)/2, hx=(x1-x0)/2+22, hz=(z1-z0)/2+22, rnd=NZ.rnd, taken=[];
+  const g=courseGroup, [x0,z0,x1,z1]=bbox(H.pts), cx=(x0+x1)/2, cz=(z0+z1)/2, hx=(x1-x0)/2+22, hz=(z1-z0)/2+22, rnd=NZ.rnd;
   const free=(x,z,r)=>Math.abs(x-cx)>hx+r||Math.abs(z-cz)>hz+r;
   const fx=Math.max(hx,hz)+380, fz=fx*0.85;            // the picket fence's half-width and half-depth (built below)
-  // neighbouring holes, mostly off to the sides and beyond the cup. Each one reaches from its tee out to its far end in any
-  // direction (it's turned at random), so all of that has to sit inside the fence, not just its middle
-  for(let k=0,tries=0;k<4&&tries<80;tries++){ const a=rnd()*Math.PI*2, d=Math.max(hx,hz)+150+rnd()*170, x=cx+Math.sin(a)*d, z=cz+Math.cos(a)*d;
-    const kd=(k+holeIdx)%3, reach=Math.hypot(kd===0?190:kd===1?150:120,17+80)+RAIL_T+6;
-    if(Math.abs(x-cx)+reach>fx-8||Math.abs(z-cz)+reach>fz-8) continue;
-    if(!free(x,z,110)||taken.some(t=>Math.hypot(t.cx-x,t.cz-z)<t.r+130)) continue;
-    taken.push(decoyHole(g,x,z,rnd()*Math.PI*2,(k+holeIdx)%3)); k++; }
   // lamp posts at the bed corners (they light up at night)
   LAMPS=[];
   for(const [sx,sz] of [[-1,-1],[1,-1],[1,1],[-1,1]]){ const x=cx+sx*(hx+14), z=cz+sz*(hz+14);
@@ -2090,6 +2069,11 @@ function syncLamps(){                                 // a warm point light in e
   if(!isNight()) return;
   for(const [g,x,z] of LAMPS){ const l=new THREE.PointLight(0xffc884,1.3,400,2); l.position.set(x,106,z); g.add(l); lampLights.push(l); }
 }
+// warm up the shaders for both day and night while the hole loads (behind the spinner). Night adds a light in each lamp,
+// and a change in the number of lights rebuilds every lit surface's shader: done on the spot, that froze the game for
+// about 0.2 s the first time the time of day was switched between day and night
+function prewarmTOD(){ envPrewarm(renderer,scene,camera); if(!renderer) return; const t=settings.tod;
+  settings.tod=isNight()?1:NIGHT_TOD; applyTOD(); envPrewarm(renderer,scene,camera); settings.tod=t; applyTOD(); }
 function applyNight(){
   const on=isNight(); envApplyNight(on,{M,scene,renderer,perf:PERF});                  // starry sky + moon (shared with Just Golf)
   if(M.glass) M.glass.emissiveIntensity=on?3.2:0.35;
@@ -2235,7 +2219,7 @@ function boot(){
   document.querySelector('#ov p').innerHTML='';   // (how to play is covered by the first-hole tips)
     +HOLES.length+' holes, par '+HOLES.reduce((a,h)=>a+h.par,0)+' — or just the front or back nine · a hole stops at 4 over par (change it in Settings). Water costs a stroke. The map button shows the whole hole.';
   initScene(); bindInput();
-  H=HOLES[0]; buildHole(); envPrewarm(renderer,scene,camera); ball.x=H.tee[0]; ball.z=H.tee[1]; phase='menu'; camMode='overview';
+  H=HOLES[0]; buildHole(); prewarmTOD(); ball.x=H.tee[0]; ball.z=H.tee[1]; phase='menu'; camMode='overview';
   resumeSave=loadGame(); OV_TITLE=document.querySelector('#ov h2').textContent; showStart(resumeSave?'resume':'start',false);
   try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
   if(gfxSwitched()){ document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } }
