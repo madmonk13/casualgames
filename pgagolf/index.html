@@ -148,6 +148,7 @@ body.lefty #row{flex-direction:row-reverse;}
 .cal-sum{color:#ddd3ee;font-size:.85rem;min-height:1.2em;}
 .cal-sum button{margin-left:6px;}
 #histList .hdel{display:flex;gap:6px;justify-content:flex-end;align-items:center;margin-top:6px;color:#ddd3ee;font-size:.8rem;}
+#histList .hdel [data-act=replay]{margin-right:auto;border-color:#ffd54a;}
 #histList .hrow{border:1px solid #3a2d50;border-radius:9px;background:rgba(29,22,48,.9);text-align:left;}
 #histList .hhead{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;background:none;border:0;color:#f2ecff;cursor:pointer;text-align:left;font:inherit;}
 #histList .hhead .hwhen{color:#a08cc0;font-size:.75rem;font-weight:700;}
@@ -338,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.5 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.6 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -2952,8 +2953,9 @@ function drawHist(){ const all=roundHistory(), first=new Date(cal.y,cal.m,1), da
     const when=d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'});
     const row=document.createElement('div'); row.className='hrow'+(list.length===1?' open':'');
     row.innerHTML=`<button class="hhead"><span><span class="hwhen">${when}</span><br><span class="hname">${escH(r.name)}</span>${r.opts?`<br><span class="hopt">${escH(r.opts)}</span>`:''}</span><span class="hscore">${s} <small>(${relStr(rel)})</small></span></button>`
-      +`<div class="hcard">${cardHTML(r.nos,r.pars,r.scores)}<div class="hdel"><button class="mini" data-act="del">Delete round</button></div></div>`;
+      +`<div class="hcard">${cardHTML(r.nos,r.pars,r.scores)}<div class="hdel">${r.gen&&r.gen.seed?'<button class="mini" data-act="replay">Play this course again</button>':''}<button class="mini" data-act="del">Delete round</button></div></div>`;
     row.querySelector('.hhead').addEventListener('click',()=>row.classList.toggle('open'));
+    const rp=row.querySelector('[data-act=replay]'); if(rp) rp.addEventListener('click',()=>{ const G=r.gen; openHist(false); startGen(G.seed,G.theme,G.diff,G.holes); });   // same seed, theme, difficulty and length
     row.querySelector('[data-act=del]').addEventListener('click',e=>{ const w=e.target.parentNode; w.innerHTML='Delete this round? <button class="mini" data-act="yes">Delete</button><button class="mini" data-act="no">Keep</button>';
       w.querySelector('[data-act=no]').addEventListener('click',drawHist);
       w.querySelector('[data-act=yes]').addEventListener('click',()=>{ try{ localStorage.setItem(HIST_KEY,JSON.stringify(roundHistory().filter(x=>x.at!==r.at))); }catch(err){} drawHist(); }); });
