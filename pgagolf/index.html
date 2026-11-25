@@ -134,6 +134,8 @@ body.lefty #row{flex-direction:row-reverse;}
 #genPanel .gen-dd{width:min(15.5em,100%);margin:0 auto;display:block;border-color:#ffd54a;background-color:rgba(29,22,48,.9);font-size:1rem;}
 .gen-seed{display:flex;gap:8px;align-items:center;}
 .gen-seed input{width:9.5em;padding:9px 10px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#fff;font:800 1.05rem/1 'Segoe UI',Arial,sans-serif;letter-spacing:3px;text-align:center;text-transform:uppercase;}
+.name-save{display:inline-flex;gap:6px;align-items:center;vertical-align:middle;}
+.name-save input{width:11em;padding:8px 10px;border-radius:9px;border:1px solid #ffd54a;background:rgba(29,22,48,.9);color:#fff;font:700 .9rem 'Segoe UI',Arial,sans-serif;}
 .gen-seed button,.mini{padding:8px 12px;border-radius:9px;border:1px solid rgba(255,255,255,.3);background:rgba(29,22,48,.9);color:#f2ecff;font-weight:800;cursor:pointer;}
 #genSaved{width:100%;max-height:30vh;overflow:auto;display:flex;flex-direction:column;gap:5px;}
 #genSaved .row{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:9px;background:rgba(29,22,48,.75);border:1px solid rgba(255,255,255,.14);color:#ece6f8;font-size:.88rem;}
@@ -142,6 +144,7 @@ body.lefty #row{flex-direction:row-reverse;}
 #coursePick{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:4px;}
 #coursePick .cp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:min(88vw,340px);}
 #coursePick .cp-grid .wide{grid-column:1/-1;}
+#coursePick .cp-course{grid-column:1/-1;text-align:center;color:#ffd54a;font-size:.85rem;font-weight:800;letter-spacing:2px;text-transform:uppercase;margin-bottom:-2px;}
 #coursePick button{justify-content:center;padding:13px 10px;font-size:1rem;}
 #ov p:empty,#cpLabel:empty{display:none;}
 #coursePick .cp-label,#genPanel .cp-label{color:#a08cc0;font-size:.78rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;}
@@ -294,7 +297,7 @@ body.lefty #row{flex-direction:row-reverse;}
   <h2>🏌️ JUST GOLF</h2>
   <p></p>
   <div id="coursePick"><div class="cp-label" id="cpLabel">Choose a course</div>
-    <div class="cp-grid"><button data-c="front">Front 9</button><button data-c="back">Back 9</button><button data-c="all">All 18</button><button data-c="gen" class="wide">Generated Course</button><button data-c="range" class="wide">Driving Range</button></div></div>
+    <div class="cp-grid"><div class="cp-course">Noonan Hills</div><button data-c="front">Front 9</button><button data-c="back">Back 9</button><button data-c="all">All 18</button><button data-c="gen" class="wide">Generated Course</button><button data-c="range" class="wide">Driving Range</button></div></div>
   <div id="genPanel"><div class="cp-label" id="genThemeLbl">Theme</div>
     <select id="genThemeSel" class="dd gen-dd" aria-labelledby="genThemeLbl">
       <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
@@ -304,12 +307,16 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="seg gen-diff" role="radiogroup" aria-labelledby="genDiffLbl">
       <label><input type="radio" name="genDiff" value="easy"><span>Easy</span></label><label><input type="radio" name="genDiff" value="normal"><span>Normal</span></label><label><input type="radio" name="genDiff" value="hard"><span>Hard</span></label>
     </div>
+    <div class="cp-label" id="genHolesLbl">Holes</div>
+    <div class="seg gen-diff" role="radiogroup" aria-labelledby="genHolesLbl">
+      <label><input type="radio" name="genHoles" value="3"><span>3</span></label><label><input type="radio" name="genHoles" value="6"><span>6</span></label><label><input type="radio" name="genHoles" value="9"><span>9</span></label><label><input type="radio" name="genHoles" value="18"><span>18</span></label>
+    </div>
     <div class="cp-label">Seed</div>
     <div class="gen-seed"><input id="genSeed" maxlength="10" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Course seed"><button id="genRoll" title="New seed" aria-label="New seed">🎲</button></div>
-    <div class="cp-row"><button id="genPlay" class="last">Play course<small>18 holes · par 72</small></button><button id="genBack">Back<small>to courses</small></button></div>
+    <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.3 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.4 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1059,7 +1066,7 @@ function addBunkers(h){ if(h._sand) return; h._sand=true; const B=h.bunkers=h.bu
 }
 HOLES.forEach(prepHole);
 // ═══════════════════════════════════════════════════════
-//  COURSE GENERATOR: 18 holes from a seed, dressed in a theme. The same seed + theme always gives the same course
+//  COURSE GENERATOR: 18 holes (or the first 3, 6 or 9 of them) from a seed, dressed in a theme. The same seed + theme always gives the same course
 //  (so a saved course, or a round in progress after a refresh, is rebuilt exactly). Each hole is drawn from a type
 //  (dogleg, carry over water, creek crossing…) with sensible ranges, then checked; one that fails is redrawn.
 // ═══════════════════════════════════════════════════════
@@ -1154,6 +1161,7 @@ const DIFFS={easy:{name:'Easy',fw:1.3,green:1.25,tilt:0.6,len:0.92,wind:0.6,dens
   normal:{name:'Normal',fw:1,green:1,tilt:1,len:1,wind:1,dense:1},
   hard:{name:'Hard',fw:0.75,green:0.8,tilt:1.4,len:1.08,wind:1.4,dense:1.3}};
 const diffKey=d=>DIFFS[d]?d:'normal';
+const HOLE_COUNTS=[3,6,9,18], holesKey=n=>HOLE_COUNTS.includes(+n)?+n:18;   // a shorter round plays the first holes of the 18
 // raw: a hole straight from genHole(); hazards: false keeps only the size changes (used if the extra hazards don't fit)
 function diffHole(raw,dk,R,hazards){
   const D=DIFFS[dk], h=JSON.parse(JSON.stringify(raw)), G=h.green, g0=G.c.slice(), gr=(G.rx+G.rz)/2;
@@ -1176,7 +1184,7 @@ function diffHole(raw,dk,R,hazards){
   return h;
 }
 const prepDiff=h=>{ prepHole(h); if(h.halfSand) h.bunkers=h.bunkers.filter((b,i)=>i%2===0); return h; };
-function genCourse(seed,theme,diff){
+function genCourse(seed,theme,diff,nHoles){
   const T=THEMES[theme]||THEMES.default, R=seededRng(seedNum(seed+'|'+theme)), dk=diffKey(diff), R2=seededRng(seedNum(seed+'|'+theme+'|'+dk));
   const nine=()=>{ for(;;){ const p=[3,3,5,5,4,4,4,4,4]; for(let i=p.length-1;i>0;i--){ const j=Math.floor(R()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; } if(p[0]!==3&&!p.some((v,i)=>v===3&&p[i+1]===3)) return p; } };
   const pars=[...nine(),...nine()], holes=[];
@@ -1186,19 +1194,29 @@ function genCourse(seed,theme,diff){
     h=h||c;
     if(src) for(const hz of [true,false]){ const m=prepDiff(diffHole(src,dk,R2,hz)); if(holeOK(m)){ h=m; break; } }   // the same hole at this difficulty
     holes.push(h); }
-  return holes;
+  return holes.slice(0,holesKey(nHoles));
 }
 // saved courses (kept for good, with a best score each) — {seed, theme, best, at}
 const SAVED_KEY='justgolf_courses';
 function savedCourses(){ try{ const a=JSON.parse(localStorage.getItem(SAVED_KEY)||'[]'); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function writeSaved(a){ try{ localStorage.setItem(SAVED_KEY,JSON.stringify(a)); }catch(e){} }
-const sameCourse=(e,g)=>!!e&&!!g&&e.seed===g.seed&&e.theme===g.theme&&diffKey(e.diff)===diffKey(g.diff);
+const sameCourse=(e,g)=>!!e&&!!g&&e.seed===g.seed&&e.theme===g.theme&&diffKey(e.diff)===diffKey(g.diff)&&holesKey(e.holes)===holesKey(g.holes);
 function savedFind(g){ return savedCourses().find(e=>sameCourse(e,g))||null; }
-function saveCourse(g){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){ a.unshift({seed:g.seed,theme:g.theme,diff:diffKey(g.diff),best:0,at:Date.now()}); writeSaved(a); } }
+function saveCourse(g,name){ const a=savedCourses(); if(!a.some(e=>sameCourse(e,g))){ const n=String(name||'').trim().slice(0,30); a.unshift({seed:g.seed,theme:g.theme,diff:diffKey(g.diff),holes:holesKey(g.holes),...(n?{name:n}:{}),best:0,at:Date.now()}); writeSaved(a); } }
+const escH=t=>String(t).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+// the name it was saved under, else theme · seed (HTML-safe)
+const courseTitle=g=>{ const e=savedFind(g); return e&&e.name?escH(e.name):courseLabel(g); };
+// Save course → a name box (optional) and a Save button in its place; Enter saves too
+function nameSaver(btn,onSave){ const w=document.createElement('span'); w.className='name-save';
+  w.innerHTML='<input maxlength="30" placeholder="Name (optional)" aria-label="Course name" autocomplete="off" spellcheck="false"><button class="mini">Save</button>';
+  const inp=w.querySelector('input'), go=()=>onSave(inp.value.trim());
+  inp.addEventListener('keydown',e=>{ e.stopPropagation(); if(e.key==='Enter') go(); }); w.querySelector('button').addEventListener('click',go);
+  btn.replaceWith(w); inp.focus(); }
 function setSavedBest(g,s){ const a=savedCourses(), e=a.find(x=>sameCourse(x,g)); if(e){ e.best=s; writeSaved(a); } }
-const courseLabel=g=>(diffKey(g.diff)==='normal'?'':DIFFS[g.diff].name+' · ')+(THEMES[g.theme]||THEMES.default).name+' · '+g.seed;
+const COURSE_NAME='Noonan Hills', builtinLabel=c=>COURSE_NAME+' · '+(c==='back'?'Back 9':c==='all'?'All 18':'Front 9');   // the built-in course
+const courseLabel=g=>(diffKey(g.diff)==='normal'?'':DIFFS[g.diff].name+' · ')+(THEMES[g.theme]||THEMES.default).name+' · '+g.seed+(holesKey(g.holes)===18?'':' · '+holesKey(g.holes)+' holes');
 // live settings & stats
-const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, tour:true, genTheme:'default', genDiff:'normal', tod:1, course:'front', maxOver:4 };
+const settings={ ball:'white', power:1.0, guide:true, muted:false, optimized:false, gfx:'auto', gfxAuto:null, fps:false, meter:1, meterSpd:0.75, swing:null, lefty:false, tour:true, genTheme:'default', genDiff:'normal', genHoles:18, tod:1, course:'front', maxOver:4 };
 // max over par (Settings): a hole ends once you've used par+limit−1 strokes without holing out, scoring par+limit (0 = no limit)
 const capScore=()=>settings.maxOver?H.par+settings.maxOver:0, capHit=()=>!!settings.maxOver&&strokes>=H.par+settings.maxOver-1;
 // ═══════════════════════════════════════════════════════
@@ -1290,7 +1308,7 @@ function setCourse(c){ GEN=null; PLAY=c==='range'?[RANGE]:c==='back'?HOLES.slice
 let GEN=null, ROUND_SKIN=null;                                         // ROUND_SKIN: the theme picked in Settings for this round (null = the course's own)
 const roundSkin=()=>ROUND_SKIN||(GEN?GEN.theme:'default');
 let _GEN_DUMMY=null;                                                            // {seed, theme} while a generated course is loaded
-function setGen(seed,theme,diff){ GEN={seed,theme,diff:diffKey(diff)}; PLAY=genCourse(seed,theme,diff); HOLE_NO0=0; }
+function setGen(seed,theme,diff,holes){ GEN={seed,theme,diff:diffKey(diff),holes:holesKey(holes)}; PLAY=genCourse(seed,theme,diff,holes); HOLE_NO0=0; }
 const bestKey=c=>c==='range'?'bestRange':c==='back'?'bestBack':c==='all'?'bestAll':'best';      // a best score per course (the front nine keeps the original 'best')
 const stats={ best:0, bestBack:0, bestAll:0, bestRange:0, games:0, aces:0 };
 
@@ -2114,15 +2132,15 @@ function aimAtPin(){ aim=Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z); }
 function aimDefault(){ if(H&&H.range) return; aimAtPin(); }
 let testRound=false;
 function newGame(){ tourPending=true; clearGame(); setCourse(settings.course); ROUND_SKIN=null; roundCourse=settings.course; testRound=false; anims=[]; scores=[]; rangeLog=[]; holeIdx=0; startHole(); }
-function newGenGame(seed,theme,diff){ tourPending=true; clearGame(); setGen(seed,theme,diff); ROUND_SKIN=null; roundCourse='gen'; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
+function newGenGame(seed,theme,diff,holes){ tourPending=true; clearGame(); setGen(seed,theme,diff,holes); ROUND_SKIN=null; roundCourse='gen'; testRound=false; anims=[]; scores=[]; holeIdx=0; startHole(); }
 function jumpTo(i){ clearGame(); setCourse('all'); roundCourse='all'; testRound=true; anims=[]; scores=PLAY.slice(0,i).map(h=>h.par); holeIdx=i; startHole(); }
 // the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
 let resumeSave=null;
 function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; localStorage.setItem('justgolf_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n||H.range?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound,gen:roundCourse==='gen'?GEN:null,skin:ROUND_SKIN,range:roundCourse==='range'?rangeLog:null})); }catch(e){} }
-function loadGame(){ try{ const g=JSON.parse(localStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; if(g.course==='gen'&&g.gen) setGen(g.gen.seed,g.gen.theme,g.gen.diff); else setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
+function loadGame(){ try{ const g=JSON.parse(localStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; if(g.course==='gen'&&g.gen) setGen(g.gen.seed,g.gen.theme,g.gen.diff,g.gen.holes); else setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
 function clearGame(){ try{ localStorage.removeItem('justgolf_game'); }catch(e){} }
 function resumeGame(g){ tourPending=false;
-  if(g.course==='gen'&&g.gen){ if(!sameCourse(GEN,g.gen)) setGen(g.gen.seed,g.gen.theme,g.gen.diff); } else setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; ROUND_SKIN=THEMES[g.skin]?g.skin:null; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
+  if(g.course==='gen'&&g.gen){ if(!sameCourse(GEN,g.gen)) setGen(g.gen.seed,g.gen.theme,g.gen.diff,g.gen.holes); } else setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; ROUND_SKIN=THEMES[g.skin]?g.skin:null; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
   if(g.course==='range'){ rangeLog=(g.range||[]).slice(0,scores.length); strokes=scores.length; }
   else if(g.strokes>0){ strokes=g.strokes; const [x,z]=g.p; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=g.lie||surfAt(x,z); ball.last=g.last||[x,z]; buildTufts(); suggestClub(); aimDefault(); }
   updateUI(); buildHUD(); drawMap(true); saveGame();
@@ -2133,7 +2151,7 @@ function startHole(){
   const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14*(H.wind||1)); wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};   // exposed holes blow harder
   buildTufts(); if(H.range){ clubIdx=0; aim=0; rangeShot={bonus:0,hit:null}; } else { suggestClub(); aimDefault(); } phase='intro'; camMode='intro'; introT=0;
   applyTOD();                                                                                   // (re-tints the haze for a themed course)
-  if(H.range) showMsg(`DRIVING RANGE<small>${BUCKET} BALLS · DISTANCE + TARGETS</small>`,3); else showMsg(`HOLE ${HOLE_NO0+holeIdx+1}<small>PAR ${H.par} · ${Math.round(H.len*YD)} YARDS${GEN&&holeIdx===0?' · '+courseLabel(GEN).toUpperCase():''}</small>`,3);
+  if(H.range) showMsg(`DRIVING RANGE<small>${BUCKET} BALLS · DISTANCE + TARGETS</small>`,3); else showMsg(`HOLE ${HOLE_NO0+holeIdx+1}<small>PAR ${H.par} · ${Math.round(H.len*YD)} YARDS${holeIdx===0?' · '+(GEN?courseTitle(GEN):COURSE_NAME).toUpperCase():''}</small>`,3);
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function nextShot(){ resetMeter();
@@ -2209,9 +2227,9 @@ function roundOver(){
       +`<tr><th>You</th>${sc.map(v=>`<td>${v}</td>`).join('')}<td><b>${sc.reduce((x,v)=>x+v,0)}</b></td></tr></table>`; }
   ov.querySelector('p').innerHTML=tbl+(PLAY.length>9?`<br>Total <b>${s}</b> · par ${par}`:'')+'<br>'
     +(newBest?'<b>New best!</b><br>':'')+(testRound?'Test round · not counted':`Best ${isGen?(newBest?s:(ge&&ge.best)||'–'):stats[bk]||'–'}`)
-    +(isGen?`<br>Course <b>${courseLabel(GEN)}</b> ${ge?'· saved':'<button class="mini" id="ovSave">Save course</button>'}`:'');
+    +(isGen?`<br>Course <b>${courseTitle(GEN)}</b> ${ge?'· saved':'<button class="mini" id="ovSave">Save course</button>'}`:`<br>Course <b>${builtinLabel(roundCourse)}</b>`);
   showStart('over'); refreshStats();
-  const sv=document.getElementById('ovSave'); if(sv) sv.addEventListener('click',()=>{ saveCourse(GEN); setSavedBest(GEN,s); sv.replaceWith(document.createTextNode('· saved')); });
+  const sv=document.getElementById('ovSave'); if(sv) sv.addEventListener('click',()=>nameSaver(sv,n=>{ saveCourse(GEN,n); setSavedBest(GEN,s); const w=ov.querySelector('.name-save'); if(w) w.replaceWith(document.createTextNode(n?'· saved as '+n:'· saved')); }));
 }
 function celebrate(text,cls){ const el=document.getElementById('celebrate'); el.className=''; void el.offsetWidth; el.textContent=text; el.classList.add('show',cls); }
 function showMsg(html,t){ document.getElementById('msg').innerHTML=html; msgT=t||1.4; }
@@ -2750,8 +2768,8 @@ function busyThen(fn){ const B=document.getElementById('busy'); B.classList.add(
 function setSkin(t){ ROUND_SKIN=t; if(!H) return; const P=ball.p, rest=ball.mode==='rest';
   buildHole(); envPrewarm(renderer,scene,camera); if(rest) P.y=meshH(P.x,P.z)+BALL_R+(ball.lie==='tee'?0.03:0); buildTufts(); applyTOD(); drawMap(true); if(phase!=='menu'&&phase!=='over') saveGame(); }
 function drawGenInfo(){ const el=document.getElementById('genInfo'); if(!el) return; const on=roundCourse==='gen'&&GEN&&phase!=='menu'&&phase!=='over'; el.style.display=on?'':'none'; if(!on) return;
-  const saved=!!savedFind(GEN); el.innerHTML=`<span>This course: ${courseLabel(GEN)}</span>`+(saved?'<span>Saved</span>':'<button class="mini" id="genSaveBtn">Save course</button>');
-  const b=document.getElementById('genSaveBtn'); if(b) b.addEventListener('click',()=>{ saveCourse(GEN); drawGenInfo(); }); }
+  const saved=!!savedFind(GEN); el.innerHTML=`<span>This course: ${courseTitle(GEN)}</span>`+(saved?'<span>Saved</span>':'<button class="mini" id="genSaveBtn">Save course</button>');
+  const b=document.getElementById('genSaveBtn'); if(b) b.addEventListener('click',()=>nameSaver(b,n=>{ saveCourse(GEN,n); drawGenInfo(); })); }
 function refreshStats(){ drawGenInfo(); document.getElementById('skinSel').value=roundSkin(); document.getElementById('stBest').textContent=stats[bestKey(settings.course)]||'–'; document.getElementById('stGames').textContent=stats.games; document.getElementById('stAces').textContent=stats.aces; }
 function setupSettings(){
   loadSettings(); loadStats();
@@ -2846,22 +2864,23 @@ function showStart(mode,show){ const ov=document.getElementById('ov'), sb=docume
   if(show!==false) ov.classList.add('show'); }
 let OV_TITLE='';
 // ── Generate: pick a theme and a seed (a fresh one is offered; type one to replay a course), or a saved course ──
-let genTheme='default', genDiff='normal';
+let genTheme='default', genDiff='normal', genHoles=18;
 function openGen(on){ document.getElementById('genPanel').classList.toggle('open',on); document.getElementById('coursePick').style.display=on?'none':''; const sb=document.getElementById('startbtn');
-  if(on){ sb.dataset.was=sb.style.display; sb.style.display='none'; genTheme=THEMES[settings.genTheme]?settings.genTheme:'default'; genDiff=diffKey(settings.genDiff); document.getElementById('genSeed').value=newSeed(); drawGenPanel(); } else if(sb.dataset.was!=null){ sb.style.display=sb.dataset.was; } }
-function drawGenPanel(){ document.getElementById('genThemeSel').value=genTheme; document.querySelectorAll('input[name=genDiff]').forEach(i=>i.checked=i.value===genDiff);
+  if(on){ sb.dataset.was=sb.style.display; sb.style.display='none'; genTheme=THEMES[settings.genTheme]?settings.genTheme:'default'; genDiff=diffKey(settings.genDiff); genHoles=holesKey(settings.genHoles); document.getElementById('genSeed').value=newSeed(); drawGenPanel(); } else if(sb.dataset.was!=null){ sb.style.display=sb.dataset.was; } }
+function drawGenPanel(){ document.getElementById('genThemeSel').value=genTheme; document.querySelectorAll('input[name=genDiff]').forEach(i=>i.checked=i.value===genDiff); document.querySelectorAll('input[name=genHoles]').forEach(i=>i.checked=+i.value===genHoles); document.getElementById('genPlaySub').textContent=genHoles+' holes';
   const a=savedCourses(), box=document.getElementById('genSaved'); document.getElementById('genSavedLbl').style.display=a.length?'':'none'; box.innerHTML='';
   for(const e of a){ const row=document.createElement('div'); row.className='row';
-    row.innerHTML=`<span><b>${courseLabel(e)}</b> <small>${e.best?'best '+e.best:'no score yet'}</small></span><button class="mini" data-act="play">Play</button><button class="mini" data-act="del" aria-label="Delete">✕</button>`;
-    row.querySelector('[data-act=play]').addEventListener('click',()=>startGen(e.seed,e.theme,e.diff));
+    row.innerHTML=`<span><b>${e.name?escH(e.name):courseLabel(e)}</b> <small>${e.name?courseLabel(e)+' · ':''}${e.best?'best '+e.best:'no score yet'}</small></span><button class="mini" data-act="play">Play</button><button class="mini" data-act="del" aria-label="Delete">✕</button>`;
+    row.querySelector('[data-act=play]').addEventListener('click',()=>startGen(e.seed,e.theme,e.diff,e.holes));
     row.querySelector('[data-act=del]').addEventListener('click',()=>{ writeSaved(savedCourses().filter(x=>!sameCourse(x,e))); drawGenPanel(); });
     box.appendChild(row); } }
-function startGen(seed,theme,diff){ settings.genTheme=theme; settings.genDiff=diffKey(diff); saveSettings(); openGen(false); document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGenGame(seed,theme,diff); refreshStats(); }); }
+function startGen(seed,theme,diff,holes){ settings.genTheme=theme; settings.genDiff=diffKey(diff); settings.genHoles=holesKey(holes); saveSettings(); openGen(false); document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGenGame(seed,theme,diff,holes); refreshStats(); }); }
 document.getElementById('genThemeSel').addEventListener('change',e=>{ genTheme=e.target.value; drawGenPanel(); });
 document.querySelectorAll('input[name=genDiff]').forEach(i=>i.addEventListener('change',()=>{ if(i.checked) genDiff=i.value; }));
+document.querySelectorAll('input[name=genHoles]').forEach(i=>i.addEventListener('change',()=>{ if(i.checked){ genHoles=+i.value; document.getElementById('genPlaySub').textContent=genHoles+' holes'; } }));
 document.getElementById('genRoll').addEventListener('click',()=>{ document.getElementById('genSeed').value=newSeed(); });
 document.getElementById('genSeed').addEventListener('input',e=>{ const v=cleanSeed(e.target.value); if(v!==e.target.value) e.target.value=v; });
-document.getElementById('genPlay').addEventListener('click',()=>{ const sd=cleanSeed(document.getElementById('genSeed').value)||newSeed(); startGen(sd,genTheme,genDiff); });
+document.getElementById('genPlay').addEventListener('click',()=>{ const sd=cleanSeed(document.getElementById('genSeed').value)||newSeed(); startGen(sd,genTheme,genDiff,genHoles); });
 document.getElementById('genBack').addEventListener('click',()=>openGen(false));
 document.querySelectorAll('#coursePick button').forEach(b=>b.addEventListener('click',()=>{ if(b.dataset.c==='gen'){ openGen(true); return; } settings.course=b.dataset.c; saveSettings();
   document.getElementById('ov').classList.remove('show'); getAC(); initSfx(); startAmbient(); resize(); resumeSave=null; busyThen(()=>{ newGame(); refreshStats(); }); }));
