@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.6 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.7 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1327,7 +1327,11 @@ function rangeOver(){
   ov.querySelector('p').innerHTML=tbl+`<br>Longest <b>${far} yd</b> · ${hits} target${hits===1?'':'s'} hit<br>`+(newBest?'<b>New best!</b><br>':'')+(testRound?'Test bucket · not counted':`Best ${stats.bestRange||'–'}`);
   showStart('over'); refreshStats(); }
 let PLAY=HOLES.slice(0,9), HOLE_NO0=0, roundCourse='front';             // the holes being played this round (front 9 / back 9 / all 18)
-function setCourse(c){ GEN=null; PLAY=c==='range'?[RANGE]:c==='back'?HOLES.slice(9):c==='all'?HOLES:HOLES.slice(0,9); HOLE_NO0=c==='back'?9:0; }
+// a hole sent over from the hole editor (editor.html → Play-test): index.html?test plays just that one. It never saves
+// or clears the round you have going (that lives in localStorage, shared with every tab) and doesn't count
+const TEST_HOLE=(()=>{ try{ if(!/[?&]test\b/.test(location.search)) return null; const h=JSON.parse(localStorage.getItem('justgolf_testhole')||'null');
+  if(!h||!h.tee||!h.pin||!Array.isArray(h.fair)||!h.green) return null; h.bunkers=h.bunkers||[]; h.water=h.water||[]; h.fw=h.fw||h.fair.map(()=>30); h.ob=h.ob||60; return prepHole(Object.assign({name:'Test hole',par:4},h)); }catch(e){ return null; } })();
+function setCourse(c){ GEN=null; if(c==='test'&&TEST_HOLE){ PLAY=[TEST_HOLE]; HOLE_NO0=0; return; } PLAY=c==='range'?[RANGE]:c==='back'?HOLES.slice(9):c==='all'?HOLES:HOLES.slice(0,9); HOLE_NO0=c==='back'?9:0; }
 let GEN=null, ROUND_SKIN=null;                                         // ROUND_SKIN: the theme picked in Settings for this round (null = the course's own)
 const roundSkin=()=>ROUND_SKIN||(GEN?GEN.theme:'default');
 let _GEN_DUMMY=null;                                                            // {seed, theme} while a generated course is loaded
@@ -2159,9 +2163,9 @@ function newGenGame(seed,theme,diff,holes){ tourPending=true; clearGame(); setGe
 function jumpTo(i){ clearGame(); setCourse('all'); roundCourse='all'; testRound=true; anims=[]; scores=PLAY.slice(0,i).map(h=>h.par); holeIdx=i; startHole(); }
 // the round in progress lives in sessionStorage, so a reload (or the Low graphics toggle) picks up where you left off
 let resumeSave=null;
-function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu') return; const n=!!next; localStorage.setItem('justgolf_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n||H.range?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound,gen:roundCourse==='gen'?GEN:null,skin:ROUND_SKIN,range:roundCourse==='range'?rangeLog:null})); }catch(e){} }
+function saveGame(next){ try{ if(!H||phase==='over'||phase==='menu'||roundCourse==='test') return; const n=!!next; localStorage.setItem('justgolf_game',JSON.stringify({course:roundCourse,holeIdx:holeIdx+(n?1:0),scores,strokes:n||H.range?0:strokes,p:[ball.p.x,ball.p.z],last:ball.last,lie:ball.lie,wind,test:testRound,gen:roundCourse==='gen'?GEN:null,skin:ROUND_SKIN,range:roundCourse==='range'?rangeLog:null})); }catch(e){} }
 function loadGame(){ try{ const g=JSON.parse(localStorage.getItem('justgolf_game')||'null'); if(!g||!Array.isArray(g.scores)) return null; if(g.course==='gen'&&g.gen) setGen(g.gen.seed,g.gen.theme,g.gen.diff,g.gen.holes); else setCourse(g.course||'front'); return g.holeIdx<PLAY.length?g:null; }catch(e){ return null; } }
-function clearGame(){ try{ localStorage.removeItem('justgolf_game'); }catch(e){} }
+function clearGame(){ if(roundCourse==='test') return; try{ localStorage.removeItem('justgolf_game'); }catch(e){} }
 function resumeGame(g){ tourPending=false;
   if(g.course==='gen'&&g.gen){ if(!sameCourse(GEN,g.gen)) setGen(g.gen.seed,g.gen.theme,g.gen.diff,g.gen.holes); } else setCourse(g.course||'front'); roundCourse=g.course||'front'; testRound=!!g.test; ROUND_SKIN=THEMES[g.skin]?g.skin:null; anims=[]; scores=g.scores.slice(); holeIdx=g.holeIdx; startHole(); if(g.wind) wind=g.wind;
   if(g.course==='range'){ rangeLog=(g.range||[]).slice(0,scores.length); strokes=scores.length; }
@@ -2975,6 +2979,7 @@ function boot(){
   try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); if(resumeSave){ document.getElementById('ov').classList.remove('show'); const g=resumeSave; resumeSave=null; resumeGame(g); } document.getElementById('settings').classList.add('open'); }
     if(sessionStorage.getItem('gfxAutoReload')){ sessionStorage.removeItem('gfxAutoReload'); if(resumeSave){ document.getElementById('ov').classList.remove('show'); const g=resumeSave; resumeSave=null; resumeGame(g); }
       const n=document.getElementById('gfxNote'); n.textContent='Graphics set to '+GFX_NAMES[GFX]+' for smoother play. You can change it in Settings.'; n.classList.add('show'); setTimeout(()=>n.classList.remove('show'),5000); } }catch(e){}
+  if(TEST_HOLE){ document.getElementById('ov').classList.remove('show'); resumeSave=null; tourPending=false; roundCourse='test'; setCourse('test'); ROUND_SKIN=null; testRound=true; anims=[]; scores=[]; holeIdx=0; startHole(); }
   buildHUD(); drawMap(true);
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
 }

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Just Putt Hole Editor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0b18;--panel:#191226;--line:#3a2d50;--text:#ece6f8;--dim:#a08cc0;--gold:#ffd54a;--felt:#2f8a46;--bad:#ff6b6b;}
+html,body{height:100%;background:var(--bg);color:var(--text);font:14px/1.4 'Segoe UI',Arial,sans-serif;}
+body{display:grid;grid-template-rows:auto 1fr;grid-template-columns:150px 1fr 290px;grid-template-areas:"top top top" "tools stage side";}
+header{grid-area:top;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);}
+header h1{font-size:1rem;color:var(--gold);margin-right:8px;white-space:nowrap;}
+button,select,input{font:inherit;color:var(--text);background:#231a36;border:1px solid var(--line);border-radius:7px;padding:5px 9px;}
+button{cursor:pointer;font-weight:700;} button:hover{border-color:var(--dim);} button.on{background:var(--gold);color:#181000;border-color:var(--gold);}
+button.primary{background:var(--gold);color:#181000;border-color:var(--gold);}
+input[type=number]{width:74px;} input[type=text]{width:150px;}
+#tools{grid-area:tools;background:var(--panel);border-right:1px solid var(--line);padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
+#tools .lbl{color:var(--dim);font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin:8px 0 2px;}
+#tools button{text-align:left;padding:5px 8px;font-size:.85rem;}
+#stage{grid-area:stage;position:relative;overflow:hidden;}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;}
+#hud{position:absolute;left:10px;bottom:8px;color:var(--dim);font-size:.75rem;pointer-events:none;text-shadow:0 1px 3px #000;}
+#side{grid-area:side;background:var(--panel);border-left:1px solid var(--line);padding:10px;overflow-y:auto;}
+#side h3{color:var(--gold);font-size:.95rem;margin:4px 0 8px;}
+#side .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0;}
+#side .row label{color:var(--dim);font-size:.82rem;}
+#side .note{color:var(--dim);font-size:.78rem;margin:6px 0;}
+#side .btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+#warn{margin-top:12px;font-size:.8rem;}
+#warn div{color:var(--bad);margin:2px 0;} #warn .ok{color:#7fd08a;}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:10;}
+#modal.open{display:flex;}
+#modal .card{width:min(92vw,760px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+#modal textarea{width:100%;height:50vh;background:#0c0814;color:#d8f0d8;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;}
+#modal h3{color:var(--gold);} #modal p{color:var(--dim);font-size:.85rem;}
+kbd{background:#231a36;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:.75rem;}
+</style>
+</head>
+<body>
+<header>
+  <h1>⛳ Just Putt · Hole Editor</h1>
+  <select id="holeSel" title="Start from an existing hole or a blank one"></select>
+  <button id="undo" title="Undo (Ctrl/Cmd+Z)">↶ Undo</button><button id="redo" title="Redo (Ctrl/Cmd+Shift+Z)">↷ Redo</button>
+  <label style="color:var(--dim);font-size:.85rem"><input type="checkbox" id="snap" checked> Snap to grid</label>
+  <button id="fit">Fit view</button>
+  <span style="flex:1"></span>
+  <button id="importBtn">Import</button><button id="exportBtn">Export</button><button id="playBtn" class="primary">▶ Play-test</button>
+</header>
+<div id="tools">
+  <div class="lbl">Edit</div>
+  <button data-tool="select" class="on">Select / move</button>
+  <button data-tool="shape">Shape (outline)</button>
+  <button data-tool="path">Camera path</button>
+  <div class="lbl">Walls</div>
+  <button data-add="wall">Wall</button><button data-add="block">Block</button><button data-add="post">Post</button><button data-add="bumper">Bumper</button>
+  <div class="lbl">Hazards</div>
+  <button data-add="sand">Sand (round)</button><button data-add="water">Water</button><button data-add="bridge">Bridge</button>
+  <div class="lbl">Terrain</div>
+  <button data-add="ramp">Ramp (step up/down)</button><button data-add="hump">Hump</button><button data-add="bowl">Dip</button><button data-add="cone">Hill (cone)</button>
+  <div class="lbl">Moving</div>
+  <button data-add="windmill">Windmill</button><button data-add="gate">Swinging gate</button><button data-add="spin">Turntable</button>
+</div>
+<div id="stage"><canvas id="cv"></canvas><div id="hud"></div></div>
+<div id="side"></div>
+<div id="modal"><div class="card"><h3 id="mTitle"></h3><p id="mNote"></p><textarea id="mText" spellcheck="false"></textarea><div class="btns" id="mBtns"></div></div></div>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  Hole editor for Just Putt. Holes use the game's own format (see HOLES in index.html):
+//  x across (+x is the PLAYER'S LEFT, so it's drawn on the left here), z down the hole from the tee.
+//  Units match the game: the ball is 1.7 across, the cup 4.25, a lane is usually 36–40 wide.
+//  Anything this editor doesn't know how to edit (tunnels, pits, loops…) is kept untouched and exported as-is.
+// ─────────────────────────────────────────────────────────────────────────────
+const BALL_R=0.84, CUP_R=2.125, TEE_W=16, TEE_D=12, DRAFT_KEY='justputt_editor_draft', TEST_KEY='justputt_testhole';
+const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), r1=v=>Math.round(v*10)/10, clone=o=>JSON.parse(JSON.stringify(o));
+// the shape helpers the game's HOLES use, so existing holes can be read in
+function lane(path,w){
+  const n=path.length, Lt=[], Rt=[], nrm=(u,v)=>{ const dx=v[0]-u[0], dz=v[1]-u[1], l=Math.hypot(dx,dz)||1; return [-dz/l,dx/l]; };
+  for(let i=0;i<n;i++){ const p=path[i]; let m;
+    if(i===0) m=nrm(p,path[1]); else if(i===n-1) m=nrm(path[n-2],p);
+    else { const a=nrm(path[i-1],p), b=nrm(p,path[i+1]), k=1/(1+a[0]*b[0]+a[1]*b[1]); m=[(a[0]+b[0])*k,(a[1]+b[1])*k]; }
+    Lt.push([p[0]+m[0]*w/2,p[1]+m[1]*w/2]); Rt.push([p[0]-m[0]*w/2,p[1]-m[1]*w/2]); }
+  return Rt.concat(Lt.reverse());
+}
+const rect=(x0,z0,x1,z1)=>[[x0,z0],[x1,z0],[x1,z1],[x0,z1]];
+const isCupBowl=(f,h)=>f.t==='bowl'&&Math.abs(f.x-h.cup[0])<0.01&&Math.abs(f.z-h.cup[1])<0.01;
+
+// ── what each element is, how to make one, and what the inspector shows ──
+const KINDS={
+  wall:{list:'obst',label:'Wall',make:(x,z)=>({t:'wall',a:[x+10,z],b:[x-10,z]}),fields:[]},
+  block:{list:'obst',label:'Block',make:(x,z)=>({t:'block',x0:x-6,x1:x+6,z0:z-5,z1:z+5}),fields:[]},
+  post:{list:'obst',label:'Post',make:(x,z)=>({t:'post',x,z,r:2.2}),fields:[['r','Radius',0.5,20,0.1]]},
+  bumper:{list:'obst',label:'Bumper',make:(x,z)=>({t:'bumper',x,z,r:3.4}),fields:[['r','Radius',1,20,0.1]]},
+  sand:{list:'obst',label:'Sand',make:(x,z)=>({t:'sand',c:[x,z],r:10}),fields:[['r','Radius',2,80,0.5]]},
+  water:{list:'obst',label:'Water',make:(x,z)=>({t:'water',rect:[x-10,z-12,x+10,z+12]}),fields:[]},
+  bridge:{list:'obst',label:'Bridge',make:(x,z)=>({t:'bridge',rect:[x-6,z-20,x+6,z+20]}),fields:[]},
+  ramp:{list:'feat',label:'Ramp',make:(x,z)=>({t:'ramp',z0:z-12,z1:z+12,h:5}),fields:[['h','Height (− goes down)',-20,20,0.5]],
+    note:'Runs the full width of the hole: everything past it is raised (or lowered) by its height.'},
+  hump:{list:'feat',label:'Hump',make:(x,z)=>({t:'hump',x,z,r:14,h:1.2}),fields:[['r','Radius',3,80,0.5],['h','Height',0.2,10,0.1]]},
+  bowl:{list:'feat',label:'Dip',make:(x,z)=>({t:'bowl',x,z,r:14,d:0.6}),fields:[['r','Radius',3,80,0.5],['d','Depth',0.1,6,0.05]]},
+  cone:{list:'feat',label:'Hill (cone)',make:(x,z)=>({t:'cone',x,z,r:24,h:5}),fields:[['r','Radius',4,90,0.5],['h','Height',0.5,20,0.5]]},
+  windmill:{list:'obst',label:'Windmill',make:(x,z)=>({t:'windmill',z,gap:12,depth:20}),fields:[['gap','Doorway width',4,30,0.5],['depth','Depth',8,60,1]],
+    note:'Spans the lane across its middle (x = 0); the doorway is in the centre and the blades sweep in front of it.'},
+  gate:{list:'obst',label:'Gate',make:(x,z)=>({t:'gate',hinge:[x+7,z],len:14,a0:0,a1:-Math.PI/2,period:3}),fields:[['len','Length',4,60,0.5],['a0deg','Start angle °',-360,360,5],['a1deg','End angle °',-360,360,5],['period','Swing time (s)',0.5,10,0.1]],
+    note:'Swings from the start angle to the end angle and back. 0° points to the player’s left (+x), 90° down the hole.'},
+  spin:{list:'obst',label:'Turntable',make:(x,z)=>({t:'spin',c:[x,z],r:20,w:1.2}),fields:[['r','Radius',6,60,0.5],['w','Spin (rad/s, − reverses)',-4,4,0.1]],
+    note:'Leave a ball’s width between its rim and the rails. The game’s turntables usually sit on a matching Hill for a domed top.'},
+};
+const kindOf=e=>KINDS[e.t]?e.t:null;
+// handles for an element: [{id, x, z}] — dragging the body moves the whole thing
+function center(e){ if(e.t==='wall') return [(e.a[0]+e.b[0])/2,(e.a[1]+e.b[1])/2]; if(e.t==='block') return [(e.x0+e.x1)/2,(e.z0+e.z1)/2];
+  if(e.rect) return [(e.rect[0]+e.rect[2])/2,(e.rect[1]+e.rect[3])/2]; if(e.c) return e.c.slice(); if(e.hinge) return e.hinge.slice();
+  if(e.t==='ramp') return [0,(e.z0+e.z1)/2]; if(e.t==='windmill') return [0,e.z]; if('x' in e) return [e.x,e.z]; return [0,0]; }
+function moveBy(e,dx,dz){ const mv=p=>{ p[0]+=dx; p[1]+=dz; };
+  if(e.t==='wall'){ mv(e.a); mv(e.b); } else if(e.t==='block'){ e.x0+=dx; e.x1+=dx; e.z0+=dz; e.z1+=dz; }
+  else if(e.rect&&!e.except){ e.rect[0]+=dx; e.rect[2]+=dx; e.rect[1]+=dz; e.rect[3]+=dz; }
+  else if(e.c) mv(e.c); else if(e.hinge) mv(e.hinge); else if(e.t==='ramp'){ e.z0+=dz; e.z1+=dz; } else if(e.t==='windmill') e.z+=dz; else if('x' in e){ e.x+=dx; e.z+=dz; } }
+function handles(e){
+  if(e.t==='wall') return [{id:'a',x:e.a[0],z:e.a[1]},{id:'b',x:e.b[0],z:e.b[1]}];
+  if(e.t==='block') return [{id:'c00',x:e.x0,z:e.z0},{id:'c11',x:e.x1,z:e.z1},{id:'c01',x:e.x0,z:e.z1},{id:'c10',x:e.x1,z:e.z0}];
+  if(e.rect) return [{id:'c00',x:e.rect[0],z:e.rect[1]},{id:'c11',x:e.rect[2],z:e.rect[3]},{id:'c01',x:e.rect[0],z:e.rect[3]},{id:'c10',x:e.rect[2],z:e.rect[1]}];
+  if(e.t==='ramp') return [{id:'z0',x:0,z:e.z0},{id:'z1',x:0,z:e.z1}];
+  if(e.t==='gate') return [{id:'end',x:e.hinge[0]+Math.cos(e.a0)*e.len,z:e.hinge[1]+Math.sin(e.a0)*e.len},{id:'end1',x:e.hinge[0]+Math.cos(e.a1)*e.len,z:e.hinge[1]+Math.sin(e.a1)*e.len}];
+  if('r' in e){ const [x,z]=center(e); return [{id:'r',x:x-e.r,z}]; }
+  return []; }
+function dragHandle(e,id,x,z){
+  if(e.t==='wall'){ e[id]=[x,z]; return; }
+  if(e.t==='block'){ if(id[1]==='0') e.x0=x; else e.x1=x; if(id[2]==='0') e.z0=z; else e.z1=z; return; }
+  if(e.rect){ if(id[1]==='0') e.rect[0]=x; else e.rect[2]=x; if(id[2]==='0') e.rect[1]=z; else e.rect[3]=z; return; }
+  if(e.t==='ramp'){ e[id]=z; return; }
+  if(e.t==='gate'){ const dx=x-e.hinge[0], dz=z-e.hinge[1]; if(id==='end'){ e.a0=Math.atan2(dz,dx); e.len=Math.max(4,r1(Math.hypot(dx,dz))); } else e.a1=Math.atan2(dz,dx); return; }
+  if('r' in e){ const [cx,cz]=center(e); e.r=Math.max(1,r1(Math.hypot(x-cx,z-cz))); } }
+function tidy(e){ if(e.t==='block'){ if(e.x0>e.x1) [e.x0,e.x1]=[e.x1,e.x0]; if(e.z0>e.z1) [e.z0,e.z1]=[e.z1,e.z0]; }
+  if(e.rect&&!e.except){ const r=e.rect; if(r[0]>r[2]) [r[0],r[2]]=[r[2],r[0]]; if(r[1]>r[3]) [r[1],r[3]]=[r[3],r[1]]; }
+  if(e.t==='ramp'&&e.z0>e.z1) [e.z0,e.z1]=[e.z1,e.z0]; }
+
+// ── the hole being edited ──
+let hole=null, autoPath=true, sel=null, tool='select', undo=[], redo=[], gameHoles=[];
+function blankHole(){ return {name:'New Hole',par:3,tee:[0,0],cup:[0,200],pts:rect(-20,-24,20,228),feat:[{t:'bowl',x:0,z:200,r:14,d:0.35}],obst:[]}; }
+function setHole(h,keepHistory){ hole=clone(h); hole.feat=hole.feat||[]; hole.obst=hole.obst||[]; hole.par=hole.par||3; hole.name=hole.name||'New Hole';
+  autoPath=!hole.path||(hole.path.length===2&&same(hole.path[0],hole.tee)&&same(hole.path[1],hole.cup)); if(autoPath) hole.path=[hole.tee.slice(),hole.cup.slice()];
+  sel=null; if(!keepHistory){ undo=[]; redo=[]; } fitView(); draw(); drawSide(); save(); }
+const same=(a,b)=>Math.abs(a[0]-b[0])<0.01&&Math.abs(a[1]-b[1])<0.01;
+function snapshot(){ undo.push(JSON.stringify({hole,autoPath})); if(undo.length>200) undo.shift(); redo=[]; }
+function restore(s){ const o=JSON.parse(s); hole=o.hole; autoPath=o.autoPath; sel=null; draw(); drawSide(); save(); }
+function save(){ try{ localStorage.setItem(DRAFT_KEY,JSON.stringify({hole,autoPath})); }catch(e){} }
+
+// ── view: x is drawn mirrored (+x = player's left = screen left), z up the screen ──
+const cv=$('cv'), g=cv.getContext('2d'); let W=0, Hh=0, view={s:2,ox:0,oz:0};
+const toS=(x,z)=>[W/2-(x-view.ox)*view.s, Hh/2-(z-view.oz)*view.s], toW=(sx,sy)=>[view.ox-(sx-W/2)/view.s, view.oz-(sy-Hh/2)/view.s];
+function resize(){ const r=cv.getBoundingClientRect(), d=devicePixelRatio||1; W=r.width; Hh=r.height; cv.width=W*d; cv.height=Hh*d; g.setTransform(d,0,0,d,0,0); draw(); }
+function bounds(){ let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9; for(const [x,z] of hole.pts){ x0=Math.min(x0,x); x1=Math.max(x1,x); z0=Math.min(z0,z); z1=Math.max(z1,z); } return [x0,z0,x1,z1]; }
+function fitView(){ if(!hole||!W) return; const [x0,z0,x1,z1]=bounds(); view.ox=(x0+x1)/2; view.oz=(z0+z1)/2; view.s=Math.min((W-80)/(x1-x0||1),(Hh-80)/(z1-z0||1),8); }
+const snapOn=()=>$('snap').checked;
+const snapV=(v,shift)=>snapOn()&&!shift?Math.round(v):r1(v);
+
+// ── geometry helpers ──
+function inPoly(x,z,P){ let c=false; for(let i=0,j=P.length-1;i<P.length;j=i++){ const [xi,zi]=P[i], [xj,zj]=P[j]; if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi) c=!c; } return c; }
+function segDist(px,pz,a,b){ const dx=b[0]-a[0], dz=b[1]-a[1], L2=dx*dx+dz*dz||1, t=clamp(((px-a[0])*dx+(pz-a[1])*dz)/L2,0,1); return Math.hypot(px-a[0]-dx*t,pz-a[1]-dz*t); }
+function halfWidthAt(z){ let lo=1e9, hi=-1e9; const P=hole.pts; for(let i=0;i<P.length;i++){ const [x1,z1]=P[i], [x2,z2]=P[(i+1)%P.length]; if((z1<=z&&z2>=z)||(z2<=z&&z1>=z)){ const t=z2===z1?0:(z-z1)/(z2-z1), x=x1+(x2-x1)*t; lo=Math.min(lo,x); hi=Math.max(hi,x); } } return lo>hi?[-20,20]:[lo,hi]; }
+
+// ── drawing ──
+const COL={wall:'#f1eee6',block:'#d8d2c4',post:'#f1eee6',bumper:'#e85a8a',sand:'#e3cf9a',water:'#3b8fd0',bridge:'#9a6a3e',ramp:'#ffd54a',hump:'#8fd18a',bowl:'#5aa0a0',cone:'#b08a5a',windmill:'#c0533a',gate:'#e8a03a',spin:'#9a7ad8'};
+function draw(){ if(!hole||!W) return; g.clearRect(0,0,W,Hh); g.fillStyle='#0f0b18'; g.fillRect(0,0,W,Hh);
+  // grid every 10 (bold every 50)
+  const [wx0,wz0]=toW(W,Hh), [wx1,wz1]=toW(0,0); g.lineWidth=1;
+  for(let x=Math.floor(Math.min(wx0,wx1)/10)*10;x<=Math.max(wx0,wx1);x+=10){ const [sx]=toS(x,0); g.strokeStyle=x%50?'#1c1530':'#2a2042'; g.beginPath(); g.moveTo(sx,0); g.lineTo(sx,Hh); g.stroke(); }
+  for(let z=Math.floor(Math.min(wz0,wz1)/10)*10;z<=Math.max(wz0,wz1);z+=10){ const [,sy]=toS(0,z); g.strokeStyle=z%50?'#1c1530':'#2a2042'; g.beginPath(); g.moveTo(0,sy); g.lineTo(W,sy); g.stroke(); }
+  // felt + rails
+  poly(hole.pts,'#2f8a46','#f1eee6',3);
+  // terrain under everything else
+  for(const f of hole.feat) drawEl(f,'feat');
+  for(const o of hole.obst) drawEl(o,'obst');
+  // tee mat, cup, ball-size reference
+  { const [sx,sy]=toS(hole.tee[0],hole.tee[1]); g.fillStyle='#1d4d2b'; g.strokeStyle=sel&&sel.k==='tee'?'#ffd54a':'#0c2414'; g.lineWidth=2;
+    g.fillRect(sx-TEE_W/2*view.s,sy-TEE_D/2*view.s,TEE_W*view.s,TEE_D*view.s); g.strokeRect(sx-TEE_W/2*view.s,sy-TEE_D/2*view.s,TEE_W*view.s,TEE_D*view.s);
+    g.fillStyle='#fff'; g.beginPath(); g.arc(sx,sy,Math.max(2,BALL_R*view.s),0,7); g.fill(); label('TEE',sx,sy+TEE_D/2*view.s+11); }
+  { const [sx,sy]=toS(hole.cup[0],hole.cup[1]); g.fillStyle='#050505'; g.beginPath(); g.arc(sx,sy,Math.max(3,CUP_R*view.s),0,7); g.fill(); g.strokeStyle=sel&&sel.k==='cup'?'#ffd54a':'#fff'; g.lineWidth=2; g.stroke();
+    g.strokeStyle='#fff'; g.beginPath(); g.moveTo(sx,sy); g.lineTo(sx,sy-22); g.stroke(); g.fillStyle='#e23b3b'; g.fillRect(sx,sy-22,12,8); }
+  // camera path
+  if(tool==='path'||!autoPath){ g.setLineDash([5,5]); g.strokeStyle=tool==='path'?'#ffd54a':'rgba(255,213,74,.4)'; g.lineWidth=1.5; g.beginPath(); hole.path.forEach(([x,z],i)=>{ const [sx,sy]=toS(x,z); i?g.lineTo(sx,sy):g.moveTo(sx,sy); }); g.stroke(); g.setLineDash([]);
+    if(tool==='path') hole.path.forEach(([x,z],i)=>dot(x,z,sel&&sel.k==='path'&&sel.i===i?'#ffd54a':'#fff',5)); }
+  // shape vertices
+  if(tool==='shape') hole.pts.forEach(([x,z],i)=>dot(x,z,sel&&sel.k==='vertex'&&sel.i===i?'#ffd54a':'#fff',5));
+  // selected element's handles
+  if(sel&&(sel.k==='obst'||sel.k==='feat')){ const e=hole[sel.k][sel.i]; if(e&&kindOf(e)) for(const hd of handles(e)) dot(hd.x,hd.z,'#ffd54a',5); }
+  $('hud').textContent=`${tool==='shape'?'Shape: drag corners · double-click an edge to add a corner · Delete removes the selected corner':tool==='path'?'Camera path: drag points · double-click a segment to add a point · Delete removes one':'Drag to move · handles resize · Delete removes · scroll to zoom · drag empty space (or hold Space) to pan'}   ·   1 grid square = 10 units, ball ≈ 1.7`;
+}
+function poly(P,fill,stroke,lw){ g.beginPath(); P.forEach(([x,z],i)=>{ const [sx,sy]=toS(x,z); i?g.lineTo(sx,sy):g.moveTo(sx,sy); }); g.closePath(); if(fill){ g.fillStyle=fill; g.fill(); } if(stroke){ g.strokeStyle=stroke; g.lineWidth=lw||1; g.stroke(); } }
+function dot(x,z,c,r){ const [sx,sy]=toS(x,z); g.fillStyle=c; g.strokeStyle='#000'; g.lineWidth=1.5; g.beginPath(); g.arc(sx,sy,r,0,7); g.fill(); g.stroke(); }
+function label(t,sx,sy,c){ g.font='700 10px Segoe UI,Arial'; g.fillStyle=c||'rgba(255,255,255,.75)'; g.textAlign='center'; g.fillText(t,sx,sy); }
+function circle(x,z,r,fill,stroke,lw){ const [sx,sy]=toS(x,z); g.beginPath(); g.arc(sx,sy,Math.max(1,r*view.s),0,7); if(fill){ g.fillStyle=fill; g.fill(); } if(stroke){ g.strokeStyle=stroke; g.lineWidth=lw||1.5; g.stroke(); } }
+function rectW(x0,z0,x1,z1,fill,stroke,lw){ poly([[x0,z0],[x1,z0],[x1,z1],[x0,z1]],fill,stroke,lw); }
+function drawEl(e,list){ const i=hole[list].indexOf(e), on=sel&&sel.k===list&&sel.i===i, hl=on?'#ffd54a':null, c=COL[e.t]||'#888';
+  switch(kindOf(e)){
+    case 'wall':{ const [a,b]=[toS(...e.a),toS(...e.b)]; g.strokeStyle=hl||c; g.lineWidth=Math.max(2,3*view.s); g.lineCap='round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); g.lineCap='butt'; break; }
+    case 'block': rectW(e.x0,e.z0,e.x1,e.z1,c,hl||'#8a8270',2); break;
+    case 'post': circle(e.x,e.z,e.r,c,hl||'#888',2); break;
+    case 'bumper': circle(e.x,e.z,e.r,c,hl||'#fff',2); break;
+    case 'sand': circle(e.c[0],e.c[1],e.r,'rgba(227,207,154,.85)',hl||'#c9b27a',2); break;
+    case 'water': if(e.except) return kept(e,list,on); rectW(...e.rect,'rgba(59,143,208,.8)',hl||'#9fd0f0',2); break;
+    case 'bridge': rectW(...e.rect,'rgba(154,106,62,.9)',hl||'#d0a070',2); break;
+    case 'ramp':{ const [lo,hi]=halfWidthAt((e.z0+e.z1)/2); g.globalAlpha=0.35; rectW(lo,e.z0,hi,e.z1,e.h>0?'#ffd54a':'#5a7ad8',null); g.globalAlpha=1; rectW(lo,e.z0,hi,e.z1,null,hl||'#ffd54a',on?2:1);
+      const [sx,sy]=toS((lo+hi)/2,(e.z0+e.z1)/2); label((e.h>0?'▲ +':'▼ ')+e.h,sx,sy+3,'#fff'); break; }
+    case 'hump': case 'bowl': case 'cone':{ g.setLineDash(e.t==='bowl'?[3,3]:[]); circle(e.x,e.z,e.r,e.t==='bowl'?'rgba(20,60,60,.25)':'rgba(140,210,120,.18)',hl||c,on?2:1.2); g.setLineDash([]);
+      if(!isCupBowl(e,hole)){ const [sx,sy]=toS(e.x,e.z); label(e.t==='bowl'?'dip':e.t==='cone'?'hill':'hump',sx,sy+3); } break; }
+    case 'windmill':{ const [lo,hi]=halfWidthAt(e.z), z0=e.z-e.depth/2, z1=e.z+e.depth/2; rectW(lo,z0,-e.gap/2,z1,c,hl||'#fff',2); rectW(e.gap/2,z0,hi,z1,c,hl||'#fff',2);
+      const [sx,sy]=toS(0,e.z); label('WINDMILL',sx,sy+3,'#fff'); break; }
+    case 'gate':{ const end=a=>[e.hinge[0]+Math.cos(a)*e.len,e.hinge[1]+Math.sin(a)*e.len], h=toS(...e.hinge);
+      g.setLineDash([4,4]); g.strokeStyle='rgba(232,160,58,.6)'; g.lineWidth=2; g.beginPath(); g.moveTo(...h); g.lineTo(...toS(...end(e.a1))); g.stroke(); g.setLineDash([]);
+      g.strokeStyle=hl||c; g.lineWidth=Math.max(2,1.2*view.s); g.beginPath(); g.moveTo(...h); g.lineTo(...toS(...end(e.a0))); g.stroke(); circle(e.hinge[0],e.hinge[1],1,'#fff',null); break; }
+    case 'spin': circle(e.c[0],e.c[1],e.r,'rgba(154,122,216,.45)',hl||c,2); { const [sx,sy]=toS(...e.c); label(`↻ ${e.w}`,sx,sy+3,'#fff'); } break;
+    default: kept(e,list,on);
+  } }
+function kept(e,list,on){ g.setLineDash([2,4]); const st=on?'#ffd54a':'rgba(200,200,200,.55)';
+  if(e.rect) rectW(...e.rect,'rgba(160,160,160,.12)',st,1); else if(e.poly) poly(e.poly,'rgba(160,160,160,.12)',st,1); else if(e.c&&e.r) circle(e.c[0],e.c[1],e.r,'rgba(160,160,160,.12)',st,1);
+  else if('x0' in e) rectW(e.x0,e.z0,e.x1,e.z1,'rgba(160,160,160,.12)',st,1); else if('x' in e&&e.r) circle(e.x,e.z,e.r,'rgba(160,160,160,.12)',st,1);
+  else if(e.a&&e.b){ g.strokeStyle=st; g.lineWidth=2; g.beginPath(); g.moveTo(...toS(...e.a)); g.lineTo(...toS(...e.b)); g.stroke(); }
+  else if(e.t==='zstep'){ const [lo,hi]=halfWidthAt((e.z0+e.z1)/2); rectW(lo,e.z0,hi,e.z1,'rgba(160,160,160,.12)',st,1); }
+  g.setLineDash([]); }   // (unlabelled: they'd pile up; the Hole panel says how many there are)
+
+// ── picking ──
+function pick(x,z){ const tol=8/view.s;
+  if(Math.hypot(x-hole.cup[0],z-hole.cup[1])<Math.max(CUP_R,tol)) return {k:'cup'};
+  if(Math.abs(x-hole.tee[0])<TEE_W/2&&Math.abs(z-hole.tee[1])<TEE_D/2) return {k:'tee'};
+  for(const list of ['obst','feat']) for(let i=hole[list].length-1;i>=0;i--){ const e=hole[list][i]; if(!kindOf(e)) continue; if(list==='feat'&&isCupBowl(e,hole)) continue; if(hit(e,x,z,tol)) return {k:list,i}; }
+  return null; }
+function hit(e,x,z,tol){ switch(e.t){
+  case 'wall': return segDist(x,z,e.a,e.b)<Math.max(2,tol);
+  case 'block': return x>=e.x0-tol/2&&x<=e.x1+tol/2&&z>=e.z0-tol/2&&z<=e.z1+tol/2;
+  case 'water': case 'bridge': return !e.except&&x>=e.rect[0]&&x<=e.rect[2]&&z>=e.rect[1]&&z<=e.rect[3];
+  case 'ramp': return z>=e.z0&&z<=e.z1;
+  case 'windmill': return Math.abs(z-e.z)<=e.depth/2;
+  case 'gate': return segDist(x,z,e.hinge,[e.hinge[0]+Math.cos(e.a0)*e.len,e.hinge[1]+Math.sin(e.a0)*e.len])<Math.max(2,tol);
+  default: { const [cx,cz]=center(e); return Math.hypot(x-cx,z-cz)<Math.max(e.r||2,tol); } } }
+function pickHandle(x,z){ const tol=9/view.s; if(!sel||(sel.k!=='obst'&&sel.k!=='feat')) return null; const e=hole[sel.k][sel.i]; if(!e||!kindOf(e)) return null;
+  const [cx,cz]=center(e), dc=Math.hypot(x-cx,z-cz);   // a handle only wins when you're nearer it than the piece's middle (small pieces, zoomed out)
+  for(const hd of handles(e)){ const d=Math.hypot(x-hd.x,z-hd.z); if(d<tol&&d<dc) return hd.id; } return null; }
+function pickList(P,x,z){ const tol=9/view.s; for(let i=0;i<P.length;i++) if(Math.hypot(x-P[i][0],z-P[i][1])<tol) return i; return -1; }
+
+// ── mouse ──
+let drag=null, space=false;
+cv.addEventListener('pointerdown',ev=>{ cv.setPointerCapture(ev.pointerId); const [x,z]=toW(ev.offsetX,ev.offsetY);
+  if(space||ev.button===1){ drag={pan:true,sx:ev.offsetX,sy:ev.offsetY,ox:view.ox,oz:view.oz}; return; }
+  if(tool==='shape'){ const i=pickList(hole.pts,x,z); if(i>=0){ snapshot(); sel={k:'vertex',i}; drag={vertex:i}; } else { sel=null; drag={pan:true,sx:ev.offsetX,sy:ev.offsetY,ox:view.ox,oz:view.oz}; } draw(); drawSide(); return; }
+  if(tool==='path'){ const i=pickList(hole.path,x,z); if(i>=0){ snapshot(); sel={k:'path',i}; drag={pathPt:i}; } else { sel=null; drag={pan:true,sx:ev.offsetX,sy:ev.offsetY,ox:view.ox,oz:view.oz}; } draw(); drawSide(); return; }
+  const hd=pickHandle(x,z); if(hd){ snapshot(); drag={handle:hd}; return; }
+  const p=pick(x,z); sel=p; if(p){ snapshot(); drag={move:true,lx:x,lz:z,ax:x,az:z,moved:false}; } else drag={pan:true,sx:ev.offsetX,sy:ev.offsetY,ox:view.ox,oz:view.oz};
+  draw(); drawSide(); });
+cv.addEventListener('pointermove',ev=>{ const [x,z]=toW(ev.offsetX,ev.offsetY); if(!drag){ hudPos(x,z); return; }
+  if(drag.pan){ view.ox=drag.ox+(ev.offsetX-drag.sx)/view.s; view.oz=drag.oz+(ev.offsetY-drag.sy)/view.s; draw(); return; }
+  const sx=snapV(x,ev.shiftKey), sz=snapV(z,ev.shiftKey);
+  if(drag.vertex!=null){ hole.pts[drag.vertex]=[sx,sz]; }
+  else if(drag.pathPt!=null){ hole.path[drag.pathPt]=[sx,sz]; autoPath=false; }
+  else if(drag.handle){ const e=hole[sel.k][sel.i]; dragHandle(e,drag.handle,sx,sz); }
+  else if(drag.move){ const dx=snapV(x-drag.ax,ev.shiftKey)-snapV(drag.lx-drag.ax,ev.shiftKey), dz=snapV(z-drag.az,ev.shiftKey)-snapV(drag.lz-drag.az,ev.shiftKey); drag.lx=x; drag.lz=z; if(!dx&&!dz) return; drag.moved=true;
+    if(sel.k==='tee'){ hole.tee=[r1(hole.tee[0]+dx),r1(hole.tee[1]+dz)]; if(autoPath) hole.path[0]=hole.tee.slice(); }
+    else if(sel.k==='cup'){ const old=hole.cup.slice(); hole.cup=[r1(old[0]+dx),r1(old[1]+dz)]; for(const f of hole.feat) if(f.t==='bowl'&&same([f.x,f.z],old)){ f.x=hole.cup[0]; f.z=hole.cup[1]; } if(autoPath) hole.path[hole.path.length-1]=hole.cup.slice(); }
+    else moveBy(hole[sel.k][sel.i],dx,dz); }
+  hudPos(x,z); draw(); drawSide(true); });
+cv.addEventListener('pointerup',()=>{ if(drag&&(drag.handle||drag.move)&&sel&&hole[sel.k]&&sel.i!=null) tidy(hole[sel.k][sel.i]); if(drag&&drag.move&&!drag.moved) undo.pop(); drag=null; draw(); drawSide(); save(); });
+cv.addEventListener('dblclick',ev=>{ const [x,z]=toW(ev.offsetX,ev.offsetY), P=tool==='shape'?hole.pts:tool==='path'?hole.path:null; if(!P) return;
+  let best=-1, bd=12/view.s; const n=tool==='shape'?P.length:P.length-1; for(let i=0;i<n;i++){ const d=segDist(x,z,P[i],P[(i+1)%P.length]); if(d<bd){ bd=d; best=i; } }
+  if(best<0) return; snapshot(); P.splice(best+1,0,[snapV(x),snapV(z)]); if(tool==='path') autoPath=false; sel={k:tool==='shape'?'vertex':'path',i:best+1}; draw(); drawSide(); save(); });
+cv.addEventListener('wheel',ev=>{ ev.preventDefault(); const [x,z]=toW(ev.offsetX,ev.offsetY), k=Math.exp(-ev.deltaY*0.0015); view.s=clamp(view.s*k,0.3,30); const [x2,z2]=toW(ev.offsetX,ev.offsetY); view.ox+=x-x2; view.oz+=z-z2; draw(); },{passive:false});
+function hudPos(x,z){ const t=$('hud').textContent.split('   ·   ')[0]; $('hud').textContent=`${t}   ·   x ${r1(x)}  z ${r1(z)}`; }
+addEventListener('keydown',ev=>{ if(ev.target.tagName==='INPUT'||ev.target.tagName==='TEXTAREA'||ev.target.tagName==='SELECT') return;
+  if(ev.code==='Space'){ space=true; ev.preventDefault(); }
+  if((ev.metaKey||ev.ctrlKey)&&ev.key.toLowerCase()==='z'){ ev.preventDefault(); ev.shiftKey?doRedo():doUndo(); }
+  if(ev.key==='Delete'||ev.key==='Backspace'){ ev.preventDefault(); delSel(); }
+  if(ev.key==='Escape'){ sel=null; draw(); drawSide(); } });
+addEventListener('keyup',ev=>{ if(ev.code==='Space') space=false; });
+function delSel(){ if(!sel) return;
+  if(sel.k==='vertex'){ if(hole.pts.length<=3) return; snapshot(); hole.pts.splice(sel.i,1); }
+  else if(sel.k==='path'){ if(hole.path.length<=2) return; snapshot(); hole.path.splice(sel.i,1); autoPath=false; }
+  else if(sel.k==='obst'||sel.k==='feat'){ snapshot(); hole[sel.k].splice(sel.i,1); } else return;
+  sel=null; draw(); drawSide(); save(); }
+function doUndo(){ if(!undo.length) return; redo.push(JSON.stringify({hole,autoPath})); restore(undo.pop()); }
+function doRedo(){ if(!redo.length) return; undo.push(JSON.stringify({hole,autoPath})); restore(redo.pop()); }
+
+// ── tools ──
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>{ tool=b.dataset.tool; sel=null; document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x===b)); draw(); drawSide(); }));
+document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{ const K=KINDS[b.dataset.add]; snapshot();
+  const [x,z]=dropSpot(), e=K.make(x,z); hole[K.list].push(e); sel={k:K.list,i:hole[K.list].length-1};
+  tool='select'; document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x.dataset.tool==='select')); draw(); drawSide(); save(); }));
+
+// new pieces go halfway along the camera path (always on the felt), nudged if something's already there
+function dropSpot(){ const P=hole.path; let L=0; for(let i=0;i<P.length-1;i++) L+=Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1]);
+  let want=L/2, x=P[0][0], z=P[0][1]; for(let i=0;i<P.length-1;i++){ const l=Math.hypot(P[i+1][0]-P[i][0],P[i+1][1]-P[i][1]); if(want<=l){ const t=want/(l||1); x=P[i][0]+(P[i+1][0]-P[i][0])*t; z=P[i][1]+(P[i+1][1]-P[i][1])*t; break; } want-=l; }
+  for(let k=0;k<8&&[...hole.obst,...hole.feat].some(e=>kindOf(e)&&!isCupBowl(e,hole)&&Math.hypot(center(e)[0]-x,center(e)[1]-z)<4);k++) z+=8;
+  return [Math.round(x),Math.round(z)]; }
+// ── inspector ──
+function num(lbl,val,min,max,step,on){ const id='f'+Math.random().toString(36).slice(2,8); return {html:`<div class="row"><label for="${id}">${lbl}</label><input type="number" id="${id}" value="${r1(val)}" min="${min}" max="${max}" step="${step}"></div>`,bind:()=>{ const el=$(id); el.addEventListener('change',()=>{ const v=parseFloat(el.value); if(!isFinite(v)) return; snapshot(); on(v); draw(); drawSide(); save(); }); }}; }
+function drawSide(quick){ if(quick) return; const S=$('side'), parts=[];
+  if(sel&&(sel.k==='obst'||sel.k==='feat')&&hole[sel.k][sel.i]){ const e=hole[sel.k][sel.i], K=KINDS[e.t];
+    if(K){ const [cx,cz]=center(e); parts.push({html:`<h3>${K.label}</h3>`});
+      if(e.t!=='ramp'&&e.t!=='windmill') parts.push(num('Centre x',cx,-999,999,0.5,v=>moveBy(e,v-cx,0)));
+      parts.push(num(e.t==='ramp'||e.t==='windmill'?'Position z':'Centre z',cz,-999,999,0.5,v=>moveBy(e,0,v-cz)));
+      if(e.t==='block'){ parts.push(num('Width',e.x1-e.x0,1,500,0.5,v=>{ const m=(e.x0+e.x1)/2; e.x0=m-v/2; e.x1=m+v/2; })); parts.push(num('Length',e.z1-e.z0,1,500,0.5,v=>{ const m=(e.z0+e.z1)/2; e.z0=m-v/2; e.z1=m+v/2; })); }
+      if(e.rect&&!e.except){ parts.push(num('Width',e.rect[2]-e.rect[0],1,500,0.5,v=>{ const m=(e.rect[0]+e.rect[2])/2; e.rect[0]=m-v/2; e.rect[2]=m+v/2; })); parts.push(num('Length',e.rect[3]-e.rect[1],1,500,0.5,v=>{ const m=(e.rect[1]+e.rect[3])/2; e.rect[1]=m-v/2; e.rect[3]=m+v/2; })); }
+      if(e.t==='ramp') parts.push(num('Length',e.z1-e.z0,2,300,0.5,v=>{ const m=(e.z0+e.z1)/2; e.z0=m-v/2; e.z1=m+v/2; }));
+      if(e.t==='wall') parts.push(num('Length',Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),1,500,0.5,v=>{ const m=center(e), ang=Math.atan2(e.b[1]-e.a[1],e.b[0]-e.a[0]); e.a=[r1(m[0]-Math.cos(ang)*v/2),r1(m[1]-Math.sin(ang)*v/2)]; e.b=[r1(m[0]+Math.cos(ang)*v/2),r1(m[1]+Math.sin(ang)*v/2)]; }),
+        num('Angle °',Math.atan2(e.b[1]-e.a[1],e.b[0]-e.a[0])*180/Math.PI,-360,360,5,v=>{ const m=center(e), L=Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]), ang=v*Math.PI/180; e.a=[r1(m[0]-Math.cos(ang)*L/2),r1(m[1]-Math.sin(ang)*L/2)]; e.b=[r1(m[0]+Math.cos(ang)*L/2),r1(m[1]+Math.sin(ang)*L/2)]; }));
+      for(const [k,l,mn,mx,st] of K.fields){ if(k==='a0deg'||k==='a1deg'){ const key=k.slice(0,2); parts.push(num(l,e[key]*180/Math.PI,mn,mx,st,v=>{ e[key]=v*Math.PI/180; })); } else parts.push(num(l,e[k],mn,mx,st,v=>{ e[k]=clamp(v,mn,mx); })); }
+      if(K.note) parts.push({html:`<div class="note">${K.note}</div>`});
+      parts.push({html:`<div class="btns"><button id="dupBtn">Duplicate</button><button id="delBtn">Delete</button></div>`,bind:()=>{ $('delBtn').onclick=delSel; $('dupBtn').onclick=()=>{ snapshot(); const c=clone(e); moveBy(c,6,6); hole[sel.k].push(c); sel={k:sel.k,i:hole[sel.k].length-1}; draw(); drawSide(); save(); }; }}); }
+  } else if(sel&&(sel.k==='tee'||sel.k==='cup')){ const p=hole[sel.k]; parts.push({html:`<h3>${sel.k==='tee'?'Tee':'Cup'}</h3>`});
+    parts.push(num('x',p[0],-999,999,0.5,v=>{ moveTee(sel.k,v-p[0],0); }),num('z',p[1],-999,999,0.5,v=>{ moveTee(sel.k,0,v-p[1]); }));
+    if(sel.k==='cup'){ const has=hole.feat.some(f=>isCupBowl(f,hole)); parts.push({html:`<div class="row"><label>Cup sits in a gentle bowl</label><input type="checkbox" id="cupBowl" ${has?'checked':''}></div><div class="note">The game's holes all have one: balls near the cup drift in.</div>`,bind:()=>{ $('cupBowl').onchange=ev=>{ snapshot(); if(ev.target.checked) hole.feat.push({t:'bowl',x:hole.cup[0],z:hole.cup[1],r:14,d:0.35}); else hole.feat=hole.feat.filter(f=>!isCupBowl(f,hole)); draw(); save(); }; }}); }
+  } else if(sel&&sel.k==='vertex'){ const p=hole.pts[sel.i]; parts.push({html:`<h3>Corner ${sel.i+1}</h3>`},num('x',p[0],-999,999,0.5,v=>{ p[0]=v; }),num('z',p[1],-999,999,0.5,v=>{ p[1]=v; }),{html:`<div class="btns"><button id="delV">Delete corner</button></div>`,bind:()=>{ $('delV').onclick=delSel; }});
+  } else {
+    parts.push({html:`<h3>Hole</h3><div class="row"><label for="hName">Name</label><input type="text" id="hName" value="${(hole.name||'').replace(/"/g,'&quot;')}"></div>`,bind:()=>{ $('hName').onchange=ev=>{ snapshot(); hole.name=ev.target.value.trim()||'New Hole'; save(); }; }});
+    parts.push(num('Par',hole.par,1,9,1,v=>{ hole.par=Math.round(clamp(v,1,9)); }));
+    const [x0,z0,x1,z1]=bounds();
+    parts.push({html:`<div class="note">Size ${r1(x1-x0)} wide × ${r1(z1-z0)} long. Most lanes are 36–44 wide and 200–330 long.</div>`});
+    parts.push({html:`<h3 style="margin-top:12px">Shape</h3><div class="note">Pick a starting outline, then fine-tune it with the Shape tool.</div>
+      <div class="row"><label for="shW">Lane width</label><input type="number" id="shW" value="40" min="16" max="200" step="2"></div>
+      <div class="btns"><button id="shRect">Straight (tee → cup)</button><button id="shLane">Follow camera path</button></div>
+      <div class="row"><label for="scX">Scale width ×</label><input type="number" id="scX" value="1" min="0.2" max="5" step="0.05"></div>
+      <div class="row"><label for="scZ">Scale length ×</label><input type="number" id="scZ" value="1" min="0.2" max="5" step="0.05"></div>
+      <div class="btns"><button id="scGo">Scale whole hole</button><button id="flip">Mirror left/right</button></div>`,bind:()=>{
+        $('shRect').onclick=()=>{ snapshot(); const w=+$('shW').value||40; hole.pts=lane([[hole.tee[0],hole.tee[1]-24],[hole.cup[0],hole.cup[1]+28]],w).map(p=>p.map(r1)); fitView(); draw(); drawSide(); save(); };
+        $('shLane').onclick=()=>{ if(hole.path.length<2) return; snapshot(); const w=+$('shW').value||40, P=hole.path.map(p=>p.slice()), ext=(a,b,d)=>{ const dx=a[0]-b[0], dz=a[1]-b[1], l=Math.hypot(dx,dz)||1; return [a[0]+dx/l*d,a[1]+dz/l*d]; };
+          P[0]=ext(P[0],P[1],24); P[P.length-1]=ext(P[P.length-1],P[P.length-2],28); hole.pts=lane(P,w).map(p=>p.map(r1)); fitView(); draw(); drawSide(); save(); };
+        $('scGo').onclick=()=>{ const sx=+$('scX').value||1, sz=+$('scZ').value||1; if(sx===1&&sz===1) return; snapshot(); scaleHole(sx,sz); fitView(); draw(); drawSide(); save(); };
+        $('flip').onclick=()=>{ snapshot(); scaleHole(-1,1); hole.pts.reverse(); draw(); drawSide(); save(); }; }});
+    parts.push({html:`<h3 style="margin-top:12px">Camera path</h3><div class="note">The camera follows this line from tee to cup. ${autoPath?'It’s a straight line now; use the Camera path tool to add bends for doglegs.':'Custom.'}</div><div class="btns"><button id="pAuto">Reset to straight</button></div>`,bind:()=>{ $('pAuto').onclick=()=>{ snapshot(); autoPath=true; hole.path=[hole.tee.slice(),hole.cup.slice()]; draw(); drawSide(); save(); }; }});
+    const keptN=[...hole.obst,...hole.feat].filter(e=>!kindOf(e)||(e.t==='water'&&e.except)).length;
+    if(keptN) parts.push({html:`<div class="note">${keptN} special piece${keptN>1?'s':''} (tunnels, pits, lighthouse…) shown dashed: kept exactly as they are in the export, but not editable here.</div>`});
+    parts.push({html:`<div class="note" style="margin-top:12px">Tip: click empty felt to see this panel again. Hold <kbd>Shift</kbd> while dragging for fine (unsnapped) moves.</div>`});
+  }
+  parts.push({html:`<div id="warn"></div>`});
+  S.innerHTML=parts.map(p=>p.html).join(''); parts.forEach(p=>p.bind&&p.bind()); drawWarn(); }
+function moveTee(k,dx,dz){ if(k==='tee'){ hole.tee=[r1(hole.tee[0]+dx),r1(hole.tee[1]+dz)]; if(autoPath) hole.path[0]=hole.tee.slice(); }
+  else { const old=hole.cup.slice(); hole.cup=[r1(old[0]+dx),r1(old[1]+dz)]; for(const f of hole.feat) if(f.t==='bowl'&&same([f.x,f.z],old)){ f.x=hole.cup[0]; f.z=hole.cup[1]; } if(autoPath) hole.path[hole.path.length-1]=hole.cup.slice(); } }
+function scaleHole(sx,sz){ const P=p=>{ p[0]=r1(p[0]*sx); p[1]=r1(p[1]*sz); };
+  hole.pts.forEach(P); P(hole.tee); P(hole.cup); hole.path.forEach(P);
+  for(const e of [...hole.obst,...hole.feat]){ if(!kindOf(e)) continue; const ax=Math.abs(sx);
+    if(e.t==='wall'){ P(e.a); P(e.b); } else if(e.t==='block'){ e.x0*=sx; e.x1*=sx; e.z0*=sz; e.z1*=sz; } else if(e.rect&&!e.except){ e.rect[0]*=sx; e.rect[2]*=sx; e.rect[1]*=sz; e.rect[3]*=sz; }
+    else if(e.c) P(e.c); else if(e.hinge){ P(e.hinge); e.len*=ax; if(sx<0){ e.a0=Math.PI-e.a0; e.a1=Math.PI-e.a1; } } else if(e.t==='ramp'){ e.z0*=sz; e.z1*=sz; } else if(e.t==='windmill') e.z*=sz; else if('x' in e){ e.x*=sx; e.z*=sz; }
+    if(e.r&&ax!==1&&(e.t==='sand'||e.t==='hump'||e.t==='bowl'||e.t==='cone')) e.r*=Math.sqrt(ax*Math.abs(sz)); tidy(e); } }
+function drawWarn(){ const w=[], P=hole.pts, inside=(x,z)=>inPoly(x,z,P);
+  if(!inside(...hole.tee)) w.push('The tee is outside the outline.');
+  if(!inside(...hole.cup)) w.push('The cup is outside the outline.');
+  for(const [dx,dz] of [[-1,-1],[1,-1],[1,1],[-1,1]]) if(!inside(hole.tee[0]+dx*TEE_W/2,hole.tee[1]+dz*TEE_D/2)){ w.push('The tee mat pokes past the rails.'); break; }
+  hole.obst.forEach(e=>{ if(!kindOf(e)) return; const [x,z]=center(e); if(e.t!=='windmill'&&!inside(x,z)) w.push(`${KINDS[e.t].label} at (${r1(x)}, ${r1(z)}) is outside the outline.`); });
+  if(Math.hypot(hole.cup[0]-hole.tee[0],hole.cup[1]-hole.tee[1])<40) w.push('The cup is very close to the tee.');
+  $('warn').innerHTML=w.length?w.map(t=>`<div>⚠ ${t}</div>`).join(''):'<span class="ok">✓ Looks playable</span>'; }
+
+// ── export / import / play-test ──
+function lit(v,ind){ // a JS literal in the game's style: unquoted keys, single-quoted strings, short numbers
+  if(Array.isArray(v)) return '['+v.map(x=>lit(x,ind)).join(',')+']';
+  if(v&&typeof v==='object') return '{'+Object.keys(v).map(k=>k+':'+lit(v[k],ind)).join(',')+'}';
+  if(typeof v==='string') return "'"+v.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";
+  if(typeof v==='number') return String(Math.round(v*1000)/1000);
+  return String(v); }
+function exportHole(){ const h={name:hole.name,par:hole.par,tee:hole.tee,cup:hole.cup}; for(const k of Object.keys(hole)) if(!['name','par','tee','cup','pts','path','feat','obst'].includes(k)) h[k]=hole[k];
+  return `  {name:${lit(h.name)},par:${h.par},tee:${lit(h.tee)},cup:${lit(h.cup)},\n    pts:${lit(hole.pts)},path:${lit(hole.path)},`
+    +Object.keys(h).filter(k=>!['name','par','tee','cup'].includes(k)).map(k=>`\n    ${k}:${lit(h[k])},`).join('')
+    +`\n    feat:[${hole.feat.map(f=>lit(f)).join(',')}],\n    obst:[${hole.obst.map(o=>'\n      '+lit(o)).join(',')}${hole.obst.length?'\n    ':''}]},`; }
+function modal(title,note,text,btns){ $('mTitle').textContent=title; $('mNote').innerHTML=note; $('mText').value=text; const B=$('mBtns'); B.innerHTML='';
+  for(const [l,fn,primary] of btns){ const b=document.createElement('button'); b.textContent=l; if(primary) b.className='primary'; b.onclick=fn; B.appendChild(b); } $('modal').classList.add('open'); }
+const closeModal=()=>$('modal').classList.remove('open');
+$('exportBtn').onclick=()=>modal('Export hole','Copy this and send it to Claude to add to the game (it’s in the same format as the holes in <code>index.html</code>).',exportHole(),[
+  ['Copy',ev=>{ navigator.clipboard.writeText($('mText').value).then(()=>{ ev.target.textContent='Copied ✓'; }); },true],
+  ['Download .js',()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([$('mText').value],{type:'text/javascript'})); a.download=(hole.name||'hole').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.js'; a.click(); }],
+  ['Close',closeModal]]);
+$('importBtn').onclick=()=>modal('Import hole','Paste a hole exported from this editor (or copied from <code>index.html</code>) and press Load.','',[
+  ['Load',()=>{ try{ const h=new Function('lane','rect','cupBowl','return ('+$('mText').value.trim().replace(/,\s*$/,'')+')')(lane,rect,(x,z)=>({t:'bowl',x,z,r:14,d:0.35}));
+      if(!h||!Array.isArray(h.pts)||!h.tee||!h.cup) throw new Error('missing pts, tee or cup'); snapshot(); setHole(h,true); closeModal(); }catch(err){ alert('Couldn’t read that hole: '+err.message); } },true],
+  ['Cancel',closeModal]]);
+$('modal').addEventListener('click',ev=>{ if(ev.target.id==='modal') closeModal(); });
+$('playBtn').onclick=()=>{ const h=clone(hole); try{ localStorage.setItem(TEST_KEY,JSON.stringify(h)); }catch(e){ alert('Couldn’t save the test hole: '+e.message); return; } window.open('index.html?test','justputt_test'); };
+$('undo').onclick=doUndo; $('redo').onclick=doRedo; $('fit').onclick=()=>{ fitView(); draw(); };
+$('snap').onchange=draw;
+
+// ── start: read the game's holes (so you can rework one), then the last draft ──
+async function loadGameHoles(){ try{ const src=await (await fetch('index.html',{cache:'no-store'})).text();
+    const a=src.indexOf('function lane(path,w){'), b=src.indexOf('const HOLES=['), c=src.indexOf('\n];',b); if(a<0||b<0||c<0) throw 0;
+    const helpers=src.slice(a,b), list=src.slice(b,c+3); gameHoles=new Function(helpers+list+'\nreturn HOLES;')(); }catch(e){ gameHoles=[]; } }
+function fillSel(){ const s=$('holeSel'); s.innerHTML='<option value="draft">— Current draft —</option><option value="new">+ New blank hole</option>'+gameHoles.map((h,i)=>`<option value="${i}">${i+1}. ${h.name} (par ${h.par})</option>`).join(''); s.value='draft';
+  s.onchange=()=>{ const v=s.value; if(v==='draft') return; snapshot(); setHole(v==='new'?blankHole():gameHoles[+v],true); s.value='draft'; }; }   // (Undo brings the previous draft back)
+(async()=>{ await loadGameHoles(); fillSel(); let d=null; try{ d=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null'); }catch(e){}
+  addEventListener('resize',resize); const r=cv.getBoundingClientRect(); W=r.width; Hh=r.height; resize();
+  if(d&&d.hole&&d.hole.pts){ setHole(d.hole); autoPath=!!d.autoPath; } else setHole(gameHoles[0]||blankHole()); })();
+</script>
+</body>
+</html>

@@ -232,7 +232,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <div class="cal-grid" id="calGrid"></div><div class="cal-sum" id="calSum"></div><div id="histList"></div>
     <div class="cp-row"><button id="histBack">Back<small>to courses</small></button></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.2 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.3 · Updated Nov 25, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1631,7 +1631,10 @@ function physStep(dt){
 let rollStart=0;
 function relStr(n){ return n===0?'E':(n>0?'+'+n:String(n)); }
 function totals(){ const s=scores.reduce((a,b)=>a+b,0), p=PLAY.slice(0,scores.length).reduce((a,h)=>a+h.par,0); return {s,rel:s-p}; }
-function setCourse(c){ PLAY=c==='front'?HOLES.slice(0,9):c==='back'?HOLES.slice(9):HOLES; HOLE_NO0=c==='back'?9:0; }
+// a hole sent over from the hole editor (editor.html → Play-test): index.html?test plays just that one, uncounted
+const TEST_HOLE=(()=>{ try{ if(!/[?&]test\b/.test(location.search)) return null; const h=JSON.parse(localStorage.getItem('justputt_testhole')||'null');
+  return h&&Array.isArray(h.pts)&&h.pts.length>=3&&h.tee&&h.cup?Object.assign({name:'Test hole',par:3,feat:[],obst:[]},h):null; }catch(e){ return null; } })();
+function setCourse(c){ if(c==='test'&&TEST_HOLE){ PLAY=[TEST_HOLE]; HOLE_NO0=0; return; } PLAY=c==='front'?HOLES.slice(0,9):c==='back'?HOLES.slice(9):HOLES; HOLE_NO0=c==='back'?9:0; }
 let testRound=false;
 function newGame(){
   tourPending=true; clearGame(); setCourse(settings.course); roundCourse=settings.course; testRound=false;
@@ -2217,12 +2220,12 @@ window.addEventListener('keydown',e=>{ if(tour.open) tourKey(e); });
 function boot(){
   setupSettings();
   document.querySelector('#ov p').innerHTML='';   // (how to play is covered by the first-hole tips)
-    +HOLES.length+' holes, par '+HOLES.reduce((a,h)=>a+h.par,0)+' — or just the front or back nine · a hole stops at 4 over par (change it in Settings). Water costs a stroke. The map button shows the whole hole.';
   initScene(); bindInput();
   H=HOLES[0]; buildHole(); prewarmTOD(); ball.x=H.tee[0]; ball.z=H.tee[1]; phase='menu'; camMode='overview';
   resumeSave=loadGame(); OV_TITLE=document.querySelector('#ov h2').textContent; showStart(resumeSave?'resume':'start',false);
   try{ if(sessionStorage.getItem('lowgfxReload')){ sessionStorage.removeItem('lowgfxReload'); document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } else newGame(); document.getElementById('settings').classList.add('open'); } }catch(e){}
   if(gfxSwitched()){ document.getElementById('ov').classList.remove('show'); if(resumeSave){ const g=resumeSave; resumeSave=null; resumeGame(g); } }
+  if(TEST_HOLE){ document.getElementById('ov').classList.remove('show'); resumeSave=null; tourPending=false; clearGame(); setCourse('test'); roundCourse='test'; testRound=true; anims=[]; scores=[]; holeIdx=0; startHole(); }
   buildHUD();
   requestAnimationFrame(t=>{ lastT=t; loop(t); });
 }

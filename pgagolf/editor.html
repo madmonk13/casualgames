@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Just Golf Hole Editor</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f0b18;--panel:#191226;--line:#3a2d50;--text:#ece6f8;--dim:#a08cc0;--gold:#ffd54a;--bad:#ff6b6b;}
+html,body{height:100%;background:var(--bg);color:var(--text);font:14px/1.4 'Segoe UI',Arial,sans-serif;}
+body{display:grid;grid-template-rows:auto 1fr;grid-template-columns:150px 1fr 290px;grid-template-areas:"top top top" "tools stage side";}
+header{grid-area:top;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);}
+header h1{font-size:1rem;color:var(--gold);margin-right:8px;white-space:nowrap;}
+button,select,input{font:inherit;color:var(--text);background:#231a36;border:1px solid var(--line);border-radius:7px;padding:5px 9px;}
+button{cursor:pointer;font-weight:700;} button:hover{border-color:var(--dim);} button.on,button.primary{background:var(--gold);color:#181000;border-color:var(--gold);}
+input[type=number]{width:74px;} input[type=text]{width:150px;}
+#tools{grid-area:tools;background:var(--panel);border-right:1px solid var(--line);padding:8px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
+#tools .lbl{color:var(--dim);font-size:.72rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin:8px 0 2px;}
+#tools button{text-align:left;padding:5px 8px;font-size:.85rem;}
+#stage{grid-area:stage;position:relative;overflow:hidden;}
+canvas{display:block;width:100%;height:100%;cursor:crosshair;}
+#hud{position:absolute;left:10px;bottom:8px;right:10px;color:#e8e0f4;font-size:.75rem;pointer-events:none;text-shadow:0 1px 3px #000;}
+#side{grid-area:side;background:var(--panel);border-left:1px solid var(--line);padding:10px;overflow-y:auto;}
+#side h3{color:var(--gold);font-size:.95rem;margin:4px 0 8px;}
+#side .row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:5px 0;}
+#side .row label{color:var(--dim);font-size:.82rem;}
+#side .note{color:var(--dim);font-size:.78rem;margin:6px 0;}
+#side .btns{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+#warn{margin-top:12px;font-size:.8rem;} #warn div{color:var(--bad);margin:2px 0;} #warn .ok{color:#7fd08a;}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:10;}
+#modal.open{display:flex;}
+#modal .card{width:min(92vw,760px);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+#modal textarea{width:100%;height:50vh;background:#0c0814;color:#d8f0d8;border:1px solid var(--line);border-radius:8px;padding:10px;font:12px/1.45 ui-monospace,Menlo,Consolas,monospace;resize:vertical;}
+#modal h3{color:var(--gold);} #modal p{color:var(--dim);font-size:.85rem;}
+kbd{background:#231a36;border:1px solid var(--line);border-radius:4px;padding:0 4px;font-size:.75rem;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🏌️ Just Golf · Hole Editor</h1>
+  <select id="holeSel" title="Start from an existing hole or a blank one"></select>
+  <button id="undo" title="Undo (Ctrl/Cmd+Z)">↶ Undo</button><button id="redo" title="Redo (Ctrl/Cmd+Shift+Z)">↷ Redo</button>
+  <label style="color:var(--dim);font-size:.85rem"><input type="checkbox" id="snap" checked> Snap to 1 m</label>
+  <label style="color:var(--dim);font-size:.85rem"><input type="checkbox" id="showOb" checked> Show out of bounds</label>
+  <button id="fit">Fit view</button>
+  <span style="flex:1"></span>
+  <button id="importBtn">Import</button><button id="exportBtn">Export</button><button id="playBtn" class="primary">▶ Play-test</button>
+</header>
+<div id="tools">
+  <div class="lbl">Edit</div>
+  <button data-tool="select" class="on">Select / move</button>
+  <button data-tool="fair">Fairway line</button>
+  <div class="lbl">Add</div>
+  <button data-add="bunker">Bunker</button>
+  <button data-add="water">Pond / creek</button>
+  <div class="lbl">Quick shapes</div>
+  <button data-shape="straight">Straight fairway</button>
+  <button data-shape="dogL">Dogleg left</button>
+  <button data-shape="dogR">Dogleg right</button>
+</div>
+<div id="stage"><canvas id="cv"></canvas><div id="hud"></div></div>
+<div id="side"></div>
+<div id="modal"><div class="card"><h3 id="mTitle"></h3><p id="mNote"></p><textarea id="mText" spellcheck="false"></textarea><div class="btns" id="mBtns"></div></div></div>
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+//  Hole editor for Just Golf, in the game's own hole format (see HOLES in index.html). Metres; x across with +x the
+//  PLAYER'S LEFT (drawn on the left here), z down the hole from the tee. The fairway is a centre line with a width at
+//  each point; the green, bunkers and ponds are tilted ellipses (ponds get the game's natural shape from their size and
+//  place, previewed here). Out of bounds lies `ob` metres either side of the route (tee → fairway points → pin).
+// ─────────────────────────────────────────────────────────────────────────────
+const DRAFT_KEY='justgolf_editor_draft', TEST_KEY='justgolf_testhole', YD=1.0936;
+const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), r1=v=>Math.round(v*10)/10, r3=v=>Math.round(v*1000)/1000, clone=o=>JSON.parse(JSON.stringify(o));
+const E=(x,z,rx,rz,rot)=>({c:[x,z],rx,rz,rot:rot||0});
+// the game's pond shaping and ellipse test (copied from index.html so ponds preview as they'll play)
+function ellR(E,x,z){ const dx=x-E.c[0], dz=z-E.c[1], c=Math.cos(E.rot), s=Math.sin(E.rot); let u=(dx*c-dz*s)/E.rx, w=(dx*s+dz*c)/E.rz, lob=0;
+  const S=E.sh; if(S){
+    if(S.k==='meander'){ if(E.rx>=E.rz) w-=S.m*Math.sin(u*S.f+S.p); else u-=S.m*Math.sin(w*S.f+S.p); }
+    else if(S.k==='kidney'||S.k==='crescent') w+=S.m*(u*u-0.35);
+    else if(S.k==='peanut') w/=1-0.42*Math.exp(-u*u*5);
+    else if(S.k==='lobed') lob=0.24*Math.cos(3*Math.atan2(w,u)+S.p); }
+  const a=Math.atan2(w,u); return Math.hypot(u,w)/(1+lob+0.09*Math.sin(a*3+E.c[0])+0.06*Math.sin(a*5+E.c[1])); }
+function shapeWater(W){ if(W.sh!==undefined) return; const h=Math.abs(Math.sin(W.c[0]*12.9898+W.c[1]*78.233+W.rx*3.1)*43758.5453)%1, lo=Math.min(W.rx,W.rz), hi=Math.max(W.rx,W.rz);
+  if(hi/lo>2.4){ W.sh={k:'meander',m:Math.min(lo*0.6,7)/lo,f:Math.PI*(1.2+h*1.3),p:h*6.28}; W.ext=W.sh.m+0.25; return; }
+  const k=['round','kidney','lobed','peanut','crescent','kidney','lobed'][Math.floor(h*7)];
+  W.sh=k==='round'?null:{k,m:k==='crescent'?0.85:0.45,p:h*40}; W.ext=k==='crescent'?0.85:k==='kidney'?0.45:k==='lobed'?0.3:0; }
+const pureEll=(e,x,z)=>{ const dx=x-e.c[0], dz=z-e.c[1], c=Math.cos(e.rot), s=Math.sin(e.rot); return Math.hypot((dx*c-dz*s)/e.rx,(dx*s+dz*c)/e.rz); };
+// world point on an ellipse at parameter t (inverse of ellR's frame), and its two axis directions
+const ellPt=(e,t,k)=>{ k=k||1; const c=Math.cos(e.rot), s=Math.sin(e.rot), a=e.rx*Math.cos(t)*k, b=e.rz*Math.sin(t)*k; return [e.c[0]+c*a+s*b, e.c[1]-s*a+c*b]; };
+
+// ── the hole ──
+const OPT=[['ob','Out of bounds (m from route)',30,120,1,66],['hills','Hills (broad swells, m)',0,4,0.1,1],['mounds','Mounds (small bumps, m)',0,4,0.1,0],
+  ['rise','Rise (+ uphill, − downhill)',-0.08,0.08,0.005,0],['dense','Trees (density ×)',0,3,0.1,1],['wind','Wind exposure ×',0,2.5,0.1,1]];
+let hole=null, sel=null, tool='select', undo=[], redo=[], gameHoles=[];
+function blankHole(){ return {name:'New Hole',par:4,tee:[0,0],pin:[0,360],fair:[[0,30],[0,150],[0,260],[0,330]],fw:[30,34,32,26],hills:1,
+  green:{...E(0,358,14,12,0),tilt:[0,-0.01]},bunkers:[E(-14,346,4.6,3,0.5),E(14,350,4.6,3,-0.5)],water:[],ob:64}; }
+function setHole(h,keep){ hole=clone(h); for(const k of ['bunkers','water']) hole[k]=(hole[k]||[]).filter(e=>!e.added).map(e=>({c:e.c.slice(),rx:e.rx,rz:e.rz,rot:e.rot||0}));
+  hole.fw=hole.fw||hole.fair.map(()=>30); hole.green.tilt=hole.green.tilt||[0,0]; for(const k of ['route','teeBox','len','_sand','base','range']) delete hole[k];
+  sel=null; if(!keep){ undo=[]; redo=[]; } fitView(); draw(); drawSide(); save(); }
+function snapshot(){ undo.push(JSON.stringify(hole)); if(undo.length>200) undo.shift(); redo=[]; }
+function save(){ try{ localStorage.setItem(DRAFT_KEY,JSON.stringify(hole)); }catch(e){} }
+const route=()=>[hole.tee,...hole.fair,hole.pin];
+const routeLen=()=>{ const R=route(); let L=0; for(let i=0;i<R.length-1;i++) L+=Math.hypot(R[i+1][0]-R[i][0],R[i+1][1]-R[i][1]); return L; };
+
+// ── view ──
+const cv=$('cv'), g=cv.getContext('2d'); let W=0, Hh=0, view={s:1,ox:0,oz:0};
+const toS=(x,z)=>[W/2-(x-view.ox)*view.s, Hh/2-(z-view.oz)*view.s], toW=(sx,sy)=>[view.ox-(sx-W/2)/view.s, view.oz-(sy-Hh/2)/view.s];
+function resize(){ const r=cv.getBoundingClientRect(), d=devicePixelRatio||1; W=r.width; Hh=r.height; cv.width=W*d; cv.height=Hh*d; g.setTransform(d,0,0,d,0,0); draw(); }
+function fitView(){ if(!hole||!W) return; const R=route(); let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9; for(const [x,z] of R){ x0=Math.min(x0,x-40); x1=Math.max(x1,x+40); z0=Math.min(z0,z-20); z1=Math.max(z1,z+30); }
+  view.ox=(x0+x1)/2; view.oz=(z0+z1)/2; view.s=Math.min((W-60)/(x1-x0),(Hh-60)/(z1-z0),6); }
+const snapV=(v,shift)=>$('snap').checked&&!shift?Math.round(v):r1(v);
+function segDist(px,pz,a,b){ const dx=b[0]-a[0], dz=b[1]-a[1], L2=dx*dx+dz*dz||1, t=clamp(((px-a[0])*dx+(pz-a[1])*dz)/L2,0,1); return [Math.hypot(px-a[0]-dx*t,pz-a[1]-dz*t),t]; }
+// distance to the fairway line and the width there (the game's lineInfo)
+function fairInfo(x,z){ const P=hole.fair, Wd=hole.fw; let best=1e9, hw=0; for(let i=0;i<P.length-1;i++){ const [d,t]=segDist(x,z,P[i],P[i+1]); if(d<best){ best=d; hw=(Wd[i]+(Wd[i+1]-Wd[i])*t)/2; } } if(P.length===1){ best=Math.hypot(x-P[0][0],z-P[0][1]); hw=Wd[0]/2; } return {d:best,hw}; }
+
+// ── drawing ──
+function draw(){ if(!hole||!W) return; g.fillStyle='#0f0b18'; g.fillRect(0,0,W,Hh);
+  const R=route(), ob=hole.ob||64, px=view.s;
+  // rough = in bounds (a fat stroke along the route), with the OB edge dashed
+  g.lineJoin='round'; g.lineCap='round';
+  strokePath(R,'#2f5e24',ob*2*px); if($('showOb').checked){ g.setLineDash([8,6]); strokeOutline(R,ob,'rgba(255,255,255,.55)'); g.setLineDash([]); }
+  // grid every 10 m (bold every 50)
+  const [wx0,wz0]=toW(W,Hh), [wx1,wz1]=toW(0,0); g.lineWidth=1;
+  for(let x=Math.floor(Math.min(wx0,wx1)/10)*10;x<=Math.max(wx0,wx1);x+=10){ const [sx]=toS(x,0); g.strokeStyle=x%50?'rgba(255,255,255,.04)':'rgba(255,255,255,.09)'; g.beginPath(); g.moveTo(sx,0); g.lineTo(sx,Hh); g.stroke(); }
+  for(let z=Math.floor(Math.min(wz0,wz1)/10)*10;z<=Math.max(wz0,wz1);z+=10){ const [,sy]=toS(0,z); g.strokeStyle=z%50?'rgba(255,255,255,.04)':'rgba(255,255,255,.09)'; g.beginPath(); g.moveTo(0,sy); g.lineTo(W,sy); g.stroke(); }
+  // fairway: each segment a tapering band, round at the joints
+  g.fillStyle='#5ea83a'; for(let i=0;i<hole.fair.length-1;i++) band(hole.fair[i],hole.fair[i+1],hole.fw[i]/2,hole.fw[i+1]/2);
+  hole.fair.forEach((p,i)=>{ const [sx,sy]=toS(...p); g.beginPath(); g.arc(sx,sy,hole.fw[i]/2*px,0,7); g.fill(); });
+  // green (with a fringe ring), its slope arrow
+  ell(hole.green,1.12,'#4f9a3a',null); ell(hole.green,1,'#79c95a',sel&&sel.k==='green'?'#ffd54a':'rgba(255,255,255,.35)',sel&&sel.k==='green'?2:1);
+  { const t=hole.green.tilt, m=Math.hypot(t[0],t[1]); if(m>1e-4){ const L=Math.min(hole.green.rx,hole.green.rz)*0.8, [cx,cz]=hole.green.c, ex=cx-t[0]/m*L, ez=cz-t[1]/m*L; arrow(toS(cx+t[0]/m*L*0.4,cz+t[1]/m*L*0.4),toS(ex,ez),'rgba(20,60,20,.8)'); } }
+  hole.bunkers.forEach((b,i)=>ell(b,1,'#e6d6a4',sel&&sel.k==='bunker'&&sel.i===i?'#ffd54a':'#c8b47c',sel&&sel.k==='bunker'&&sel.i===i?2:1));
+  hole.water.forEach((w,i)=>pond(w,sel&&sel.k==='water'&&sel.i===i));
+  // route (tee → fairway points → pin)
+  g.setLineDash([4,6]); g.strokeStyle=tool==='fair'?'rgba(255,213,74,.9)':'rgba(255,255,255,.35)'; g.lineWidth=1.5; g.beginPath(); R.forEach((p,i)=>{ const [sx,sy]=toS(...p); i?g.lineTo(sx,sy):g.moveTo(sx,sy); }); g.stroke(); g.setLineDash([]);
+  // tee box, pin
+  { const [sx,sy]=toS(...hole.tee); g.fillStyle='#86c86a'; g.strokeStyle=sel&&sel.k==='tee'?'#ffd54a':'#2a5a20'; g.lineWidth=2; g.fillRect(sx-4.5*px,sy-7*px,9*px,14*px); g.strokeRect(sx-4.5*px,sy-7*px,9*px,14*px); label('TEE',sx,sy+7*px+12); }
+  { const [sx,sy]=toS(...hole.pin); g.fillStyle='#111'; g.beginPath(); g.arc(sx,sy,3,0,7); g.fill(); g.strokeStyle=sel&&sel.k==='pin'?'#ffd54a':'#fff'; g.lineWidth=2; g.beginPath(); g.moveTo(sx,sy); g.lineTo(sx,sy-26); g.stroke(); g.fillStyle='#e23b3b'; g.fillRect(sx,sy-26,13,9); }
+  // handles
+  if(tool==='fair') hole.fair.forEach((p,i)=>{ dot(...p,sel&&sel.k==='fair'&&sel.i===i?'#ffd54a':'#fff',5); const wh=widthHandle(i); dot(...wh,'#9fe08a',4); });
+  const e=selEll(); if(e) for(const h of ellHandles(e)) dot(h.x,h.z,h.id==='rot'?'#9fd0ff':'#ffd54a',5);
+  hud(); }
+function strokePath(P,col,w){ g.strokeStyle=col; g.lineWidth=w; g.beginPath(); P.forEach((p,i)=>{ const [sx,sy]=toS(...p); i?g.lineTo(sx,sy):g.moveTo(sx,sy); }); g.stroke(); }
+function strokeOutline(P,d,col){ // the OB edge: sample points at distance d from the route
+  const pts=[]; for(let i=0;i<P.length-1;i++){ const [ax,az]=P[i], [bx,bz]=P[i+1], L=Math.hypot(bx-ax,bz-az)||1, nx=-(bz-az)/L, nz=(bx-ax)/L; pts.push([[ax+nx*d,az+nz*d],[bx+nx*d,bz+nz*d]],[[ax-nx*d,az-nz*d],[bx-nx*d,bz-nz*d]]); }
+  g.strokeStyle=col; g.lineWidth=1.2; for(const [a,b] of pts){ // only the parts that really are d from the whole route
+    const n=Math.max(2,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/4)); let open=false; g.beginPath();
+    for(let k=0;k<=n;k++){ const x=a[0]+(b[0]-a[0])*k/n, z=a[1]+(b[1]-a[1])*k/n; let m=1e9; for(let j=0;j<P.length-1;j++) m=Math.min(m,segDist(x,z,P[j],P[j+1])[0]); const [sx,sy]=toS(x,z);
+      if(m>d-0.6){ open?g.lineTo(sx,sy):g.moveTo(sx,sy); open=true; } else open=false; } g.stroke(); }
+}
+function band(a,b,ha,hb){ const dx=b[0]-a[0], dz=b[1]-a[1], L=Math.hypot(dx,dz)||1, nx=-dz/L, nz=dx/L;
+  const q=[[a[0]+nx*ha,a[1]+nz*ha],[b[0]+nx*hb,b[1]+nz*hb],[b[0]-nx*hb,b[1]-nz*hb],[a[0]-nx*ha,a[1]-nz*ha]]; g.beginPath(); q.forEach((p,i)=>{ const [sx,sy]=toS(...p); i?g.lineTo(sx,sy):g.moveTo(sx,sy); }); g.closePath(); g.fill(); }
+function ell(e,k,fill,stroke,lw){ g.beginPath(); for(let i=0;i<=48;i++){ const [x,z]=ellPt(e,i/48*Math.PI*2,k), [sx,sy]=toS(x,z); i?g.lineTo(sx,sy):g.moveTo(sx,sy); } g.closePath(); if(fill){ g.fillStyle=fill; g.fill(); } if(stroke){ g.strokeStyle=stroke; g.lineWidth=lw||1; g.stroke(); } }
+function pond(w,on){ const v={...w}; shapeWater(v); const R=Math.max(w.rx,w.rz)*2.2; g.beginPath();      // trace the game's shape: march out from the middle until ellR passes 1
+  for(let i=0;i<=96;i++){ const a=i/96*Math.PI*2, dx=Math.cos(a), dz=Math.sin(a); let lo=0, hi=R; if(ellR(v,w.c[0]+dx*hi,w.c[1]+dz*hi)<1){ hi*=1.6; }
+    for(let k=0;k<18;k++){ const m=(lo+hi)/2; if(ellR(v,w.c[0]+dx*m,w.c[1]+dz*m)<1) lo=m; else hi=m; } const [sx,sy]=toS(w.c[0]+dx*lo,w.c[1]+dz*lo); i?g.lineTo(sx,sy):g.moveTo(sx,sy); }
+  g.closePath(); g.fillStyle='rgba(52,118,170,.92)'; g.fill(); g.strokeStyle=on?'#ffd54a':'#8cc4e8'; g.lineWidth=on?2:1; g.stroke();
+  if(on){ g.setLineDash([3,4]); ell(w,1,null,'rgba(255,213,74,.6)',1); g.setLineDash([]); } }
+function arrow(a,b,col){ g.strokeStyle=col; g.fillStyle=col; g.lineWidth=2.5; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); const ang=Math.atan2(b[1]-a[1],b[0]-a[0]);
+  g.beginPath(); g.moveTo(...b); g.lineTo(b[0]-9*Math.cos(ang-0.45),b[1]-9*Math.sin(ang-0.45)); g.lineTo(b[0]-9*Math.cos(ang+0.45),b[1]-9*Math.sin(ang+0.45)); g.closePath(); g.fill(); }
+function dot(x,z,c,r){ const [sx,sy]=toS(x,z); g.fillStyle=c; g.strokeStyle='#000'; g.lineWidth=1.5; g.beginPath(); g.arc(sx,sy,r,0,7); g.fill(); g.stroke(); }
+function label(t,sx,sy){ g.font='700 10px Segoe UI,Arial'; g.fillStyle='rgba(255,255,255,.8)'; g.textAlign='center'; g.fillText(t,sx,sy); }
+function hud(){ $('hud').textContent=(tool==='fair'?'Fairway: drag the white points (the route) and the green width knobs · double-click the dashed route to add a point · Delete removes one':'Drag to move · yellow handles stretch, blue rotates · Delete removes · scroll to zoom · drag empty ground to pan')
+  +`   ·   ${Math.round(routeLen()*YD)} yd tee to pin   ·   grid 10 m`; }
+
+// ── selection helpers ──
+function selEll(){ if(!sel) return null; if(sel.k==='green') return hole.green; if(sel.k==='bunker') return hole.bunkers[sel.i]; if(sel.k==='water') return hole.water[sel.i]; return null; }
+function ellHandles(e){ const [ax,az]=ellPt(e,0), [bx,bz]=ellPt(e,Math.PI/2), [rx,rz]=ellPt(e,0,1.35); return [{id:'rx',x:ax,z:az},{id:'rz',x:bx,z:bz},{id:'rot',x:rx,z:rz}]; }
+function dragEll(e,id,x,z){ const dx=x-e.c[0], dz=z-e.c[1], c=Math.cos(e.rot), s=Math.sin(e.rot);
+  if(id==='rx') e.rx=Math.max(1.5,r1(Math.abs(dx*c-dz*s))); else if(id==='rz') e.rz=Math.max(1.5,r1(Math.abs(dx*s+dz*c))); else if(id==='rot') e.rot=r3(-Math.atan2(dz,dx)); }
+function fairDir(i){ const P=hole.fair, a=P[Math.max(0,i-1)], b=P[Math.min(P.length-1,i+1)]; let dx=b[0]-a[0], dz=b[1]-a[1]; const L=Math.hypot(dx,dz)||1; return [dx/L,dz/L]; }
+function widthHandle(i){ const [dx,dz]=fairDir(i), p=hole.fair[i], h=hole.fw[i]/2; return [p[0]-dz*h,p[1]+dx*h]; }
+
+// ── picking ──
+function pick(x,z){ const tol=8/view.s;
+  if(Math.hypot(x-hole.pin[0],z-hole.pin[1])<Math.max(2,tol)) return {k:'pin'};
+  if(Math.abs(x-hole.tee[0])<4.5+tol/2&&Math.abs(z-hole.tee[1])<7+tol/2) return {k:'tee'};
+  for(let i=hole.water.length-1;i>=0;i--) if(pureEll(hole.water[i],x,z)<1) return {k:'water',i};
+  for(let i=hole.bunkers.length-1;i>=0;i--) if(pureEll(hole.bunkers[i],x,z)<1) return {k:'bunker',i};
+  if(pureEll(hole.green,x,z)<1) return {k:'green'};
+  return null; }
+let drag=null, space=false;
+cv.addEventListener('pointerdown',ev=>{ cv.setPointerCapture(ev.pointerId); const [x,z]=toW(ev.offsetX,ev.offsetY), tol=9/view.s, pan=()=>({pan:true,sx:ev.offsetX,sy:ev.offsetY,ox:view.ox,oz:view.oz});
+  if(space||ev.button===1){ drag=pan(); return; }
+  if(tool==='fair'){ for(let i=0;i<hole.fair.length;i++){ const wh=widthHandle(i); if(Math.hypot(x-wh[0],z-wh[1])<tol){ snapshot(); sel={k:'fair',i}; drag={width:i}; draw(); drawSide(); return; } }
+    for(let i=0;i<hole.fair.length;i++) if(Math.hypot(x-hole.fair[i][0],z-hole.fair[i][1])<tol){ snapshot(); sel={k:'fair',i}; drag={node:i}; draw(); drawSide(); return; } }
+  const e=selEll(); if(e){ const dc=pureEll(e,x,z)*Math.min(e.rx,e.rz); for(const h of ellHandles(e)){ const d=Math.hypot(x-h.x,z-h.z); if(d<tol&&d<dc){ snapshot(); drag={handle:h.id}; return; } } }
+  const p=pick(x,z); if(tool==='fair'&&!p){ sel=null; drag=pan(); draw(); drawSide(); return; }
+  sel=p; if(p){ snapshot(); drag={move:true,ax:x,az:z,lx:x,lz:z,moved:false}; } else drag=pan(); draw(); drawSide(); });
+cv.addEventListener('pointermove',ev=>{ if(!drag) return; const [x,z]=toW(ev.offsetX,ev.offsetY);
+  if(drag.pan){ view.ox=drag.ox+(ev.offsetX-drag.sx)/view.s; view.oz=drag.oz+(ev.offsetY-drag.sy)/view.s; draw(); return; }
+  const sx=snapV(x,ev.shiftKey), sz=snapV(z,ev.shiftKey);
+  if(drag.node!=null) hole.fair[drag.node]=[sx,sz];
+  else if(drag.width!=null){ const p=hole.fair[drag.width]; hole.fw[drag.width]=clamp(Math.round(Math.hypot(x-p[0],z-p[1])*2),6,120); }
+  else if(drag.handle) dragEll(selEll(),drag.handle,x,z);
+  else if(drag.move){ const dx=snapV(x-drag.ax,ev.shiftKey)-snapV(drag.lx-drag.ax,ev.shiftKey), dz=snapV(z-drag.az,ev.shiftKey)-snapV(drag.lz-drag.az,ev.shiftKey); drag.lx=x; drag.lz=z; if(!dx&&!dz) return; drag.moved=true; moveSel(dx,dz); }
+  draw(); });
+cv.addEventListener('pointerup',()=>{ if(drag&&drag.move&&!drag.moved) undo.pop(); drag=null; draw(); drawSide(); save(); });
+cv.addEventListener('dblclick',ev=>{ if(tool!=='fair') return; const [x,z]=toW(ev.offsetX,ev.offsetY), R=route(); let best=-1, bd=14/view.s;
+  for(let i=0;i<R.length-1;i++){ const d=segDist(x,z,R[i],R[i+1])[0]; if(d<bd){ bd=d; best=i; } } if(best<0) return; snapshot();
+  const fi=best, wA=hole.fw[Math.max(0,fi-1)]||hole.fw[0], wB=hole.fw[Math.min(hole.fw.length-1,fi)]||wA;          // route segment i sits between fairway points i-1 and i
+  hole.fair.splice(fi,0,[snapV(x),snapV(z)]); hole.fw.splice(fi,0,Math.round((wA+wB)/2)); sel={k:'fair',i:fi}; draw(); drawSide(); save(); });
+cv.addEventListener('wheel',ev=>{ ev.preventDefault(); const [x,z]=toW(ev.offsetX,ev.offsetY); view.s=clamp(view.s*Math.exp(-ev.deltaY*0.0015),0.2,20); const [x2,z2]=toW(ev.offsetX,ev.offsetY); view.ox+=x-x2; view.oz+=z-z2; draw(); },{passive:false});
+function moveSel(dx,dz){ const mv=p=>{ p[0]=r1(p[0]+dx); p[1]=r1(p[1]+dz); };
+  if(sel.k==='tee') mv(hole.tee); else if(sel.k==='pin') mv(hole.pin); else if(sel.k==='green'){ mv(hole.green.c); if(pureEll(hole.green,hole.pin[0]-dx,hole.pin[1]-dz)<1.2) mv(hole.pin); }   // the pin rides along with its green
+  else { const e=selEll(); if(e) mv(e.c); } }
+addEventListener('keydown',ev=>{ if(['INPUT','TEXTAREA','SELECT'].includes(ev.target.tagName)) return;
+  if(ev.code==='Space'){ space=true; ev.preventDefault(); }
+  if((ev.metaKey||ev.ctrlKey)&&ev.key.toLowerCase()==='z'){ ev.preventDefault(); ev.shiftKey?doRedo():doUndo(); }
+  if(ev.key==='Delete'||ev.key==='Backspace'){ ev.preventDefault(); delSel(); }
+  if(ev.key==='Escape'){ sel=null; draw(); drawSide(); } });
+addEventListener('keyup',ev=>{ if(ev.code==='Space') space=false; });
+function delSel(){ if(!sel) return; if(sel.k==='bunker'||sel.k==='water'){ snapshot(); hole[sel.k==='bunker'?'bunkers':'water'].splice(sel.i,1); }
+  else if(sel.k==='fair'){ if(hole.fair.length<=1) return; snapshot(); hole.fair.splice(sel.i,1); hole.fw.splice(sel.i,1); } else return; sel=null; draw(); drawSide(); save(); }
+function doUndo(){ if(!undo.length) return; redo.push(JSON.stringify(hole)); hole=JSON.parse(undo.pop()); sel=null; draw(); drawSide(); save(); }
+function doRedo(){ if(!redo.length) return; undo.push(JSON.stringify(hole)); hole=JSON.parse(redo.pop()); sel=null; draw(); drawSide(); save(); }
+
+// ── tools, adding, quick shapes ──
+document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>{ tool=b.dataset.tool; sel=null; document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x===b)); draw(); drawSide(); }));
+document.querySelectorAll('[data-add]').forEach(b=>b.addEventListener('click',()=>{ snapshot(); const R=route(), L=routeLen(); let want=L*0.55, x=R[0][0], z=R[0][1];
+  for(let i=0;i<R.length-1;i++){ const l=Math.hypot(R[i+1][0]-R[i][0],R[i+1][1]-R[i][1]); if(want<=l){ const t=want/l; x=R[i][0]+(R[i+1][0]-R[i][0])*t; z=R[i][1]+(R[i+1][1]-R[i][1])*t; break; } want-=l; }
+  const fi=fairInfo(x,z), side=b.dataset.add==='water'?-(fi.hw+22):fi.hw+4;         // a pond off to the player's right, a bunker at the left edge of the fairway
+  const [dx,dz]=(()=>{ const P=hole.fair; if(P.length<2) return [0,1]; const a=P[0], c=P[P.length-1], l=Math.hypot(c[0]-a[0],c[1]-a[1])||1; return [(c[0]-a[0])/l,(c[1]-a[1])/l]; })();
+  const px=Math.round(x+dz*side), pz=Math.round(z-dx*side), rot=r3(-Math.atan2(dz,dx));
+  if(b.dataset.add==='water'){ hole.water.push(E(px,pz,14,24,rot)); sel={k:'water',i:hole.water.length-1}; } else { hole.bunkers.push(E(px,pz,7,3.6,rot)); sel={k:'bunker',i:hole.bunkers.length-1}; }
+  setTool('select'); draw(); drawSide(); save(); }));
+function setTool(t){ tool=t; document.querySelectorAll('[data-tool]').forEach(x=>x.classList.toggle('on',x.dataset.tool===t)); }
+document.querySelectorAll('[data-shape]').forEach(b=>b.addEventListener('click',()=>{ const L=Math.max(120,Math.hypot(hole.pin[0]-hole.tee[0],hole.pin[1]-hole.tee[1])), k=b.dataset.shape, s=k==='dogL'?1:k==='dogR'?-1:0, T=hole.tee;
+  snapshot(); let P;
+  if(!s){ const n=Math.max(2,Math.round(L/100)); P=[]; for(let i=0;i<n;i++){ P.push([T[0],Math.round(T[1]+28+(L-58)*i/(n-1))]); } hole.pin=[T[0],Math.round(T[1]+L)]; }
+  else { const bend=Math.round(L*0.58), off=Math.round(L*0.32)*s; P=[[T[0],T[1]+28],[T[0],T[1]+Math.round(bend*0.6)],[T[0],T[1]+bend],[T[0]+Math.round(off*0.55),T[1]+Math.round(bend+(L-bend)*0.45)],[T[0]+off,T[1]+Math.round(L-30)]]; hole.pin=[T[0]+off,T[1]+Math.round(L)]; }
+  hole.fair=P; hole.fw=P.map((p,i)=>i===P.length-1?24:i===0?28:34); const [gx,gz]=hole.pin, old=hole.green.c.slice(), gr=Math.max(hole.green.rx,hole.green.rz)+14; hole.green.c=[gx,gz-2];
+  for(const B of hole.bunkers) if(Math.hypot(B.c[0]-old[0],B.c[1]-old[1])<gr){ B.c=[r1(B.c[0]+hole.green.c[0]-old[0]),r1(B.c[1]+hole.green.c[1]-old[1])]; }   // greenside bunkers go with the green
+  const d=[hole.pin[0]-P[P.length-1][0],hole.pin[1]-P[P.length-1][1]]; hole.green.rot=r3(-Math.atan2(d[1],d[0]))+(Math.PI/2);
+  fitView(); draw(); drawSide(); save(); }));
+
+// ── inspector ──
+function num(lbl,val,min,max,step,on,dec){ const id='f'+Math.random().toString(36).slice(2,8); const v=dec?Math.round(val*10**dec)/10**dec:r1(val);
+  return {html:`<div class="row"><label for="${id}">${lbl}</label><input type="number" id="${id}" value="${v}" min="${min}" max="${max}" step="${step}"></div>`,bind:()=>{ $(id).addEventListener('change',ev=>{ const x=parseFloat(ev.target.value); if(!isFinite(x)) return; snapshot(); on(clamp(x,min,max)); draw(); drawSide(); save(); }); }}; }
+function ellFields(e){ return [num('Centre x (m)',e.c[0],-999,999,0.5,v=>{ e.c[0]=v; }),num('Centre z (m)',e.c[1],-999,999,0.5,v=>{ e.c[1]=v; }),
+  num('Half-width (m)',e.rx,1.5,120,0.5,v=>{ e.rx=v; }),num('Half-length (m)',e.rz,1.5,120,0.5,v=>{ e.rz=v; }),num('Turn (°)',e.rot*180/Math.PI,-360,360,5,v=>{ e.rot=r3(v*Math.PI/180); })]; }
+function drawSide(){ const S=$('side'), parts=[];
+  if(sel&&(sel.k==='bunker'||sel.k==='water')){ const e=selEll(); parts.push({html:`<h3>${sel.k==='bunker'?'Bunker':'Pond / creek'}</h3>`},...ellFields(e));
+    if(sel.k==='water'){ const v={...e}; shapeWater(v); parts.push({html:`<div class="note">The game shapes it from its size and position: this one is ${v.sh?v.sh.k==='meander'?'a winding creek':'a '+v.sh.k+' pond':'a round pond'} (dashed line = its base ellipse). Make it 2.4× longer than wide for a creek.</div>`}); }
+    parts.push({html:`<div class="btns"><button id="dupB">Duplicate</button><button id="delB">Delete</button></div>`,bind:()=>{ $('delB').onclick=delSel; $('dupB').onclick=()=>{ snapshot(); const L=sel.k==='bunker'?hole.bunkers:hole.water, c=clone(L[sel.i]); c.c[0]+=6; c.c[1]+=6; L.push(c); sel={k:sel.k,i:L.length-1}; draw(); drawSide(); save(); }; }}); }
+  else if(sel&&sel.k==='green'){ const G=hole.green, t=G.tilt, m=Math.hypot(t[0],t[1]), dir=m>1e-5?Math.atan2(-t[1],-t[0])*180/Math.PI:-90;
+    parts.push({html:`<h3>Green</h3>`},...ellFields(G),
+      num('Slope (%)',m*100,0,4,0.1,v=>{ const a=dir*Math.PI/180; G.tilt=[r3(-Math.cos(a)*v/100),r3(-Math.sin(a)*v/100)]; },1),
+      num('Slopes down toward (°)',dir,-360,360,15,v=>{ const a=v*Math.PI/180, mm=m||0.01; G.tilt=[r3(-Math.cos(a)*mm),r3(-Math.sin(a)*mm)]; }),
+      num('Raised (m)',G.lift||0,0,6,0.1,v=>{ if(v>0) G.lift=v; else delete G.lift; }),
+      {html:`<div class="note">The arrow on the green points downhill. Direction: −90° = toward the tee (front), 90° = away (back), 0° = the player's left, 180° = their right. Most greens slope 1–1.5% down toward the front.</div>`}); }
+  else if(sel&&(sel.k==='tee'||sel.k==='pin')){ const p=hole[sel.k]; parts.push({html:`<h3>${sel.k==='tee'?'Tee':'Pin'}</h3>`},num('x (m)',p[0],-999,999,0.5,v=>{ p[0]=v; }),num('z (m)',p[1],-999,999,0.5,v=>{ p[1]=v; }));
+    if(sel.k==='pin') parts.push({html:`<div class="note">Keep the pin on the green, a few metres in from its edge.</div>`}); }
+  else if(sel&&sel.k==='fair'){ const p=hole.fair[sel.i]; parts.push({html:`<h3>Fairway point ${sel.i+1}</h3>`},num('x (m)',p[0],-999,999,0.5,v=>{ p[0]=v; }),num('z (m)',p[1],-999,999,0.5,v=>{ p[1]=v; }),num('Fairway width (m)',hole.fw[sel.i],6,120,1,v=>{ hole.fw[sel.i]=Math.round(v); }),
+    {html:`<div class="btns"><button id="delF">Delete point</button></div>`,bind:()=>{ $('delF').onclick=delSel; }}); }
+  else {
+    parts.push({html:`<h3>Hole</h3><div class="row"><label for="hName">Name</label><input type="text" id="hName" value="${(hole.name||'').replace(/"/g,'&quot;')}"></div>`,bind:()=>{ $('hName').onchange=ev=>{ snapshot(); hole.name=ev.target.value.trim()||'New Hole'; save(); }; }});
+    parts.push(num('Par',hole.par,3,5,1,v=>{ hole.par=Math.round(v); }));
+    parts.push({html:`<div class="note">${Math.round(routeLen()*YD)} yards along the route. Typical: par 3 140–200 yd, par 4 330–450, par 5 480–570.</div>`});
+    parts.push({html:`<h3 style="margin-top:10px">Character</h3>`});
+    for(const [k,l,mn,mx,st,dv] of OPT) parts.push(num(l,hole[k]==null?dv:hole[k],mn,mx,st,v=>{ if(k!=='ob'&&v===dv) delete hole[k]; else hole[k]=v; },k==='rise'?3:1));
+    parts.push({html:`<div class="note">The game also adds a few bunkers of its own where drives land and round the green (skipped where you've already put sand or water), so a hole will have a little more sand in play than you see here.</div>
+      <div class="note">Tip: click empty ground to see this panel again. Hold <kbd>Shift</kbd> while dragging to move off the 1 m grid.</div>`}); }
+  parts.push({html:`<div id="warn"></div>`});
+  S.innerHTML=parts.map(p=>p.html).join(''); parts.forEach(p=>p.bind&&p.bind()); warn(); }
+function warn(){ const w=[];
+  if(pureEll(hole.green,...hole.pin)>0.85) w.push('The pin is at (or off) the edge of the green.');
+  if(!hole.fair.length) w.push('There’s no fairway.');
+  for(const W of hole.water){ const v={...W}; shapeWater(v); if(ellR(v,...hole.pin)<1.5) w.push('A pond is right on top of the pin.'); if(ellR(v,...hole.tee)<1.6) w.push('A pond is on the tee.'); }
+  for(const B of hole.bunkers) if(pureEll(B,...hole.pin)<1.4) w.push('A bunker is on top of the pin.');
+  const L=routeLen(); if(hole.par===3&&L*YD>230) w.push('Long for a par 3.'); if(hole.par===4&&(L*YD<250||L*YD>500)) w.push('Unusual length for a par 4.'); if(hole.par===5&&L*YD<440) w.push('Short for a par 5.');
+  $('warn').innerHTML=w.length?w.map(t=>`<div>⚠ ${t}</div>`).join(''):'<span class="ok">✓ Looks playable</span>'; }
+
+// ── export / import / play-test ──
+const n=v=>String(Math.round(v*1000)/1000), pt=p=>`[${n(p[0])},${n(p[1])}]`, eLit=e=>`E(${n(e.c[0])},${n(e.c[1])},${n(e.rx)},${n(e.rz)},${n(e.rot||0)})`;
+function exportHole(){ const h=hole, opt=OPT.filter(([k])=>k!=='ob'&&h[k]!=null).map(([k])=>`${k}:${n(h[k])}`), extra=Object.keys(h).filter(k=>!['name','par','tee','pin','fair','fw','green','bunkers','water','ob',...OPT.map(o=>o[0])].includes(k));
+  const lit=v=>Array.isArray(v)?'['+v.map(lit).join(',')+']':v&&typeof v==='object'?'{'+Object.keys(v).map(k=>k+':'+lit(v[k])).join(',')+'}':typeof v==='string'?"'"+v.replace(/'/g,"\\'")+"'":typeof v==='number'?n(v):String(v);
+  const G=h.green, gx=[`tilt:${pt(G.tilt)}`].concat(G.lift?[`lift:${n(G.lift)}`]:[]);
+  return `  {name:'${h.name.replace(/'/g,"\\'")}',par:${h.par},tee:${pt(h.tee)},pin:${pt(h.pin)},fair:[${h.fair.map(pt).join(',')}],fw:[${h.fw.map(n).join(',')}]${opt.length?','+opt.join(','):''}${extra.map(k=>`,${k}:${lit(h[k])}`).join('')},\n    green:{...${eLit(G)},${gx.join(',')}},bunkers:[${h.bunkers.map(eLit).join(',')}],\n    water:[${h.water.map(eLit).join(',')}],ob:${n(h.ob||64)}},`; }
+function modal(title,note,text,btns){ $('mTitle').textContent=title; $('mNote').innerHTML=note; $('mText').value=text; const B=$('mBtns'); B.innerHTML='';
+  for(const [l,fn,p] of btns){ const b=document.createElement('button'); b.textContent=l; if(p) b.className='primary'; b.onclick=fn; B.appendChild(b); } $('modal').classList.add('open'); }
+const closeModal=()=>$('modal').classList.remove('open');
+$('exportBtn').onclick=()=>modal('Export hole','Copy this and send it to Claude to add to the game (same format as the holes in <code>index.html</code>).',exportHole(),[
+  ['Copy',ev=>{ navigator.clipboard.writeText($('mText').value).then(()=>{ ev.target.textContent='Copied ✓'; }); },true],
+  ['Download .js',()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([$('mText').value],{type:'text/javascript'})); a.download=(hole.name||'hole').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.js'; a.click(); }],
+  ['Close',closeModal]]);
+$('importBtn').onclick=()=>modal('Import hole','Paste a hole exported from this editor (or copied from <code>index.html</code>) and press Load.','',[
+  ['Load',()=>{ try{ const h=new Function('E','return ('+$('mText').value.trim().replace(/,\s*$/,'')+')')(E); if(!h||!h.tee||!h.pin||!h.fair||!h.green) throw new Error('missing tee, pin, fair or green');
+      snapshot(); setHole(h,true); closeModal(); }catch(err){ alert('Couldn’t read that hole: '+err.message); } },true],['Cancel',closeModal]]);
+$('modal').addEventListener('click',ev=>{ if(ev.target.id==='modal') closeModal(); });
+$('playBtn').onclick=()=>{ try{ localStorage.setItem(TEST_KEY,JSON.stringify(hole)); }catch(e){ alert('Couldn’t save the test hole: '+e.message); return; } window.open('index.html?test','justgolf_test'); };
+$('undo').onclick=doUndo; $('redo').onclick=doRedo; $('fit').onclick=()=>{ fitView(); draw(); }; $('snap').onchange=draw; $('showOb').onchange=draw;
+
+// ── start: the game's holes to start from, then the last draft ──
+async function loadGameHoles(){ try{ const src=await (await fetch('index.html',{cache:'no-store'})).text(), b=src.indexOf('const HOLES=['), c=src.indexOf('\n];',b); if(b<0||c<0) throw 0;
+    gameHoles=new Function('E',src.slice(b,c+3)+'\nreturn HOLES;')(E); }catch(e){ gameHoles=[]; } }
+(async()=>{ await loadGameHoles(); const s=$('holeSel');
+  s.innerHTML='<option value="draft">— Current draft —</option><option value="new">+ New blank hole</option>'+gameHoles.map((h,i)=>`<option value="${i}">${i+1}. ${h.name} (par ${h.par})</option>`).join('');
+  s.onchange=()=>{ const v=s.value; if(v==='draft') return; snapshot(); setHole(v==='new'?blankHole():gameHoles[+v],true); s.value='draft'; };   // (Undo brings the previous draft back)
+  addEventListener('resize',resize); resize(); let d=null; try{ d=JSON.parse(localStorage.getItem(DRAFT_KEY)||'null'); }catch(e){}
+  setHole(d&&d.tee&&d.fair?d:(gameHoles[0]||blankHole())); })();
+</script>
+</body>
+</html>
