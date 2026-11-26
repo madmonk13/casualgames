@@ -72,7 +72,7 @@ body.lefty #row{flex-direction:row-reverse;}
 #hint{font-size:.8rem;color:#f2ecff;text-shadow:0 1px 4px #000;min-height:1.1em;pointer-events:none;}
 #meter{position:relative;width:min(86vw,420px);height:22px;border-radius:11px;background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.35);overflow:hidden;}
 #mfill{position:absolute;top:0;bottom:0;left:12%;width:0;background:linear-gradient(90deg,#3ad46a,#ffd54a 70%,#ff5a4a);opacity:.85;}
-#mzone{position:absolute;top:0;bottom:0;left:calc(12% - 2.2%);width:4.4%;background:rgba(255,255,255,.25);}
+#mzone{position:absolute;top:0;bottom:0;left:calc(12% - 2.4%);width:4.8%;background:rgba(255,255,255,.42);box-shadow:inset 1px 0 0 #fff,inset -1px 0 0 #fff;}
 #mpow{position:absolute;top:0;bottom:0;width:3px;background:#fff;display:none;}
 #mmark{position:absolute;top:-2px;bottom:-2px;width:3px;left:12%;background:#ff3b5c;box-shadow:0 0 6px #ff3b5c;}
 #pad{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(46vw,240px);height:min(66vh,480px);z-index:24;display:none;
@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.7 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.8 · Updated Nov 26, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1006,64 +1006,64 @@ const E=(x,z,rx,rz,rot)=>({c:[x,z],rx,rz,rot:rot||0});
 const HOLES=[
   // a gentle start: wide fairway, one pond to steer clear of
   {name:'The Opener',par:4,tee:[0,0],pin:[22,354],fair:[[0,28],[1,120],[7,215],[18,290],[22,330]],fw:[32,38,36,30,24],hills:1.4,mounds:1.2,
-    green:{...E(22,352,16,13,0.35),tilt:[0.008,-0.012]},bunkers:[E(6,341,4.6,3.2,1.1),E(38,360,5.4,2.8,-0.7)],
+    green:{...E(22,352,16,13,0.35),tilt:[0.008,0.012]},bunkers:[E(6,341,4.6,3.2,1.1),E(38,360,5.4,2.8,-0.7)],
     water:[E(50,168,15,26,0.12)],ob:66},
   // all carry over the lake
   {name:'Lakeside',par:3,tee:[0,0],pin:[6,151],fair:[[4,122],[6,134]],fw:[16,14],
-    green:{...E(6,150,12,10,0.2),tilt:[-0.01,-0.012],lift:1.6},bunkers:[E(-4,135,4.5,3,0.6),E(13,134,4.6,2.4,0.15),E(18,162,5,3,-0.4)],water:[E(-26,146,11,17,0.1)],ob:55},
+    green:{...E(6,150,12,10,0.2),tilt:[-0.01,0.012],lift:1.6},bunkers:[E(-4,135,4.5,3,0.6),E(13,134,4.6,2.4,0.15),E(18,162,5,3,-0.4)],water:[E(-26,146,11,17,0.1)],ob:55},
   // big rolling ground and a long waste bunker down the left of the dogleg
   {name:'The Long Way',par:5,tee:[0,0],pin:[-108,494],fair:[[0,30],[-4,140],[-20,260],[-60,360],[-95,440],[-105,478]],fw:[26,32,30,28,26,20],hills:2.2,mounds:1.4,
-    green:{...E(-107,492,14,12,-0.5),tilt:[0.012,-0.01]},bunkers:[E(-38,200,6,46,0.08),E(14,255,7,4,0.3),E(-52,338,6,3.6,-0.6),E(-118,480,4.5,3,0.9),E(-94,502,5,2.8,-0.4)],
+    green:{...E(-107,492,14,12,-0.5),tilt:[0.0076,0.0137]},bunkers:[E(-38,200,6,46,0.08),E(14,255,7,4,0.3),E(-52,338,6,3.6,-0.6),E(-118,480,4.5,3,0.9),E(-94,502,5,2.8,-0.4)],
     water:[E(-128,402,17,13,0.5)],ob:66},
   // a real climb to a raised green: club up
   {name:'Hilltop',par:4,tee:[0,0],pin:[-2,320],fair:[[0,26],[4,150],[0,250],[-2,292]],fw:[26,30,26,18],rise:0.035,
-    green:{...E(-2,320,12,10,0),tilt:[0,-0.014],lift:3},bunkers:[E(-14,302,4.6,3,0.5),E(11,306,4.6,3,-0.5),E(-3,334,6,2.4,0)],water:[],ob:60},
+    green:{...E(-2,320,12,10,0),tilt:[0,0.014],lift:3},bunkers:[E(-14,302,4.6,3,0.5),E(11,306,4.6,3,-0.5),E(-3,334,6,2.4,0)],water:[],ob:60},
   // water on three sides of the green
   {name:'Peninsula',par:3,tee:[0,0],pin:[3,124],fair:[[0,18],[0,52]],fw:[22,22],rise:-0.04,
-    green:{...E(2,122,13.5,11.5,0.3),tilt:[0.006,-0.008]},bunkers:[E(16,132,4.6,2.8,-0.5)],water:[E(-6,98,24,20,0.25),E(-22,124,11,16,0)],ob:50},
+    green:{...E(2,122,13.5,11.5,0.3),tilt:[0.0066,0.0075]},bunkers:[E(16,132,4.6,2.8,-0.5)],water:[E(-6,98,24,20,0.25),E(-22,124,11,16,0)],ob:50},
   // cut the corner over the lake, or play round it
   {name:'Dogleg Left',par:4,tee:[0,0],pin:[98,372],fair:[[0,28],[2,160],[30,250],[80,320],[96,354]],fw:[26,32,30,26,20],hills:1.8,mounds:1.4,
-    green:{...E(98,370,17,13,0.6),tilt:[-0.012,-0.01]},bunkers:[E(-14,252,7,4,0.2),E(84,358,4.5,3,0.9),E(112,380,4.6,2.8,-0.3)],water:[E(58,196,22,28,0.4)],ob:62},
+    green:{...E(98,370,17,13,0.6),tilt:[-0.0095,0.0124]},bunkers:[E(-14,252,7,4,0.2),E(84,358,4.5,3,0.9),E(112,380,4.6,2.8,-0.3)],water:[E(58,196,22,28,0.4)],ob:62},
   // downhill through a tight chute of trees: accuracy over power
   {name:'Canyon',par:4,tee:[0,0],pin:[10,296],fair:[[0,26],[-2,130],[6,230],[10,276]],fw:[17,18,16,15],rise:-0.03,dense:2.4,wind:0.5,
-    green:{...E(10,295,11,9.5,0.1),tilt:[0.01,-0.012]},bunkers:[E(-2,284,4.5,3,0.8),E(22,292,4,2.6,-0.6)],water:[],ob:34},
+    green:{...E(10,295,11,9.5,0.1),tilt:[0.01,0.012]},bunkers:[E(-2,284,4.5,3,0.8),E(22,292,4,2.6,-0.6)],water:[],ob:34},
   // a creek right across the fairway: lay up, or go for it
   {name:'Crosswater',par:5,tee:[0,0],pin:[2,470],fair:[[0,30],[6,180],[-4,280],[-8,320],[-8,400],[0,452]],fw:[26,32,30,28,30,20],hills:1.6,rise:0.012,
-    green:{...E(2,468,11,9.5,-0.2),tilt:[-0.008,-0.014]},bunkers:[E(20,190,7,4,-0.3),E(-24,410,6,3.6,0.5),E(-10,460,4.6,3,0.8),E(14,478,5,2.8,-0.6)],
+    green:{...E(2,468,11,9.5,-0.2),tilt:[-0.0047,0.0154]},bunkers:[E(20,190,7,4,-0.3),E(-24,410,6,3.6,0.5),E(-10,460,4.6,3,0.8),E(14,478,5,2.8,-0.6)],
     water:[E(0,300,64,7,0.04)],ob:64},
   {name:'Home',par:4,tee:[0,0],pin:[-26,380],fair:[[0,30],[-2,180],[-15,300],[-24,352]],fw:[26,32,28,20],hills:2.4,mounds:1.6,
-    green:{...E(-26,378,15,12,-0.3),tilt:[-0.012,-0.012],lift:2},bunkers:[E(-44,370,5,3,0.9),E(-30,358,5,2.6,0.1),E(-30,230,7,4,0.3)],water:[E(10,366,16,36,0.05)],ob:62},
+    green:{...E(-26,378,15,12,-0.3),tilt:[-0.0136,0.0102],lift:2},bunkers:[E(-44,370,5,3,0.9),E(-30,358,5,2.6,0.1),E(-30,230,7,4,0.3)],water:[E(10,366,16,36,0.05)],ob:62},
   // ── back nine (ter shifts the base terrain so these play over different ground) ──
   // seaside links: wide and windy over big rolling dunes, fewer trees than the parkland holes, a few big bunkers to steer round
   {name:'Links',par:4,tee:[0,0],pin:[-30,380],fair:[[0,28],[4,130],[-4,230],[-20,320],[-28,356]],fw:[40,46,46,40,30],ter:[910,-340],hills:2.5,mounds:3,dense:0.85,wind:1.9,
-    green:{...E(-30,378,17,13,-0.2),tilt:[0.01,-0.008]},
+    green:{...E(-30,378,17,13,-0.2),tilt:[0.0085,0.0095]},
     bunkers:[E(-12,214,9,5.5,0.35),E(18,248,8,5,-0.4),E(-34,318,9,4.5,0.6),E(-12,392,8,3.6,-0.25)],
     water:[],ob:66},
   // an island green: hit it or splash
   {name:'Island Green',par:3,tee:[0,0],pin:[0,128],fair:[[0,18],[0,34]],fw:[14,12],ter:[-620,780],wind:1.3,
-    green:{...E(0,128,13,11,0),tilt:[0.006,-0.01]},bunkers:[E(9,138,3.4,2.4,-0.5)],water:[E(0,126,36,32,0)],ob:52},
+    green:{...E(0,128,13,11,0),tilt:[0.006,0.01]},bunkers:[E(9,138,3.4,2.4,-0.5)],water:[E(0,126,36,32,0)],ob:52},
   // an S-bend round a pond, with a long waste bunker down the right
   {name:'Serpentine',par:5,tee:[0,0],pin:[60,500],fair:[[0,30],[10,140],[-6,250],[20,350],[52,440],[60,480]],fw:[26,30,30,28,26,20],ter:[1530,410],hills:2.0,mounds:1.5,
-    green:{...E(60,498,14,12,0.4),tilt:[-0.01,-0.012]},bunkers:[E(30,170,6,42,0.12),E(-24,140,7,4,0.3),E(40,344,5,3,-0.5),E(44,486,4.5,3,0.9),E(74,510,5,2.8,-0.4)],water:[E(40,250,16,30,0.2)],ob:64},
+    green:{...E(60,498,14,12,0.4),tilt:[-0.01,0.012]},bunkers:[E(30,170,6,42,0.12),E(-24,140,7,4,0.3),E(40,344,5,3,-0.5),E(44,486,4.5,3,0.9),E(74,510,5,2.8,-0.4)],water:[E(40,250,16,30,0.2)],ob:64},
   // a short par 4 you can drive — if you can thread the bunkers and miss the pond
   {name:'Risk or Reward',par:4,tee:[0,0],pin:[8,242],fair:[[0,26],[-4,120],[4,200],[8,226]],fw:[26,28,20,14],ter:[-1210,-950],rise:-0.025,hills:1.5,
-    green:{...E(8,242,11,9,0.1),tilt:[0,-0.012],lift:1.2},bunkers:[E(-6,232,4,2.6,0.6),E(22,234,4,2.6,-0.6),E(4,256,5,2.4,0),E(16,224,3.4,2.2,-0.3),E(-2,214,3.4,2.2,0.3)],
+    green:{...E(8,242,11,9,0.1),tilt:[0,0.012],lift:1.2},bunkers:[E(-6,232,4,2.6,0.6),E(22,234,4,2.6,-0.6),E(4,256,5,2.4,0),E(16,224,3.4,2.2,-0.3),E(-2,214,3.4,2.2,0.3)],
     water:[E(-24,196,12,20,0.2)],ob:56},
   // a lake runs the whole left side
   {name:'Lakeshore',par:4,tee:[0,0],pin:[60,360],fair:[[0,28],[-2,150],[14,250],[44,320],[58,344]],fw:[26,30,28,24,20],ter:[340,1260],hills:1.6,mounds:1.2,
-    green:{...E(60,360,15,12,0.4),tilt:[-0.01,-0.01]},bunkers:[E(74,350,4.6,3,-0.8),E(48,374,5,2.8,0.5)],water:[E(-32,180,14,92,0.04)],ob:62},
+    green:{...E(60,360,15,12,0.4),tilt:[-0.0072,0.0122]},bunkers:[E(74,350,4.6,3,-0.8),E(48,374,5,2.8,0.5)],water:[E(-32,180,14,92,0.04)],ob:62},
   // from a high tee down to a small green: the drop takes length off
   {name:'Downhill Drop',par:3,tee:[0,0],pin:[10,150],fair:[[2,110],[6,128]],fw:[14,14],ter:[2050,-720],rise:-0.07,dense:1.4,
-    green:{...E(10,149,11,9,0.3),tilt:[-0.01,-0.012]},bunkers:[E(-4,142,4.5,3,0.9),E(24,142,4.5,3,-0.9),E(4,163,5,2.6,0.2)],water:[],ob:46},
+    green:{...E(10,149,11,9,0.3),tilt:[-0.0051,0.0148]},bunkers:[E(-4,142,4.5,3,0.9),E(24,142,4.5,3,-0.9),E(4,163,5,2.6,0.2)],water:[],ob:46},
   // uphill all the way, and a row of cross bunkers right where a drive lands
   {name:'The Climb',par:4,tee:[0,0],pin:[-12,352],fair:[[0,28],[-2,140],[-6,250],[-10,326]],fw:[28,32,28,20],ter:[-1880,260],rise:0.032,hills:1.5,
-    green:{...E(-12,350,14,12,-0.2),tilt:[0.008,-0.012]},bunkers:[E(-24,214,7,3,0.1),E(-4,220,8,3,0),E(16,214,7,3,-0.1),E(-24,340,4.6,3,0.7),E(2,360,5,2.8,-0.4)],water:[],ob:60},
+    green:{...E(-12,350,14,12,-0.2),tilt:[0.0061,0.0131]},bunkers:[E(-24,214,7,3,0.1),E(-4,220,8,3,0),E(16,214,7,3,-0.1),E(-24,340,4.6,3,0.7),E(2,360,5,2.8,-0.4)],water:[],ob:60},
   // flat marsh: a creek to carry, then a pond guarding the approach
   {name:'Marshland',par:5,tee:[0,0],pin:[-20,486],fair:[[0,30],[2,150],[-8,230],[-12,330],[-16,420],[-20,462]],fw:[26,30,22,28,26,20],ter:[760,2140],hills:0.5,dense:0.6,
-    green:{...E(-20,484,14,12,0.2),tilt:[0.008,-0.014]},bunkers:[E(20,160,7,4,-0.3),E(-34,474,4.6,3,0.8),E(-6,496,5,2.8,-0.5)],water:[E(-6,276,44,11,0.18),E(-48,380,14,24,0.2)],ob:64},
+    green:{...E(-20,484,14,12,0.2),tilt:[0.008,0.014]},bunkers:[E(20,160,7,4,-0.3),E(-34,474,4.6,3,0.8),E(-6,496,5,2.8,-0.5)],water:[E(-6,276,44,11,0.18),E(-48,380,14,24,0.2)],ob:64},
   // the finale: a lake in the drive zone, trees close in, and water right of the green
   {name:'Clubhouse',par:4,tee:[0,0],pin:[30,400],fair:[[0,30],[4,170],[16,290],[26,350],[30,380]],fw:[26,30,28,24,20],ter:[-2400,-1600],dense:1.4,rise:0.02,hills:1.6,mounds:1.2,
-    green:{...E(30,398,15,12,0.25),tilt:[-0.01,-0.012]},bunkers:[E(46,388,5,3,-0.8),E(24,418,5,2.6,0.2)],water:[E(-34,200,15,40,0.1),E(-2,392,12,30,0.1)],ob:62},
+    green:{...E(30,398,15,12,0.25),tilt:[-0.01,0.012]},bunkers:[E(46,388,5,3,-0.8),E(24,418,5,2.6,0.2)],water:[E(-34,200,15,40,0.1),E(-2,392,12,30,0.1)],ob:62},
 ];
 function prepHole(h){ for(const W of h.water||[]) shapeWater(W); h.teeBox={c:h.tee,w:9,d:14}; h.route=[h.tee,...h.fair,h.pin];       // the route drives OB, trees, the map and the default aim
   let L=0; for(let i=0;i<h.route.length-1;i++) L+=Math.hypot(h.route[i+1][0]-h.route[i][0],h.route[i+1][1]-h.route[i][1]); h.len=L; addBunkers(h); return h; }
@@ -1148,7 +1148,7 @@ function genHole(par,T,R,theme,force){
   const fwAt=s=>par===3?14:kind==='chute'?17:28;
   // green and pin
   const hdEnd=Math.atan2(gdx,gdz), grx=par===3||kind==='short'?r(10,13):r(11,16), grz=par===3||kind==='short'?r(9,11):r(9.5,13), t1=r(0.008,0.014), t2=r(-0.008,0.008);
-  const green={...E(gx,gz,grx,grz,hdEnd+r(-0.5,0.5)),tilt:[-gdx*t1+gdz*t2,-gdz*t1-gdx*t2]}; if(kind==='elevated') green.lift=r(1.5,3); else if(chance(0.25)) green.lift=r(0.8,2);
+  const green={...E(gx,gz,grx,grz,hdEnd+r(-0.5,0.5)),tilt:[gdx*t1+gdz*t2,gdz*t1-gdx*t2]}; if(kind==='elevated') green.lift=r(1.5,3); else if(chance(0.25)) green.lift=r(0.8,2);
   const pin=[gx+r(-2.5,2.5),gz+r(-2,2)], gr=(grx+grz)/2;
   // bunkers: round the green, by the landing area, or across the fairway
   const B=[], nG=Math.round((kind==='guarded'?r(3,4.5):r(1,3))*T.bunk);
@@ -1357,8 +1357,9 @@ function ellR(E,x,z){ const dx=x-E.c[0], dz=z-E.c[1], c=Math.cos(E.rot), s=Math.
     else if(S.k==='kidney'||S.k==='crescent') w+=S.m*(u*u-0.35);                                                 // bent into a bean / a moon
     else if(S.k==='peanut') w/=1-0.42*Math.exp(-u*u*5);                                                         // pinched in the middle
     else if(S.k==='lobed') lob=0.24*Math.cos(3*Math.atan2(w,u)+S.p); }                                           // three bays
-  const a=Math.atan2(w,u); return Math.hypot(u,w)/(1+lob+0.09*Math.sin(a*3+E.c[0])+0.06*Math.sin(a*5+E.c[1])); }      // wobbly natural edge
-function shapeWater(W){ if(W.sh!==undefined) return; const h=Math.abs(Math.sin(W.c[0]*12.9898+W.c[1]*78.233+W.rx*3.1)*43758.5453)%1, lo=Math.min(W.rx,W.rz), hi=Math.max(W.rx,W.rz);
+  const a=Math.atan2(w,u); return Math.hypot(u,w)/((E.shape?shapeR(E.shape,a):1)*(1+lob+0.09*Math.sin(a*3+E.c[0])+0.06*Math.sin(a*5+E.c[1]))); }      // wobbly natural edge
+function shapeR(q,a){ const n=q.length, t=((a/(2*Math.PI))%1+1)%1*n, i=Math.floor(t)%n, f=t-Math.floor(t), p0=q[(i+n-1)%n], p1=q[i], p2=q[(i+1)%n], p3=q[(i+2)%n]; return Math.max(0.2,p1+0.5*f*(p2-p0+f*(2*p0-5*p1+4*p2-p3+f*(3*(p1-p2)+p3-p0)))); }
+function shapeWater(W){ if(W.sh!==undefined) return; if(W.shape){ W.sh=null; W.ext=Math.max(0,Math.max(...W.shape)*1.12-1); return; } const h=Math.abs(Math.sin(W.c[0]*12.9898+W.c[1]*78.233+W.rx*3.1)*43758.5453)%1, lo=Math.min(W.rx,W.rz), hi=Math.max(W.rx,W.rz);
   if(hi/lo>2.4){ W.sh={k:'meander',m:Math.min(lo*0.6,7)/lo,f:Math.PI*(1.2+h*1.3),p:h*6.28}; W.ext=W.sh.m+0.25; return; }   // long thin water winds instead of running dead straight
   const k=['round','kidney','lobed','peanut','crescent','kidney','lobed'][Math.floor(h*7)];
   W.sh=k==='round'?null:{k,m:k==='crescent'?0.85:0.45,p:h*40}; W.ext=k==='crescent'?0.85:k==='kidney'?0.45:k==='lobed'?0.3:0; }
@@ -1403,6 +1404,7 @@ function baseH(x,z){ const x0=x, z0=z, o=H&&H.ter; if(o){ x+=o[0]; z+=o[1]; }
 function hAt(x,z){
   let h=baseH(x,z);
   const F=fairInfo(x,z), fw=1-smooth(clamp((F.d-F.hw)/14,0,1)); h-=NZ.n2(x*0.025,z*0.025)*0.7*fw*0.8;              // fairways are mown smoother
+  if(H.lumps) for(const L of H.lumps){ const q=((x-L.c[0])**2+(z-L.c[1])**2)/(L.r*L.r); if(q<1) h+=L.h*(1-q)*(1-q); }   // hills and hollows placed by hand (hole editor)
   const gr=ellR(H.green,x,z), gw=1-smooth(clamp((gr-0.95)/0.6,0,1));
   if(gw>0){ const [cx,cz]=H.green.c, gh=G0+(H.green.lift||0)+H.green.tilt[0]*(x-cx)+H.green.tilt[1]*(z-cz)+0.05*Math.sin(x*0.22)*Math.cos(z*0.2); h=mix(h,gh,gw); }   // gentle undulation (<~2% with the tilt)
   const T=H.teeBox, tq=Math.max(Math.abs(x-T.c[0])/(T.w/2),Math.abs(z-T.c[1])/(T.d/2)), tw=1-smooth(clamp((tq-1)/0.8,0,1));
@@ -1442,7 +1444,8 @@ function surfPixel(x,z,out){                      // sRGB surface colour for the
   const s=surfAt(x,z), c=SURF_COL[s]; let k=1;
   if(s==='tee'){ k=((Math.floor(x/1.5)+Math.floor(z/1.5))&1)?1.03:0.97; }
   else if(s==='fairway'){ const F=fairInfo(x,z); k=(Math.floor(F.s/9)&1)?1.09:0.92; }
-  else if(s==='green'){ k=1+((Math.floor((x*0.8+z*0.6)/2.2)&1)?0.035:-0.035)+((Math.floor((z*0.8-x*0.6)/2.2)&1)?0.035:-0.035); }
+  else if(s==='green'){ k=1+((Math.floor((x*0.8+z*0.6)/2.2)&1)?0.035:-0.035)+((Math.floor((z*0.8-x*0.6)/2.2)&1)?0.035:-0.035);
+    const G=H.green; k*=1+clamp((G.tilt[0]*(x-G.c[0])+G.tilt[1]*(z-G.c[1]))*0.9,-0.2,0.2); }   // high side lighter, low side darker, so the fall of the green reads from out on the course
   else if(s==='fringe') k=1.0;
   else if(s==='rough'){ const F=fairInfo(x,z), e=F.d-F.hw; k=(e<2.6&&e>-1)?1.12:0.9+NZ.n2(x*0.15,z*0.15)*0.2; }
   else if(s==='deep'||s==='ob') k=0.88+NZ.n2(x*0.15,z*0.15)*0.2;
@@ -2185,7 +2188,10 @@ function nextShot(){ resetMeter();
   if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }      // also catches penalty strokes
   buildTufts(); ball.mode='rest'; phase='aim'; camMode='aim'; suggestClub(); aimDefault(); avoidWater(); updateUI(); buildHUD(); saveGame();
 }
-function strike(power,acc){ swooshEnd();                        // power 0..1, acc -1..1 (left = hook, right = slice)
+const PURE=0.2;                                     // |acc| inside this (the white zone on the meter) is a pure strike: nearly straight
+const strikeShape=a=>Math.abs(a)<=PURE?'pure':a<0?(a<-0.45?'hook':'draw'):(a>0.45?'slice':'fade');
+const bendAcc=a=>Math.abs(a)<=PURE?a*0.25:Math.sign(a)*(PURE*0.25+(Math.abs(a)-PURE)*(1-PURE*0.25)/(1-PURE));   // squeezes the zone, keeps ±1 at the ends
+function strike(power,acc){ swooshEnd(); const shape=strikeShape(acc); acc=bendAcc(acc);                        // power 0..1, acc -1..1 (left = hook, right = slice)
   const c=CLUBS[clubIdx], lm=lieMul(), S2=SURF[ball.lie]||SURF.fairway;
   const v=c.v*power*lm*(1-Math.abs(acc)*0.15), la=(c.la+(ball.lie==='sand'?4:0)-(ball.lie==='tee'&&c.n!=='Driver'?0:0))*DEG;
   const dir=aim+acc*0.025, hs=v*Math.cos(la);
@@ -2197,7 +2203,7 @@ function strike(power,acc){ swooshEnd();                        // power 0..1, a
   shotMarks(dir,power); sfxStrike(clubIdx,power);
   { const cy=carryInfo(clubIdx,lm*power,dir,true)[0], roll=cy*rollFrac(clubIdx)*1.4, bx=ball.p.x, bz=ball.p.z;              // grass ready before the ball gets there
     ensureTufts(bx+Math.sin(dir)*cy,bz+Math.cos(dir)*cy); ensureTufts(bx+Math.sin(dir)*(cy+roll),bz+Math.cos(dir)*(cy+roll)); } buildHUD(); updateUI();
-  showMsg(Math.abs(acc)<0.06?'Pure!':acc<0?(acc<-0.35?'Hook!':'Draw'):(acc>0.35?'Slice!':'Fade'),1.0);
+  showMsg({pure:'Pure!',hook:'Hook!',draw:'Draw',fade:'Fade',slice:'Slice!'}[shape],1.0);
 }
 function putt(dirx,dirz,pow){
   lastPuttFrom=toPin(); const v=7.2*Math.pow(pow,1.15)*settings.power; ball.last=[ball.p.x,ball.p.z]; ball.v.set(dirx*v,0,dirz*v); ball.mode='roll'; ball.t=0;
@@ -2293,7 +2299,7 @@ function updateUI(){
   else { iS.textContent=strokes+1; const d=toPin(); iD.textContent=ball.lie==='green'||d<20?Math.round(d*3.281)+' ft':Math.round(d*YD)+' yd'; }
   document.getElementById('iLie').textContent=(SURF[ball.lie]||SURF.fairway).label;
   // wind arrow relative to the way you're aiming
-  const rel=Math.atan2(wind.x,wind.z)-aim; document.getElementById('iWind').textContent=wind.mph?ARROWS[((Math.round(rel/(Math.PI/4))%8)+8)%8]+' '+wind.mph+' mph':'calm';
+  const rel=aim-Math.atan2(wind.x,wind.z); document.getElementById('iWind').textContent=wind.mph?ARROWS[((Math.round(rel/(Math.PI/4))%8)+8)%8]+' '+wind.mph+' mph':'calm';
   const c=CLUBS[clubIdx]; document.getElementById('clubName').textContent=c.n;
   document.getElementById('clubCarry').textContent=c.putter?(drawing()?'pull back from the ball':'tap SWING to putt'):Math.round(stockCarry(clubIdx)*YD)+' yd carry';
   const putting=c.putter, mp=putting&&!drawing(); document.getElementById('meter').style.visibility=drawing()?'hidden':'visible';
@@ -2400,7 +2406,7 @@ function padUp(e){
   const ax=T.x, ay=T.y, dx=P[k].x-ax, dy=P[k].y-ay, L=Math.hypot(dx,dy)||1; let bow=0, n=0;
   for(let i=pad.turn;i<=k;i++){ bow+=-((P[i].x-ax)*dy-(P[i].y-ay)*dx)/L; n++; } bow/=Math.max(1,n)*Q.W;
   const acc=clamp(bow*3.6+(ix-Q.cx)/Q.W*2.2,-1,1);
-  const shape=Math.abs(acc)<0.06?'straight':acc<0?(acc<-0.35?'hook':'draw'):(acc>0.35?'slice':'fade');
+  const shape=strikeShape(acc).replace('pure','straight');
   padMsg(`Power ${Math.round(power*100)}% · ${shape}`);
   swooshFor(0.26,power); setTimeout(()=>{ closePad(); strike(power,acc); },260);
 }
@@ -2699,10 +2705,15 @@ function placeSun(P){ const d=envSunDir(settings.tod); _lz.copy(d).normalize(); 
   _sg.copy(_lx).multiplyScalar(a).addScaledVector(_ly,b).addScaledVector(_lz,c);
   _sd.copy(d).multiplyScalar(200); L.sun.position.copy(_sg).add(_sd); L.sun.target.position.copy(_sg); }
 // cart path: a concrete ribbon down one side of the hole, broken where it would cross sand, water, greens or tees
-function cartLine(){
-  const side=(H.name.length&1)?1:-1, out=[], P=H.route;
-  for(let s=-25;s<H.len+25;s+=4){ const [px,pz,dx,dz]=routePoint(Math.max(0,Math.min(H.len,s))), F=fairInfo(px,pz), o=(F.hw||12)+9+NZ.n2(s*0.01,4)*5, ex=s<0?s:s>H.len?s-H.len:0;
-    out.push([px-dz*o*side+dx*ex,pz+dx*o*side+dz*ex]); }
+function cartLine(side){                           // offset from a smoothed copy of the route, so bends curve round instead of folding on the inside and jumping on the outside
+  side=side||((H.name.length&1)?1:-1); const C=[], ss=[];
+  for(let s=-25;s<H.len+25;s+=4){ C.push(routePoint(clamp(s,0,H.len))); ss.push(s); }
+  const n=C.length, m=8, Cs=C.map((p,i)=>{ let x=0, z=0; for(let j=i-m;j<=i+m;j++){ const q=C[clamp(j,0,n-1)]; x+=q[0]; z+=q[1]; } return [x/(2*m+1),z/(2*m+1)]; });
+  const S=Cs.map((p,i)=>{ const a=Cs[Math.max(0,i-1)], b=Cs[Math.min(n-1,i+1)]; let tx=b[0]-a[0], tz=b[1]-a[1]; const tl=Math.hypot(tx,tz); if(tl<1e-6){ tx=C[i][2]; tz=C[i][3]; } else { tx/=tl; tz/=tl; }
+    const s=ss[i], F=fairInfo(C[i][0],C[i][1]); return {px:p[0],pz:p[1],tx,tz,o:(F.hw||12)+9+NZ.n2(s*0.01,4)*5,ex:s<0?s:s>H.len?s-H.len:0}; });
+  const o=S.map((q,i)=>{ let t=0, c=0; for(let j=Math.max(0,i-5);j<=Math.min(n-1,i+5);j++){ t+=S[j].o; c++; } return t/c; });   // no sudden width steps where the fairway narrows
+  const out=[]; S.forEach((q,i)=>{ const p=[q.px-q.tz*o[i]*side+q.tx*q.ex,q.pz+q.tx*o[i]*side+q.tz*q.ex], l=out[out.length-1];
+    if(!l||(p[0]-l[0])*q.tx+(p[1]-l[1])*q.tz>1) out.push(p); });                                    // drop any point that would double back
   return out;
 }
 function drawCartPath(g,SX0,SZ1,res){

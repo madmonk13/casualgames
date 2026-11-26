@@ -232,7 +232,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <div class="cal-grid" id="calGrid"></div><div class="cal-sum" id="calSum"></div><div id="histList"></div>
     <div class="cp-row"><button id="histBack">Back<small>to courses</small></button></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.3 · Updated Nov 25, 2026</div>
+  <div id="ver">Version 0.9.4 · Updated Nov 26, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1216,13 +1216,13 @@ function buildPiece(o,add){
     if(o.vis!==false){ const fr=add(new THREE.PlaneGeometry(x1-x0,z1-z0),M.cupRim,false); fr.rotation.x=-Math.PI/2; fr.position.set(cx,y+0.12,cz);
     const hole=add(new THREE.PlaneGeometry(x1-x0-0.8,z1-z0-0.8),M.dark,false); hole.rotation.x=-Math.PI/2; hole.position.set(cx,y+0.2,cz); }
     if(o.t==='slot') return;
-    const ey=BASE_Y+hAt(o.exit[0],o.exit[1]), pipe=add(new THREE.CylinderGeometry(2.4,2.4,5,20,1,true,0,Math.PI),M.white); pipe.rotation.set(Math.PI/2,0,Math.PI/2); pipe.position.set(o.exit[0],ey,o.exit[1]-4);
+    const ey=BASE_Y+hAt(o.exit[0],o.exit[1]), pipe=exitPipe(o,ey,add);
     const l=Math.hypot(o.dir[0],o.dir[1]); TUNNELS.push({rect:o.catchZ!=null?[o.rect[0],o.catchZ,o.rect[2],o.rect[3]]:o.rect,x:cx,z:cz,r:0,exit:o.exit,dir:[o.dir[0]/l,o.dir[1]/l],v:o.v}); return; }
   if(o.t==='tunnel'){ const r=o.r||2.6, y=BASE_Y+hAt(o.x,o.z);
     if(!o.mouth){ const hole=add(new THREE.CircleGeometry(r,32),M.dark,false); hole.rotation.x=-Math.PI/2; hole.position.set(o.x,y+0.07,o.z);
       const rim=add(new THREE.RingGeometry(r-0.15,r+0.25,40),M.cupRim,false); rim.rotation.x=-Math.PI/2; rim.position.set(o.x,y+0.08,o.z); }
     else { const back=add(new THREE.PlaneGeometry(7.2,8),M.dark,false); back.position.set(o.x,y+4,o.z+1.6); back.rotation.y=Math.PI; }
-    const ey=BASE_Y+hAt(o.exit[0],o.exit[1]), pipe=add(new THREE.CylinderGeometry(2.4,2.4,5,20,1,true,0,Math.PI),M.white); pipe.rotation.set(Math.PI/2,0,Math.PI/2); pipe.position.set(o.exit[0],ey,o.exit[1]-4);
+    const ey=BASE_Y+hAt(o.exit[0],o.exit[1]), pipe=exitPipe(o,ey,add);
     const l=Math.hypot(o.dir[0],o.dir[1]); TUNNELS.push({x:o.x,z:o.z,r,exit:o.exit,dir:[o.dir[0]/l,o.dir[1]/l],v:o.v}); return; }
   if(o.t==='loop'){ buildLoop(o,add); return; }
   if(o.t==='lighthouse'){ buildLighthouse(o,add); return; }
@@ -1293,6 +1293,10 @@ function splash(){
   tween(0.01,()=>{},()=>{ if(capHit()){ showMsg('Max strokes<small>SCORE '+capScore()+'</small>',1.6); endHole(capScore()); return; }
     ball.x=lastPos[0]; ball.z=lastPos[1]; ball.vx=ball.vz=0; ball.visible=true; phase='aim'; camMode=viewOn?'overview':'aim'; saveGame(); },1.3);
 }
+function exitPipe(o,ey,add){                       // the half-pipe the ball pops out of, turned to face where it sends the ball
+  const pipe=add(new THREE.CylinderGeometry(2.4,2.4,5,20,1,true,0,Math.PI),M.white); pipe.rotation.set(Math.PI/2,0,Math.PI/2);
+  const a=Math.atan2(o.dir[0],o.dir[1]); pipe.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),a));
+  pipe.position.set(o.exit[0]-Math.sin(a)*4,ey,o.exit[1]-Math.cos(a)*4); return pipe; }
 function enterTunnel(T){
   phase='tunnel'; stopRoll(); sfxTunnel(); const fx=ball.x, fz=ball.z, tx=T.rect?fx:T.x, tz=T.rect?fz:T.z;      // a wide slot swallows it where it is
   tween(0.2,u=>{ ball.x=fx+(tx-fx)*u; ball.z=fz+(tz-fz)*u; ball.sink=u*2; },()=>{ ball.visible=false; });
@@ -1469,6 +1473,7 @@ function buildHole(){
     SEGS.push({a:p,b:q,r:BALL_R+RAIL_T/2,e:E_RAIL,kind:'rail'}); });
   for(const f of H.feat) if(f.t==='cone'&&f.rock!==false&&!H.obst.some(o=>o.t==='spin'&&o.c[0]===f.x&&o.c[1]===f.z)){ buildPieceMats();     // rock cone (not under a turntable's dome)
     const cone=add(diskGeom(f.x,f.z,f.r,0.04,14,CUP_R+3.6),M.rock,false); cone.receiveShadow=!PERF; }
+  for(const f of H.feat) if(f.t==='zstep'&&f.lip&&f.h<0) SEGS.push({a:[-999,f.z0],b:[999,f.z0],r:BALL_R,e:0.3,kind:'ledge',n:[0,1]});   // a tier's lip: drop down it, but no rolling back up
   for(const o of H.obst){
     if(o.t==='wall'){ edges.push({a:o.a,b:o.b,n:null,skirt:false,h:o.h}); SEGS.push({a:o.a,b:o.b,r:BALL_R+RAIL_T/2,e:E_RAIL,kind:'rail'}); }
     else if(o.t==='post'){ const m=add(new THREE.CylinderGeometry(o.r,o.r,RAIL_H+1.5,24),M.white); m.position.set(o.x,BASE_Y+hAt(o.x,o.z)+(RAIL_H+1.5)/2,o.z);
