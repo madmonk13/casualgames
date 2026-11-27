@@ -53,11 +53,11 @@ kbd{background:#231a36;border:1px solid var(--line);border-radius:4px;padding:0 
   <button data-tool="shape">Shape (outline)</button>
   <button data-tool="path">Camera path</button>
   <div class="lbl">Walls</div>
-  <button data-add="wall">Wall</button><button data-add="block">Block</button><button data-add="post">Post</button><button data-add="bumper">Bumper</button>
+  <button data-add="wall">Wall</button><button data-add="curve">Curved wall</button><button data-add="block">Block</button><button data-add="post">Post</button><button data-add="bumper">Bumper</button>
   <div class="lbl">Hazards</div>
   <button data-add="sand">Sand (round)</button><button data-add="water">Water</button><button data-add="bridge">Bridge</button>
   <div class="lbl">Terrain</div>
-  <button data-add="ramp">Ramp (slope up/down)</button><button data-add="zstep">Tier (drop)</button><button data-add="hump">Hump</button><button data-add="bowl">Dip</button><button data-add="cone">Hill (cone)</button>
+  <button data-add="ramp">Ramp (slope up/down)</button><button data-add="valley">Dip ramp (down &amp; back up)</button><button data-add="zstep">Tier (drop)</button><button data-add="hump">Hump</button><button data-add="bowl">Dip</button><button data-add="cone">Hill (cone)</button>
   <div class="lbl">Moving</div>
   <button data-add="windmill">Windmill</button><button data-add="gate">Swinging gate</button><button data-add="spin">Turntable</button><button data-add="tunnel">Return pipe</button>
 </div>
@@ -88,14 +88,16 @@ const isCupBowl=(f,h)=>f.t==='bowl'&&Math.abs(f.x-h.cup[0])<0.01&&Math.abs(f.z-h
 // ── what each element is, how to make one, and what the inspector shows ──
 const KINDS={
   wall:{list:'obst',label:'Wall',make:(x,z)=>({t:'wall',a:[x+10,z],b:[x-10,z]}),fields:[]},
+  curve:{list:'obst',label:'Curved wall',make:(x,z)=>({t:'wall',a:[x+14,z],b:[x-14,z],bend:8}),fields:[]},
+  valley:{list:'feat',label:'Ramp',make:(x,z)=>({t:'ramp',z0:z-20,z1:z-8,h:-4,back:16}),fields:[]},
   block:{list:'obst',label:'Block',make:(x,z)=>({t:'block',x0:x-6,x1:x+6,z0:z-5,z1:z+5}),fields:[]},
   post:{list:'obst',label:'Post',make:(x,z)=>({t:'post',x,z,r:2.2}),fields:[['r','Radius',0.5,20,0.1]]},
   bumper:{list:'obst',label:'Bumper',make:(x,z)=>({t:'bumper',x,z,r:3.4}),fields:[['r','Radius',1,20,0.1]]},
   sand:{list:'obst',label:'Sand',make:(x,z)=>({t:'sand',c:[x,z],r:10}),fields:[['r','Radius',2,80,0.5]]},
   water:{list:'obst',label:'Water',make:(x,z)=>({t:'water',rect:[x-10,z-12,x+10,z+12]}),fields:[]},
   bridge:{list:'obst',label:'Bridge',make:(x,z)=>({t:'bridge',rect:[x-6,z-20,x+6,z+20]}),fields:[]},
-  ramp:{list:'feat',label:'Ramp',make:(x,z)=>({t:'ramp',z0:z-12,z1:z+12,h:5}),fields:[['h','Height (− goes down)',-20,20,0.5]],
-    note:'Everything past it is raised (or lowered) by its height. Drag its corners to fit it to one lane: then only that lane changes level, with a short bank at its sides (put a wall there to make a clean edge).'},
+  ramp:{list:'feat',label:'Ramp',make:(x,z)=>({t:'ramp',z0:z-12,z1:z+12,h:5}),fields:[['h','Height (− goes down)',-40,40,0.5]],
+    note:'Everything past it is raised (or lowered) by its height — or tick Ramps back to return to the starting level further on (a dip or a rise in the lane). Drag its corners to fit it to one lane: then only that lane changes level, with a short bank at its sides (put a wall there to make a clean edge).'},
   hump:{list:'feat',label:'Hump',make:(x,z)=>({t:'hump',x,z,r:14,h:1.2}),fields:[['r','Radius',3,80,0.5],['h','Height',0.2,10,0.1]]},
   bowl:{list:'feat',label:'Dip',make:(x,z)=>({t:'bowl',x,z,r:14,d:0.6}),fields:[['r','Radius',3,80,0.5],['d','Depth',0.1,6,0.05]]},
   cone:{list:'feat',label:'Hill (cone)',make:(x,z)=>({t:'cone',x,z,r:24,h:5}),fields:[['r','Radius',4,90,0.5],['h','Height',0.5,20,0.5]]},
@@ -105,7 +107,7 @@ const KINDS={
     note:'Swings from the start angle to the end angle and back. 0° points to the player’s left (+x), 90° down the hole.'},
   tunnel:{list:'obst',label:'Return pipe',make:(x,z)=>({t:'tunnel',x,z,r:2.6,exit:[x,z+40],dir:[0,1],v:40}),fields:[['v','Exit speed',5,120,1]],
     note:'The ball drops in the hole and pops out of the pipe at OUT, rolling the way the arrow points. Drag OUT and the arrow tip to place them. Exit speed: ~25 is a gentle roll, ~60 a firm one.'},
-  zstep:{list:'feat',label:'Tier (drop)',make:(x,z)=>({t:'zstep',z0:z-1,z1:z+1,h:-3,lip:true}),fields:[['h','Drop (− = down)',-12,-0.5,0.5]],
+  zstep:{list:'feat',label:'Tier (drop)',make:(x,z)=>({t:'zstep',z0:z-1,z1:z+1,h:-3,lip:true}),fields:[['h','Drop (− = down)',-30,-0.5,0.5]],
     note:'A sharp drop down to a lower level (everything past it sits lower). Drag its corners to fit it to one lane; the dashed area shows what drops. It has a lip, so balls can’t roll back up. To climb to a higher level, use a Ramp instead. Edge length 2 is a crisp step; longer makes it a steep bank.'},
   spin:{list:'obst',label:'Turntable',make:(x,z)=>({t:'spin',c:[x,z],r:20,w:1.2}),fields:[['r','Radius',6,60,0.5],['w','Spin (rad/s, − reverses)',-4,4,0.1]],
     note:'Leave a ball’s width between its rim and the rails. The game’s turntables usually sit on a matching Hill for a domed top.'},
@@ -124,7 +126,7 @@ const sides=e=>{ if(e.x0!=null) return [e.x0,e.x1]; const [lo,hi]=halfWidthAt((e
 function handles(e){
   if(e.t==='tunnel'){ const io=[{id:'exit',x:e.exit[0],z:e.exit[1]},{id:'dir',x:e.exit[0]+e.dir[0]*10,z:e.exit[1]+e.dir[1]*10}];
     return (e.rect?[{id:'c00',x:e.rect[0],z:e.rect[1]},{id:'c11',x:e.rect[2],z:e.rect[3]},{id:'c01',x:e.rect[0],z:e.rect[3]},{id:'c10',x:e.rect[2],z:e.rect[1]}]:[{id:'r',x:e.x-e.r,z:e.z}]).concat(io); }
-  if(e.t==='wall') return [{id:'a',x:e.a[0],z:e.a[1]},{id:'b',x:e.b[0],z:e.b[1]}];
+  if(e.t==='wall'){ const H=[{id:'a',x:e.a[0],z:e.a[1]},{id:'b',x:e.b[0],z:e.b[1]}]; if(e.bend){ const P=wallPts(e), m=P[P.length>>1]; H.push({id:'m',x:m[0],z:m[1]}); } return H; }
   if(e.t==='block') return [{id:'c00',x:e.x0,z:e.z0},{id:'c11',x:e.x1,z:e.z1},{id:'c01',x:e.x0,z:e.z1},{id:'c10',x:e.x1,z:e.z0}];
   if(e.rect) return [{id:'c00',x:e.rect[0],z:e.rect[1]},{id:'c11',x:e.rect[2],z:e.rect[3]},{id:'c01',x:e.rect[0],z:e.rect[3]},{id:'c10',x:e.rect[2],z:e.rect[1]}];
   if(e.t==='ramp'||e.t==='zstep'){ const [lo,hi]=sides(e); return [{id:'c00',x:lo,z:e.z0},{id:'c11',x:hi,z:e.z1},{id:'c01',x:lo,z:e.z1},{id:'c10',x:hi,z:e.z0}]; }
@@ -134,6 +136,7 @@ function handles(e){
 function dragHandle(e,id,x,z){
   if(e.t==='tunnel'&&id==='exit'){ e.exit=[x,z]; return; }
   if(e.t==='tunnel'&&id==='dir'){ const dx=x-e.exit[0], dz=z-e.exit[1], l=Math.hypot(dx,dz); if(l>0.5) e.dir=[r3(dx/l),r3(dz/l)]; return; }
+  if(e.t==='wall'&&id==='m'){ const dx=e.b[0]-e.a[0], dz=e.b[1]-e.a[1], L=Math.hypot(dx,dz)||1, b=r1(((x-(e.a[0]+e.b[0])/2)*-dz+(z-(e.a[1]+e.b[1])/2)*dx)/L); if(Math.abs(b)<0.5) delete e.bend; else e.bend=b; return; }
   if(e.t==='wall'){ e[id]=[x,z]; return; }
   if(e.t==='block'){ if(id[1]==='0') e.x0=x; else e.x1=x; if(id[2]==='0') e.z0=z; else e.z1=z; return; }
   if(e.rect){ if(id[1]==='0') e.rect[0]=x; else e.rect[2]=x; if(id[2]==='0') e.rect[1]=z; else e.rect[3]=z; return; }
@@ -168,6 +171,8 @@ const snapV=(v,shift)=>snapOn()&&!shift?Math.round(v):r1(v);
 // ── geometry helpers ──
 function inPoly(x,z,P){ let c=false; for(let i=0,j=P.length-1;i<P.length;j=i++){ const [xi,zi]=P[i], [xj,zj]=P[j]; if((zi>z)!==(zj>z)&&x<(xj-xi)*(z-zi)/(zj-zi)+xi) c=!c; } return c; }
 function segDist(px,pz,a,b){ const dx=b[0]-a[0], dz=b[1]-a[1], L2=dx*dx+dz*dz||1, t=clamp(((px-a[0])*dx+(pz-a[1])*dz)/L2,0,1); return Math.hypot(px-a[0]-dx*t,pz-a[1]-dz*t); }
+function wallPts(o){ if(!o.bend) return [o.a,o.b]; const [ax,az]=o.a, [bx,bz]=o.b, dx=bx-ax, dz=bz-az, L=Math.hypot(dx,dz)||1, cx=(ax+bx)/2-dz/L*o.bend*2, cz=(az+bz)/2+dx/L*o.bend*2, n=Math.max(6,Math.ceil((L+Math.abs(o.bend)*2)/4)), P=[];   /* a curved wall: a smooth bow whose middle sits `bend` off the straight line */
+  for(let i=0;i<=n;i++){ const t=i/n, u=1-t; P.push([u*u*ax+2*u*t*cx+t*t*bx,u*u*az+2*u*t*cz+t*t*bz]); } return P; }
 function bbox(P){ let x0=1e9,z0=1e9,x1=-1e9,z1=-1e9; for(const [x,z] of P){ x0=Math.min(x0,x); x1=Math.max(x1,x); z0=Math.min(z0,z); z1=Math.max(z1,z); } return [x0,z0,x1,z1]; }
 function halfWidthAt(z){ let lo=1e9, hi=-1e9; const P=hole.pts; for(let i=0;i<P.length;i++){ const [x1,z1]=P[i], [x2,z2]=P[(i+1)%P.length]; if((z1<=z&&z2>=z)||(z2<=z&&z1>=z)){ const t=z2===z1?0:(z-z1)/(z2-z1), x=x1+(x2-x1)*t; lo=Math.min(lo,x); hi=Math.max(hi,x); } } return lo>hi?[-20,20]:[lo,hi]; }
 
@@ -181,8 +186,7 @@ function draw(){ if(!hole||!W) return; g.clearRect(0,0,W,Hh); g.fillStyle='#0f0b
   // felt + rails
   poly(hole.pts,'#2f8a46','#f1eee6',3);
   // terrain under everything else
-  for(const f of hole.feat) drawEl(f,'feat');
-  for(const o of hole.obst) drawEl(o,'obst');
+  for(const back of [true,false]){ for(const f of hole.feat) if(!!f._back===back) drawEl(f,'feat'); for(const o of hole.obst) if(!!o._back===back) drawEl(o,'obst'); }   // pieces sent to back first
   // tee mat, cup, ball-size reference
   { const [sx,sy]=toS(hole.tee[0],hole.tee[1]); g.fillStyle='#1d4d2b'; g.strokeStyle=sel&&sel.k==='tee'?'#ffd54a':'#0c2414'; g.lineWidth=2;
     g.fillRect(sx-TEE_W/2*view.s,sy-TEE_D/2*view.s,TEE_W*view.s,TEE_D*view.s); g.strokeRect(sx-TEE_W/2*view.s,sy-TEE_D/2*view.s,TEE_W*view.s,TEE_D*view.s);
@@ -205,14 +209,15 @@ function circle(x,z,r,fill,stroke,lw){ const [sx,sy]=toS(x,z); g.beginPath(); g.
 function rectW(x0,z0,x1,z1,fill,stroke,lw){ poly([[x0,z0],[x1,z0],[x1,z1],[x0,z1]],fill,stroke,lw); }
 function drawEl(e,list){ const i=hole[list].indexOf(e), on=sel&&sel.k===list&&sel.i===i, hl=on?'#ffd54a':null, c=COL[e.t]||'#888';
   switch(kindOf(e)){
-    case 'wall':{ const [a,b]=[toS(...e.a),toS(...e.b)]; g.strokeStyle=hl||c; g.lineWidth=Math.max(2,3*view.s); g.lineCap='round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); g.lineCap='butt'; break; }
+    case 'wall':{ g.strokeStyle=hl||c; g.lineWidth=Math.max(2,3*view.s); g.lineCap='round'; g.lineJoin='round'; g.beginPath(); wallPts(e).forEach((p,i)=>{ const q=toS(...p); i?g.lineTo(...q):g.moveTo(...q); }); g.stroke(); g.lineCap='butt'; g.lineJoin='miter'; break; }
     case 'block': rectW(e.x0,e.z0,e.x1,e.z1,c,hl||'#8a8270',2); break;
     case 'post': circle(e.x,e.z,e.r,c,hl||'#888',2); break;
     case 'bumper': circle(e.x,e.z,e.r,c,hl||'#fff',2); break;
     case 'sand': circle(e.c[0],e.c[1],e.r,'rgba(227,207,154,.85)',hl||'#c9b27a',2); break;
     case 'water': if(e.except) return kept(e,list,on); rectW(...e.rect,'rgba(59,143,208,.8)',hl||'#9fd0f0',2); break;
     case 'bridge': rectW(...e.rect,'rgba(154,106,62,.9)',hl||'#d0a070',2); break;
-    case 'ramp':{ const [lo,hi]=sides(e); if(e.x0!=null) held(e,lo,hi); g.globalAlpha=0.35; rectW(lo,e.z0,hi,e.z1,e.h>0?'#ffd54a':'#5a7ad8',null); g.globalAlpha=1; rectW(lo,e.z0,hi,e.z1,null,hl||'#ffd54a',on?2:1);
+    case 'ramp':{ const [lo,hi]=sides(e); if(e.x0!=null||e.back!=null) held(e,lo,hi); if(e.back!=null){ const z2=e.z1+e.back, z3=z2+e.z1-e.z0; g.globalAlpha=0.35; rectW(lo,z2,hi,z3,e.h>0?'#5a7ad8':'#ffd54a',null); g.globalAlpha=1; rectW(lo,z2,hi,z3,null,hl||'#ffd54a',on?2:1); const [qx,qy]=toS((lo+hi)/2,(z2+z3)/2); label((e.h>0?'▼ back':'▲ back'),qx,qy+3,'#fff'); }
+      g.globalAlpha=0.35; rectW(lo,e.z0,hi,e.z1,e.h>0?'#ffd54a':'#5a7ad8',null); g.globalAlpha=1; rectW(lo,e.z0,hi,e.z1,null,hl||'#ffd54a',on?2:1);
       const [sx,sy]=toS((lo+hi)/2,(e.z0+e.z1)/2); label((e.h>0?'▲ +':'▼ ')+e.h,sx,sy+3,'#fff'); break; }
     case 'hump': case 'bowl': case 'cone':{ g.setLineDash(e.t==='bowl'?[3,3]:[]); circle(e.x,e.z,e.r,e.t==='bowl'?'rgba(20,60,60,.25)':'rgba(140,210,120,.18)',hl||c,on?2:1.2); g.setLineDash([]);
       if(!isCupBowl(e,hole)){ const [sx,sy]=toS(e.x,e.z); label(e.t==='bowl'?'dip':e.t==='cone'?'hill':'hump',sx,sy+3); } break; }
@@ -234,7 +239,7 @@ function drawEl(e,list){ const i=hole[list].indexOf(e), on=sel&&sel.k===list&&se
     case 'spin': circle(e.c[0],e.c[1],e.r,'rgba(154,122,216,.45)',hl||c,2); { const [sx,sy]=toS(...e.c); label(`↻ ${e.w}`,sx,sy+3,'#fff'); } break;
     default: kept(e,list,on);
   } }
-function held(e,lo,hi){ const zE=bbox(hole.pts)[3]; if(zE<=e.z1) return; g.setLineDash([5,4]); rectW(lo,e.z1,hi,zE,e.h>0?'rgba(255,213,74,.07)':'rgba(90,122,216,.12)',e.h>0?'rgba(255,213,74,.5)':'rgba(140,170,255,.55)',1); g.setLineDash([]); }   // the lane it raises or lowers
+function held(e,lo,hi){ const zE=e.back!=null?e.z1+e.back:bbox(hole.pts)[3]; if(zE<=e.z1) return; g.setLineDash([5,4]); rectW(lo,e.z1,hi,zE,e.h>0?'rgba(255,213,74,.07)':'rgba(90,122,216,.12)',e.h>0?'rgba(255,213,74,.5)':'rgba(140,170,255,.55)',1); g.setLineDash([]); }   // the lane it raises or lowers
 function kept(e,list,on){ g.setLineDash([2,4]); const st=on?'#ffd54a':'rgba(200,200,200,.55)';
   if(e.rect) rectW(...e.rect,'rgba(160,160,160,.12)',st,1); else if(e.poly) poly(e.poly,'rgba(160,160,160,.12)',st,1); else if(e.c&&e.r) circle(e.c[0],e.c[1],e.r,'rgba(160,160,160,.12)',st,1);
   else if('x0' in e) rectW(e.x0,e.z0,e.x1,e.z1,'rgba(160,160,160,.12)',st,1); else if('x' in e&&e.r) circle(e.x,e.z,e.r,'rgba(160,160,160,.12)',st,1);
@@ -246,13 +251,13 @@ function kept(e,list,on){ g.setLineDash([2,4]); const st=on?'#ffd54a':'rgba(200,
 function pick(x,z){ const tol=8/view.s;
   if(Math.hypot(x-hole.cup[0],z-hole.cup[1])<Math.max(CUP_R,tol)) return {k:'cup'};
   if(Math.abs(x-hole.tee[0])<TEE_W/2&&Math.abs(z-hole.tee[1])<TEE_D/2) return {k:'tee'};
-  for(const list of ['obst','feat']) for(let i=hole[list].length-1;i>=0;i--){ const e=hole[list][i]; if(!kindOf(e)) continue; if(list==='feat'&&isCupBowl(e,hole)) continue; if(hit(e,x,z,tol)) return {k:list,i}; }
+  for(const back of [false,true]) for(const list of ['obst','feat']) for(let i=hole[list].length-1;i>=0;i--){ const e=hole[list][i]; if(!kindOf(e)||!!e._back!==back) continue; if(list==='feat'&&isCupBowl(e,hole)) continue; if(hit(e,x,z,tol)) return {k:list,i}; }
   return null; }
 function hit(e,x,z,tol){ switch(e.t){
-  case 'wall': return segDist(x,z,e.a,e.b)<Math.max(2,tol);
+  case 'wall': { const P=wallPts(e); for(let i=0;i<P.length-1;i++) if(segDist(x,z,P[i],P[i+1])<Math.max(2,tol)) return true; return false; }
   case 'block': return x>=e.x0-tol/2&&x<=e.x1+tol/2&&z>=e.z0-tol/2&&z<=e.z1+tol/2;
   case 'water': case 'bridge': return !e.except&&x>=e.rect[0]&&x<=e.rect[2]&&z>=e.rect[1]&&z<=e.rect[3];
-  case 'ramp': return z>=e.z0&&z<=e.z1&&(e.x0==null||x>=e.x0-tol/2&&x<=e.x1+tol/2);
+  case 'ramp': return (z>=e.z0&&z<=e.z1||e.back!=null&&z>=e.z1+e.back&&z<=e.z1+e.back+e.z1-e.z0)&&(e.x0==null||x>=e.x0-tol/2&&x<=e.x1+tol/2);
   case 'zstep': return z>=e.z0-Math.max(1.5,tol)&&z<=e.z1+Math.max(1.5,tol)&&(e.x0==null||x>=e.x0-tol/2&&x<=e.x1+tol/2);
   case 'tunnel': if(Math.hypot(x-e.exit[0],z-e.exit[1])<Math.max(3,tol)) return true; if(e.rect) return x>=e.rect[0]&&x<=e.rect[2]&&z>=e.rect[1]&&z<=e.rect[3]; return Math.hypot(x-e.x,z-e.z)<Math.max(e.r,tol);
   case 'windmill': return Math.abs(z-e.z)<=e.depth/2;
@@ -295,6 +300,8 @@ addEventListener('keydown',ev=>{ if(ev.target.tagName==='INPUT'||ev.target.tagNa
   if(ev.key==='Delete'||ev.key==='Backspace'){ ev.preventDefault(); delSel(); }
   if(ev.key==='Escape'){ sel=null; draw(); drawSide(); } });
 addEventListener('keyup',ev=>{ if(ev.code==='Space') space=false; });
+// send to back: drawn first and picked last, so whatever it covers can be clicked and dragged
+function sendBack(){ if(!sel||(sel.k!=='obst'&&sel.k!=='feat')) return; const L=hole[sel.k], e=L[sel.i]; if(!e) return; snapshot(); L.splice(sel.i,1); L.unshift(e); e._back=1; sel={k:sel.k,i:0}; draw(); drawSide(); save(); }
 function delSel(){ if(!sel) return;
   if(sel.k==='vertex'){ if(hole.pts.length<=3) return; snapshot(); hole.pts.splice(sel.i,1); }
   else if(sel.k==='path'){ if(hole.path.length<=2) return; snapshot(); hole.path.splice(sel.i,1); autoPath=false; }
@@ -333,12 +340,15 @@ function drawSide(quick){ if(quick) return; const S=$('side'), parts=[];
       if(e.t==='ramp'||e.t==='zstep'){ const [lo,hi]=sides(e); parts.push(num('Width',hi-lo,3,500,0.5,v=>{ const m=e.x0!=null?(e.x0+e.x1)/2:(lo+hi)/2; e.x0=r1(m-v/2); e.x1=r1(m+v/2); tidy(e); }));
         if(e.x0!=null) parts.push({html:`<div class="btns"><button id="fullW">Full width</button></div>`,bind:()=>{ $('fullW').onclick=()=>{ snapshot(); delete e.x0; delete e.x1; draw(); drawSide(); save(); }; }}); }
       if(e.t==='zstep') parts.push(num('Edge length',e.z1-e.z0,1,30,0.5,v=>{ e.z1=e.z0+clamp(v,1,30); }));
+      if(e.t==='ramp') parts.push({html:`<div class="row"><label for="rBack">Ramps back</label><input type="checkbox" id="rBack"${e.back!=null?' checked':''}></div>`,bind:()=>{ $('rBack').onchange=ev=>{ snapshot(); if(ev.target.checked) e.back=20; else delete e.back; draw(); drawSide(); save(); }; }});
+      if(e.t==='ramp'&&e.back!=null) parts.push(num(e.h<0?'Low stretch length':'High stretch length',e.back,0,500,0.5,v=>{ e.back=Math.max(0,v); }));
       if(e.t==='ramp') parts.push(num('Length',e.z1-e.z0,2,300,0.5,v=>{ const m=(e.z0+e.z1)/2; e.z0=m-v/2; e.z1=m+v/2; }));
+      if(e.t==='wall') parts.push(num('Curve (0 = straight)',e.bend||0,-300,300,0.5,v=>{ if(Math.abs(v)<0.5) delete e.bend; else e.bend=v; }),{html:`<div class="note">How far the middle bows out from a straight line (− bows the other way). Drag the middle handle to bend it.</div>`});
       if(e.t==='wall') parts.push(num('Length',Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]),1,500,0.5,v=>{ const m=center(e), ang=Math.atan2(e.b[1]-e.a[1],e.b[0]-e.a[0]); e.a=[r1(m[0]-Math.cos(ang)*v/2),r1(m[1]-Math.sin(ang)*v/2)]; e.b=[r1(m[0]+Math.cos(ang)*v/2),r1(m[1]+Math.sin(ang)*v/2)]; }),
         num('Angle °',Math.atan2(e.b[1]-e.a[1],e.b[0]-e.a[0])*180/Math.PI,-360,360,5,v=>{ const m=center(e), L=Math.hypot(e.b[0]-e.a[0],e.b[1]-e.a[1]), ang=v*Math.PI/180; e.a=[r1(m[0]-Math.cos(ang)*L/2),r1(m[1]-Math.sin(ang)*L/2)]; e.b=[r1(m[0]+Math.cos(ang)*L/2),r1(m[1]+Math.sin(ang)*L/2)]; }));
       for(const [k,l,mn,mx,st] of K.fields){ if(k==='a0deg'||k==='a1deg'){ const key=k.slice(0,2); parts.push(num(l,e[key]*180/Math.PI,mn,mx,st,v=>{ e[key]=v*Math.PI/180; })); } else parts.push(num(l,e[k],mn,mx,st,v=>{ e[k]=clamp(v,mn,mx); })); }
       if(K.note) parts.push({html:`<div class="note">${K.note}</div>`});
-      parts.push({html:`<div class="btns"><button id="dupBtn">Duplicate</button><button id="delBtn">Delete</button></div>`,bind:()=>{ $('delBtn').onclick=delSel; $('dupBtn').onclick=()=>{ snapshot(); const c=clone(e); moveBy(c,6,6); hole[sel.k].push(c); sel={k:sel.k,i:hole[sel.k].length-1}; draw(); drawSide(); save(); }; }}); }
+      parts.push({html:`<div class="btns"><button id="dupBtn">Duplicate</button><button id="backBtn" title="Put it underneath the others, so what it covers can be clicked">Send to back</button><button id="delBtn">Delete</button></div>`,bind:()=>{ $('delBtn').onclick=delSel; $('backBtn').onclick=sendBack; $('dupBtn').onclick=()=>{ snapshot(); const c=clone(e); moveBy(c,6,6); hole[sel.k].push(c); sel={k:sel.k,i:hole[sel.k].length-1}; draw(); drawSide(); save(); }; }}); }
   } else if(sel&&(sel.k==='tee'||sel.k==='cup')){ const p=hole[sel.k]; parts.push({html:`<h3>${sel.k==='tee'?'Tee':'Cup'}</h3>`});
     parts.push(num('x',p[0],-999,999,0.5,v=>{ moveTee(sel.k,v-p[0],0); }),num('z',p[1],-999,999,0.5,v=>{ moveTee(sel.k,0,v-p[1]); }));
     if(sel.k==='cup'){ const has=hole.feat.some(f=>isCupBowl(f,hole)); parts.push({html:`<div class="row"><label>Cup sits in a gentle bowl</label><input type="checkbox" id="cupBowl" ${has?'checked':''}></div><div class="note">The game's holes all have one: balls near the cup drift in.</div>`,bind:()=>{ $('cupBowl').onchange=ev=>{ snapshot(); if(ev.target.checked) hole.feat.push({t:'bowl',x:hole.cup[0],z:hole.cup[1],r:14,d:0.35}); else hole.feat=hole.feat.filter(f=>!isCupBowl(f,hole)); draw(); save(); }; }}); }
@@ -371,7 +381,7 @@ function moveTee(k,dx,dz){ if(k==='tee'){ hole.tee=[r1(hole.tee[0]+dx),r1(hole.t
 function scaleHole(sx,sz){ const P=p=>{ p[0]=r1(p[0]*sx); p[1]=r1(p[1]*sz); };
   hole.pts.forEach(P); P(hole.tee); P(hole.cup); hole.path.forEach(P);
   for(const e of [...hole.obst,...hole.feat]){ if(!kindOf(e)) continue; const ax=Math.abs(sx);
-    if(e.t==='wall'){ P(e.a); P(e.b); } else if(e.t==='block'){ e.x0*=sx; e.x1*=sx; e.z0*=sz; e.z1*=sz; } else if(e.rect&&!e.except){ e.rect[0]*=sx; e.rect[2]*=sx; e.rect[1]*=sz; e.rect[3]*=sz; }
+    if(e.t==='wall'){ P(e.a); P(e.b); if(e.bend) e.bend=r1(e.bend*Math.sign(sx*sz)*Math.sqrt(Math.abs(sx*sz))); } else if(e.t==='block'){ e.x0*=sx; e.x1*=sx; e.z0*=sz; e.z1*=sz; } else if(e.rect&&!e.except){ e.rect[0]*=sx; e.rect[2]*=sx; e.rect[1]*=sz; e.rect[3]*=sz; }
     else if(e.c) P(e.c); else if(e.hinge){ P(e.hinge); e.len*=ax; if(sx<0){ e.a0=Math.PI-e.a0; e.a1=Math.PI-e.a1; } } else if(e.t==='ramp'||e.t==='zstep'){ e.z0*=sz; e.z1*=sz; if(e.x0!=null){ e.x0*=sx; e.x1*=sx; } } else if(e.t==='windmill') e.z*=sz; else if('x' in e){ e.x*=sx; e.z*=sz; }
     if(e.r&&ax!==1&&(e.t==='sand'||e.t==='hump'||e.t==='bowl'||e.t==='cone')) e.r*=Math.sqrt(ax*Math.abs(sz)); tidy(e); } }
 function drawWarn(){ const w=[], P=hole.pts, inside=(x,z)=>inPoly(x,z,P);
@@ -385,7 +395,7 @@ function drawWarn(){ const w=[], P=hole.pts, inside=(x,z)=>inPoly(x,z,P);
 // ── export / import / play-test ──
 function lit(v,ind){ // a JS literal in the game's style: unquoted keys, single-quoted strings, short numbers
   if(Array.isArray(v)) return '['+v.map(x=>lit(x,ind)).join(',')+']';
-  if(v&&typeof v==='object') return '{'+Object.keys(v).map(k=>k+':'+lit(v[k],ind)).join(',')+'}';
+  if(v&&typeof v==='object') return '{'+Object.keys(v).filter(k=>k[0]!=='_').map(k=>k+':'+lit(v[k],ind)).join(',')+'}';
   if(typeof v==='string') return "'"+v.replace(/\\/g,'\\\\').replace(/'/g,"\\'")+"'";
   if(typeof v==='number') return String(Math.round(v*1000)/1000);
   return String(v); }
