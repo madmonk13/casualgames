@@ -76,14 +76,16 @@ select option { background: #1a2e3d; color: #fff; }
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
   font-size: 0.95em;
-  min-height: 58px;
+  height: 86px;              /* fixed: three single-line rows, so the boards never shift */
   justify-content: center;
+  overflow: hidden;
 }
+.statusbar > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 20px; line-height: 20px; }
 #turn { font-weight: 700; color: #f0e0a0; }
-#log { color: rgba(255,255,255,0.6); font-size: 0.92em; min-height: 1.2em; }
-#log b.hit { color: #ff8a5c; }
-#log b.sunk { color: #ff5252; }
-#log b.miss { color: #8fc8e8; }
+.log { color: rgba(255,255,255,0.6); font-size: 0.92em; }
+.log b.hit { color: #ff8a5c; }
+.log b.sunk { color: #ff5252; }
+.log b.miss { color: #8fc8e8; }
 
 /* ── Boards layout ── */
 .boards { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; align-items: flex-start; max-width: 940px; }
@@ -313,7 +315,8 @@ select option { background: #1a2e3d; color: #fff; }
 
 <div class="statusbar">
   <div id="turn">Place your fleet</div>
-  <div id="log"></div>
+  <div class="log" id="log1"></div>
+  <div class="log" id="log2"></div>
 </div>
 
 <div class="boards">
@@ -701,7 +704,7 @@ function render() {
   renderRecord();
 }
 function setTurn(text) { $('#turn').textContent = text; }
-function setLog(html) { $('#log').innerHTML = html; }
+function setLog(line1 = '', line2 = '') { $('#log1').innerHTML = line1; $('#log2').innerHTML = line2; }
 
 // ── Setup phase ────────────────────────────────────────────
 function anchorFor(c, len) {
@@ -804,7 +807,7 @@ function toSetup() {
   }
   selected = nextUnplaced();
   hideOverlay();
-  setTurn(allPlaced(player) ? 'Your fleet is ready from last game — adjust it or start the battle' : 'Place your fleet');
+  setTurn(allPlaced(player) ? 'Fleet ready from last game — adjust it or start' : 'Place your fleet');
   setLog('');
   render();
 }
@@ -873,7 +876,7 @@ async function playerFire(c) {
   cShots++; if (r2.res !== 'miss') cHits++;
   freshOwn = t;
   resultSound(r2);
-  setLog(`${youLine}<br>${describe(r2, 'cpu', t)}`);
+  setLog(youLine, describe(r2, 'cpu', t));
   if (allSunk(player)) { render(); return endGame(false); }
 
   busy = false;
