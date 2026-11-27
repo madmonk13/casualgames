@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.9 · Updated Nov 26, 2026</div>
+  <div id="ver">Version 0.9.10 · Updated Nov 27, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1930,7 +1930,8 @@ function buildGreenAids(){
 }
 const FLOW_LIFE=1.2, FLOW_V=26;   // each run: 1.2 s at a pace that grows with the slope (short enough to stay near its crossing)
 function stepGreenAids(dt){
-  const show=clubIdx===PUTTER&&(phase==='aim'||phase==='flight')&&(ball.lie==='green'||ball.lie==='fringe');
+  const G0=H.green, near=phase==='aim'&&(toPin()-Math.max(G0.rx,G0.rz))*YD<=40;   /* chips and pitches: read the green from here too */
+  const show=near||clubIdx===PUTTER&&(phase==='aim'||phase==='flight')&&(ball.lie==='green'||ball.lie==='fringe');
   greenGrid.visible=show; flowDots.visible=show; if(!show) return;
   const G=H.green, p=flowDots.geometry.attributes.position, {life,nodes}=flowDots.userData;
   for(let i=0;i<p.count;i++){ let x=p.getX(i), z=p.getZ(i);
@@ -2101,7 +2102,7 @@ function flyCarry(ci,powMul,wa,wl,dh){
   const S2=SURF[ball.lie]||SURF.fairway, key=ci+'/'+(powMul||1).toFixed(2)+'/'+ball.lie+'/'+wa.toFixed(1)+'/'+wl.toFixed(1)+'/'+(Math.round(dh*4)/4); if(carryCache[key]) return carryCache[key];
   const c=CLUBS[ci]; if(c.putter) return [0,0];
   if(++carryN>4000){ for(const k in carryCache) delete carryCache[k]; carryN=0; }
-  const v=c.v*(powMul||1), la=(c.la+(ball.lie==='sand'?4:0))*DEG; let pz=0,py=0,pl=0,vz=v*Math.cos(la),vy=v*Math.sin(la),vl=0,rpm=c.rpm*(S2.spin||1)*(0.82+0.18*Math.min(1,powMul||1)),t=0;
+  const v=c.v*(powMul||1), la=(c.la+(ball.lie==='sand'?4:0))*DEG; let pz=0,py=0,pl=0,vz=v*Math.cos(la),vy=v*Math.sin(la),vl=0,rpm=c.rpm*(lieSpin(ci)||1)*(0.82+0.18*Math.min(1,powMul||1)),t=0;
   while(t<15){ const rz=vz-wa, rl=vl-wl, sp=Math.hypot(rz,vy,rl)||1e-6, w=rpm*2*Math.PI/60, S=BALL_R*w/sp, Cd=0.22+0.3*Math.min(S,0.3), Cl=clamp(1.05*S+0.06,0.06,0.33), q=0.5*RHO*BALL_A*sp*sp/BALL_M, dt=1/120;
     vz+=(-Cd*q*rz/sp-Cl*q*vy/sp)*dt; vy+=(-Cd*q*vy/sp+Cl*q*rz/sp-G)*dt; vl+=(-Cd*q*rl/sp)*dt; pz+=vz*dt; py+=vy*dt; pl+=vl*dt; rpm*=Math.exp(-dt/22); t+=dt; if(py<-dh&&vy<0) break; }
   return carryCache[key]=[pz,pl];
@@ -2125,7 +2126,13 @@ function stockCarry(ci){ return flyCarry(ci,1,0,0,0)[0]; }
 // ═══════════════════════════════════════════════════════
 const rollFrac=ci=>clamp(0.15-CLUBS[ci].rpm/75000,0.02,0.13);            // how much of a shot is roll-out, by club
 const toPin=()=>Math.hypot(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z);
-function lieMul(){ const s=SURF[ball.lie]||SURF.fairway, c=CLUBS[clubIdx]; let p=s.pow; if(ball.lie==='sand'&&c.n==='S Wedge') p=0.88; if(c.n==='Driver'&&ball.lie!=='tee') p*=0.92; return p; }
+// out of sand: woods and long irons can't get under it (a chunk that goes 10–30 yards), a 6 iron comes out heavy, 7 iron to
+// wedge lose a little (so ~150 yards at most). C7: the longest club that's sensible from a bunker
+const C7=CLUBS.findIndex(c=>c.n==='7 Iron'), SW=CLUBS.findIndex(c=>c.n==='S Wedge');
+const sandPow=ci=>ci===SW?0.88:ci>=C7?0.9:ci===C7-1?0.63:0.26;
+const greenside=()=>ball.lie==='sand'&&toPin()*YD<=50;      // a bunker by the green: splash it out with the sand wedge
+const lieSpin=ci=>ball.lie==='sand'?(ci===SW?1.05:0.5):(SURF[ball.lie]||SURF.fairway).spin;   // a sand wedge splash comes out with plenty of spin and lands soft
+function lieMul(ci){ if(ci==null) ci=clubIdx; const s=SURF[ball.lie]||SURF.fairway, c=CLUBS[ci]; let p=s.pow; if(ball.lie==='sand') p=sandPow(ci); if(c.n==='Driver'&&ball.lie!=='tee') p*=0.92; return p; }
 // ── water-aware shot planning ──
 // the pond the line at angle a crosses between from..to metres out (its full extent along the line), or null
 function pondOnLine(a,from,to){ const P=ball.p, sx=Math.sin(a), sz=Math.cos(a), wet=s=>inWater(P.x+sx*s,P.z+sz*s); let s0=null;
@@ -2134,7 +2141,7 @@ function pondOnLine(a,from,to){ const P=ball.p, sx=Math.sin(a), sz=Math.cos(a), 
 // the carry to aim for with club ci on the current line: the usual target (the pin, or a full shot down the route) — unless
 // that would land or roll out in water; then carry it if this club can, otherwise lay up short of it
 function shotTarget(ci){
-  const full=carryOf(ci,lieMul()), roll=rollFrac(ci), toP=toPin(), pinA=Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z);
+  const full=carryOf(ci,lieMul(ci)), roll=rollFrac(ci), toP=toPin(), pinA=Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z);
   const atPin=Math.abs(((aim-pinA)%(2*Math.PI)+3*Math.PI)%(2*Math.PI)-Math.PI)<0.2;
   // at the pin: land short and let it roll up — but at least onto the front of the green, not into whatever guards it
   let front=0; if(atPin){ const dx=Math.sin(aim), dz=Math.cos(aim); for(let d=Math.max(0,toP-45);d<toP;d+=1){ const sf=surfAt(ball.p.x+dx*d,ball.p.z+dz*d); if(sf==='green'||sf==='fringe'){ front=d; break; } } }
@@ -2145,14 +2152,15 @@ function shotTarget(ci){
 }
 // after picking the usual club: if it can only lay up short of water, see whether a longer one carries it
 function avoidWater(){ if(clubIdx===PUTTER||shotTarget(clubIdx).kind!=='lay') return; const keep=clubIdx;
-  for(let i=clubIdx-1;i>=0;i--){ if(CLUBS[i].tee&&ball.lie!=='tee') continue; clubIdx=i; aimDefault(); if(shotTarget(i).kind==='over') return; }
+  for(let i=clubIdx-1;i>=0;i--){ if(CLUBS[i].tee&&ball.lie!=='tee') continue; if(ball.lie==='sand'&&i<C7) break; clubIdx=i; aimDefault(); if(shotTarget(i).kind==='over') return; }
   clubIdx=keep; aimDefault(); }
 function suggestClub(){
   if(ball.lie==='green'){ clubIdx=PUTTER; return; }
   // the shortest club that gets there (a touch under full power is easier than a club that comes up short); out of reach → the longest
   const d=toPin(), pa=Math.atan2(H.pin[0]-ball.p.x,H.pin[1]-ball.p.z); let best=-1, longest=-1;
   let front=0; for(let k=Math.max(0,d-45);k<d;k+=1){ const sf=surfAt(ball.p.x+Math.sin(pa)*k,ball.p.z+Math.cos(pa)*k); if(sf==='green'||sf==='fringe'){ front=k; break; } }   // (same target as shotTarget: onto the front of the green at least)
-  for(let i=PUTTER-1;i>=0;i--){ if(CLUBS[i].tee&&ball.lie!=='tee') continue; longest=i; if(best<0&&carryOf(i,lieMul(),pa)>=Math.max(d*(0.99-rollFrac(i)),Math.min(front+3,d))) best=i; }
+  if(greenside()){ clubIdx=SW; return; }
+  for(let i=PUTTER-1;i>=0;i--){ if(CLUBS[i].tee&&ball.lie!=='tee') continue; if(ball.lie==='sand'&&i<C7) continue; longest=i; if(best<0&&carryOf(i,lieMul(i),pa)>=Math.max(d*(0.99-rollFrac(i)),Math.min(front+3,d))) best=i; }
   if(best<0) best=longest;
   if(d<12&&(ball.lie==='fringe'||ball.lie==='fairway')) best=PUTTER;                  // close on the fringe/fairway: putt it
   clubIdx=best;
@@ -2176,7 +2184,7 @@ function resumeGame(g){ tourPending=false;
   updateUI(); buildHUD(); drawMap(true); saveGame();
 }
 function startHole(){
-  H=PLAY[holeIdx]; strokes=0; resetMeter(); buildHole(); envPrewarm(renderer,scene,camera); AT.hold=2500; AT.t=AT.n=AT.sum=0; PF.hitch=0; PF.skip=2;
+  H=PLAY[holeIdx]; strokes=0; replayRec=null; pendingReplay=false; resetMeter(); buildHole(); envPrewarm(renderer,scene,camera); AT.hold=2500; AT.t=AT.n=AT.sum=0; PF.hitch=0; PF.skip=2;
   const [tx,tz]=H.tee; ball.p.set(tx,meshH(tx,tz)+BALL_R+0.03,tz); ball.v.set(0,0,0); ball.mode='rest'; ball.lie='tee'; ball.visible=true; ball.sink=0; ball.last=[tx,tz];
   const a=Math.random()*Math.PI*2, mph=Math.round(Math.random()*14*(H.wind||1)); wind={x:Math.sin(a)*mph*0.447,z:Math.cos(a)*mph*0.447,mph,a};   // exposed holes blow harder
   buildTufts(); if(H.range){ clubIdx=0; aim=0; rangeShot={bonus:0,hit:null}; } else { suggestClub(); aimDefault(); } phase='intro'; camMode='intro'; introT=0;
@@ -2190,26 +2198,39 @@ function nextShot(){ resetMeter();
 }
 const PURE=0.2;                                     // |acc| inside this (the white zone on the meter) is a pure strike: nearly straight
 const strikeShape=a=>Math.abs(a)<=PURE?'pure':a<0?(a<-0.45?'hook':'draw'):(a>0.45?'slice':'fade');
-const bendAcc=a=>Math.abs(a)<=PURE?a*0.25:Math.sign(a)*(PURE*0.25+(Math.abs(a)-PURE)*(1-PURE*0.25)/(1-PURE));   // squeezes the zone, keeps ±1 at the ends
+// how much a strike bends: nearly straight in the pure zone, a gentle curve for a draw/fade, back to the full hook/slice
+// curve from 0.6 out (keeps ±1 at the ends)
+const BEND=[[0,0],[PURE,0.05],[0.45,0.248],[0.6,0.525],[1,1]];
+const bendAcc=a=>{ const x=Math.min(1,Math.abs(a)); for(let i=1;i<BEND.length;i++){ const [x0,y0]=BEND[i-1], [x1,y1]=BEND[i]; if(x<=x1) return Math.sign(a)*(y0+(y1-y0)*(x-x0)/(x1-x0)); } return Math.sign(a); };
 function strike(power,acc){ swooshEnd(); const shape=strikeShape(acc); acc=bendAcc(acc);                        // power 0..1, acc -1..1 (left = hook, right = slice)
   const c=CLUBS[clubIdx], lm=lieMul(), S2=SURF[ball.lie]||SURF.fairway;
   const v=c.v*power*lm*(1-Math.abs(acc)*0.15), la=(c.la+(ball.lie==='sand'?4:0)-(ball.lie==='tee'&&c.n!=='Driver'?0:0))*DEG;
   const dir=aim+acc*0.025, hs=v*Math.cos(la);
   ball.last=[ball.p.x,ball.p.z]; ball.v.set(Math.sin(dir)*hs,v*Math.sin(la),Math.cos(dir)*hs);
-  ball.rpm=c.rpm*S2.spin*(0.82+0.18*power);
+  ball.rpm=c.rpm*lieSpin(clubIdx)*(0.82+0.18*power);
   ball.spinAxis.crossVectors(ball.v,UPV).normalize();                                       // pure backspin axis
   ball.spinAxis.applyAxisAngle(V3(Math.sin(dir),0,Math.cos(dir)),acc*0.55);                 // tilted axis → curve (right for a slice, left for a hook)
   ball.mode='fly'; ball.t=0; ball.inTree=false; ball.marked=false; strokes++; phase='flight'; camMode='flight'; flightPts=0; trail.geometry.setDrawRange(0,0);
   shotMarks(dir,power); sfxStrike(clubIdx,power);
   { const cy=carryInfo(clubIdx,lm*power,dir,true)[0], roll=cy*rollFrac(clubIdx)*1.4, bx=ball.p.x, bz=ball.p.z;              // grass ready before the ball gets there
     ensureTufts(bx+Math.sin(dir)*cy,bz+Math.cos(dir)*cy); ensureTufts(bx+Math.sin(dir)*(cy+roll),bz+Math.cos(dir)*(cy+roll)); } buildHUD(); updateUI();
-  showMsg({pure:'Pure!',hook:'Hook!',draw:'Draw',fade:'Fade',slice:'Slice!'}[shape],1.0);
+  showMsg(ball.lie==='sand'&&clubIdx<C7-1?'Chunked it!<small>TOO LITTLE LOFT FOR SAND</small>':{pure:'Pure!',hook:'Hook!',draw:'Draw',fade:'Fade',slice:'Slice!'}[shape],ball.lie==='sand'&&clubIdx<C7-1?1.6:1.0);
 }
 function putt(dirx,dirz,pow){
-  lastPuttFrom=toPin(); const v=7.2*Math.pow(pow,1.15)*settings.power; ball.last=[ball.p.x,ball.p.z]; ball.v.set(dirx*v,0,dirz*v); ball.mode='roll'; ball.t=0;
+  lastPuttFrom=toPin(); replayRec={pts:[],t:0,from:toPin()}; { const L=toPin()||1; puttLine={x:ball.p.x,z:ball.p.z,ux:(H.pin[0]-ball.p.x)/L,uz:(H.pin[1]-ball.p.z)/L,L}; } const v=7.2*Math.pow(pow,1.15)*settings.power; ball.last=[ball.p.x,ball.p.z]; ball.v.set(dirx*v,0,dirz*v); ball.mode='roll'; ball.t=0;
   strokes++; phase='flight'; camMode='putt'; sfxPutt(pow); buildHUD(); updateUI();
 }
-let lastPuttFrom=null;
+let lastPuttFrom=null, puttLine=null;   // the putt's start and its line to the cup (for the putting camera)
+// ── instant replay: a putt holed from REPLAY_FT or more plays back once after the score, slowed down, from low behind the cup ──
+const REPLAY_FT=25; let replayRec=null, pendingReplay=false, replay=null;
+function playReplay(done){ const P=replayRec&&replayRec.pts; replayRec=null; if(!P||P.length<2){ done(); return; }
+  const dur=P[P.length-1][0], tail=Math.min(1.3,dur), head=dur-tail, play=head+tail/0.45, [cx,cz]=H.pin;   /* real speed, then the last moments in slow motion */ let dx=cx-P[0][1], dz=cz-P[0][3]; const l=Math.hypot(dx,dz)||1; dx/=l; dz/=l;
+  replay={done,cam:[cx+dx*2.6,cz+dz*2.6],anim:null}; phase='replay'; camMode='replay'; ball.mode='rest'; ball.visible=true; ball.p.set(P[0][1],P[0][2],P[0][3]); ball.sink=0;
+  showMsg('INSTANT REPLAY<small>TAP TO SKIP</small>',play+0.6); let i=0;
+  tween(play,u=>{ const tp=u*play, t=tp<=head?tp:head+(tp-head)*0.45; while(i<P.length-2&&P[i+1][0]<t) i++; const a=P[i], b=P[i+1], k=clamp((t-a[0])/((b[0]-a[0])||1),0,1);
+    ball.p.set(mix(a[1],b[1],k),mix(a[2],b[2],k),mix(a[3],b[3],k)); ball.sink=mix(a[4],b[4],k); ball.visible=b[5]; },()=>tween(0.8,()=>{},endReplay),0.5);
+  replay.anim=anims[anims.length-1]; }
+function endReplay(){ if(!replay) return; const d=replay.done, A=replay.anim; replay=null; const j=anims.indexOf(A); if(j>=0) anims.splice(j,1); ball.visible=false; msgT=0.01; d(); }
 function ballStopped(){
   if(ball.mode==='rest') return; ball.mode='rest';
   if(H.range){ rangeBallDone(); return; }
@@ -2238,6 +2259,7 @@ function penalty(kind){
     tween(0.01,()=>{},()=>{ const [x,z]=ball.last; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); nextShot(); },1.8); }
 }
 function holed(){
+  pendingReplay=!!(replayRec&&camMode==='putt'&&replayRec.from*3.281>=REPLAY_FT&&!H.range);
   if(lastPuttFrom!=null){ missHint.note(true,'putt'); lastPuttFrom=null; }
   ball.mode='rest'; phase='sunk'; sfxCup(); const fx=ball.p.x, fz=ball.p.z;
   tween(0.3,u=>{ ball.p.x=fx+(H.pin[0]-fx)*u; ball.p.z=fz+(H.pin[1]-fz)*u; ball.sink=u*0.06; },()=>{ ball.visible=false; endHole(strokes); });
@@ -2246,8 +2268,8 @@ function endHole(sc){
   phase='sunk'; scores.push(sc); saveGame(true); const rel=sc-H.par;
   const term=sc===1?'HOLE IN ONE!':rel<=-3?'ALBATROSS!':rel===-2?'EAGLE!':rel===-1?'BIRDIE!':rel===0?'PAR':rel===1?'BOGEY':rel===2?'DOUBLE BOGEY':'+'+rel;
   if(rel<0){ celebrate(term,rel<=-2?'pink':'gold'); sfxChime('great'); if(!testRound){ stats.aces++; saveStats(); } } else if(rel===0){ celebrate(term,'green'); sfxChime('par'); } else { showMsg(term,1.6); sfxChime('over'); }
-  buildHUD(); tween(0.01,()=>{},()=>{ if(gfxPending&&holeIdx+1<PLAY.length){ saveGame(true); try{ sessionStorage.setItem('gfxAutoReload','1'); }catch(e){} location.reload(); return; }   // Auto graphics stepping down: reload into the next hole
-    holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else busyThen(startHole); },2.4);
+  buildHUD(); tween(0.01,()=>{},()=>{ const go=()=>{ if(gfxPending&&holeIdx+1<PLAY.length){ saveGame(true); try{ sessionStorage.setItem('gfxAutoReload','1'); }catch(e){} location.reload(); return; }   // Auto graphics stepping down: reload into the next hole
+    holeIdx++; if(holeIdx>=PLAY.length) roundOver(); else busyThen(startHole); }; if(pendingReplay){ pendingReplay=false; playReplay(go); } else go(); },2.4);
 }
 // a scorecard: one table per nine (hole numbers, par, your scores), each with its own total
 function cardHTML(nos,pars,sc){ let t=''; for(let a=0;a<pars.length;a+=9){ const p=pars.slice(a,a+9), v=sc.slice(a,a+9);
@@ -2315,7 +2337,7 @@ function updateUI(){
     else ht=drawing()?(p<0.97?`Pin needs about ${pc}% power · tap SWING and draw`:'Drag sideways to aim · tap SWING: back from ADDRESS, then through to FINISH'):(p<0.97?`Pin needs about ${pc}% power · tap SWING`:'Drag sideways to aim · tap SWING to start the meter'); } }
   hint(ht);
 }
-function powerFor(ci,d){ let lo=0.2, hi=1; if(carryOf(ci,lieMul())<d) return 1; for(let i=0;i<14;i++){ const m=(lo+hi)/2; if(carryOf(ci,lieMul()*m)<d) lo=m; else hi=m; } return (lo+hi)/2; }
+function powerFor(ci,d){ let lo=0.2, hi=1; if(carryOf(ci,lieMul(ci))<d) return 1; for(let i=0;i<14;i++){ const m=(lo+hi)/2; if(carryOf(ci,lieMul(ci)*m)<d) lo=m; else hi=m; } return (lo+hi)/2; }
 function hint(t){ document.getElementById('hint').textContent=t; }
 
 // ── 3-click swing meter: start, set power, then stop it on the impact zone for accuracy ──
@@ -2467,14 +2489,23 @@ function updateCamera(dt){
     else { const [c,sd]=planCarry(), far=toPin()<=c*1.3?Math.max(c,toPin()):c, ext=far+Math.max(15,far*0.15); fx=P.x+d[0]*ext+d[1]*sd; fz=P.z+d[1]*ext-d[0]*sd; }
     const mx=mix(P.x,fx,0.62), mz=mix(P.z,fz,0.62), dist=Math.hypot(fx-P.x,fz-P.z);
     _tp.set(mx-d[0]*dist*0.22,hAt(mx,mz)+Math.max(30,dist*1.15),mz-d[1]*dist*0.22); _tl.set(mx,hAt(mx,mz),mz); }
+  else if(camMode==='putt'&&ball.mode==='roll'&&puttLine){
+    // putting: like a bowling lane camera: square behind the line to the cup, sliding part of the way across with the ball,
+    // and stopping short of the cup (rising a little) so you watch it arrive; past the cup it just turns to follow the ball
+    const Lp=puttLine, rx=P.x-Lp.x, rz=P.z-Lp.z, s=rx*Lp.ux+rz*Lp.uz, lat=rx*-Lp.uz+rz*Lp.ux, stop=Math.max(0,Lp.L-1.6), cs=Math.min(s,stop);
+    const near=clamp((s-(Lp.L-3.5))/3.5,0,1), back=2.6+near*0.8, up=1.15+near*0.55, at=(d,o)=>[Lp.x+Lp.ux*d-Lp.uz*o,Lp.z+Lp.uz*d+Lp.ux*o];
+    const [px,pz]=at(cs-back,lat*0.45); _tp.set(px,hAt(P.x,P.z)+up,pz);
+    if(s<=stop+0.05){ const [lx,lz]=at(cs+2.2,lat*0.6); _tl.set(lx,P.y-0.1,lz); } else _tl.copy(P);
+    k=1-Math.exp(-dt*4); }
   else if((camMode==='flight'&&ball.mode==='fly')||ball.mode==='roll'){
     if(!tracking){ camOff.subVectors(camPos,P); lookOff.subVectors(camLook,P); tracking=true; trackDir.set(Math.sin(aim),Math.cos(aim)); }
     const vh=Math.hypot(ball.v.x,ball.v.z); if(vh>0.25){ _v2.set(ball.v.x/vh,ball.v.z/vh); trackDir.lerp(_v2,1-Math.exp(-dt*(ball.mode==='fly'?3:2))).normalize(); }
     const putting=camMode==='putt', fly=ball.mode==='fly', back=putting?2.4:fly?1.8:1.8, up=putting?1.1:fly?0.7:0.7, ahead=putting?2:fly?6:4.5;   // close enough to see a true-size ball
-    _tp.set(-trackDir.x*back,up,-trackDir.y*back); _tl.set(trackDir.x*ahead,fly?-0.15:-0.05,trackDir.y*ahead);
+    _tp.set(-trackDir.x*back,up,-trackDir.y*back); _tl.set(trackDir.x*ahead,putting?-0.05:fly?-1.2:-0.9,trackDir.y*ahead);   /* aimed low enough that the ball sits a little below the middle of the screen */
     const kk=1-Math.exp(-dt*(camOff.length()>back*1.6?7:3)); camOff.lerp(_tp,kk); lookOff.lerp(_tl,kk); camPos.copy(P).add(camOff); camLook.copy(P).add(lookOff);   // catch up quickly from the aiming view, then follow gently
     const gy2=meshH(camPos.x,camPos.z)+0.5; if(camPos.y<gy2) camPos.y=gy2;
     camera.position.copy(camPos); camera.lookAt(camLook); placeSun(P); return; }
+  else if(phase==='replay'&&replay){ _tp.set(replay.cam[0],hAt(replay.cam[0],replay.cam[1])+0.55,replay.cam[1]); _tl.set(P.x,P.y,P.z); k=1-Math.exp(-dt*8); }   // cup-cam: the ball rolls towards you
   else if(phase==='sunk'){ const putting=camMode==='putt';
     _tp.set(P.x-d[0]*(putting?3.2:10),hAt(P.x,P.z)+(putting?1.4:4),P.z-d[1]*(putting?3.2:10)); _tl.set(P.x,P.y,P.z); k=1-Math.exp(-dt*(putting?3:2)); }
   else aimCamera(P,d);
@@ -2512,6 +2543,7 @@ function onBall(e){
   return Math.hypot(e.clientX-sx,e.clientY-sy)<Math.max(40,pxR*2.5);
 }
 function pdown(e){
+  if(phase==='replay'){ e.preventDefault(); endReplay(); return; }
   if(phase==='intro'){ phase='aim'; camMode='aim'; updateUI(); maybeTour(); return; }
   if(phase==='swing'){ swingClick(); return; }                                    // the meter can be tapped anywhere too
   if(phase!=='aim') return; e.preventDefault(); getAC(); initSfx(); startAmbient();
@@ -2659,10 +2691,11 @@ function loop(t){
     if(renderer&&(lastW<2||lastH<2)) resize();
     if(H){
       const n=Math.max(1,Math.ceil(dt*480)); for(let k=0;k<n;k++) physStep(dt/n);
+      if(replayRec&&camMode==='putt'&&replayRec.pts.length<6000&&(ball.mode==='roll'||phase==='sunk')&&(replayRec.pts.length===0||replayRec.pts[replayRec.pts.length-1][5])){ replayRec.t+=dt; replayRec.pts.push([replayRec.t,ball.p.x,ball.p.y,ball.p.z,ball.sink,ball.visible]); }   /* the putt, for an instant replay */
       updateMeter(dt); stepAnims(dt); if(H.range) rangeStep(dt);
       if(phase==='intro'){ introT+=dt; if(introT>3.4){ phase='aim'; camMode='aim'; updateUI(); maybeTour(); } }
       if(flagCloth){ const p=flagCloth.geometry.attributes.position, b=flagCloth.userData.base, ws=0.6+wind.mph/14; const st=H.pixel?0.034:0; for(let i=0;i<p.count;i++){ const x=st?Math.floor(b[i*3]/0.1)*0.1:b[i*3]; let v=Math.sin(clock*4*ws+x*9)*0.04*(x/0.5)*ws; if(st) v=Math.round(v/st)*st; p.setZ(i,v); } p.needsUpdate=true;   // 8 Bit: it flaps in steps
-        pinMesh.rotation.y=Math.atan2(wind.x,wind.z)-Math.PI/2; pinMesh.visible=!(ball.lie==='green'&&toPin()<1.2&&ball.mode!=='rest'); }
+        pinMesh.rotation.y=Math.atan2(wind.x,wind.z)-Math.PI/2; pinMesh.visible=phase!=='replay'&&!(ball.lie==='green'&&toPin()<1.2&&ball.mode!=='rest'); }
       if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').innerHTML=''; }
       if(M.water.map) M.water.map.offset.x+=dt*0.01;
       if(H.space){ M.plasma.map.offset.x+=dt*0.03; M.plasma.map.offset.y-=dt*0.02; }
