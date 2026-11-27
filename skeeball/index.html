@@ -441,7 +441,7 @@ const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 // ═══════════════════════════════════════════════════════
 //  PROCEDURAL TEXTURES (wood, rubber, steel, paint, carpet…)
 // ═══════════════════════════════════════════════════════
-let PERF=false, ANISO=4, GFX=2, RES_SCALE=1;
+let PERF=false, ANISO=4, GFX=2, RES_SCALE=1; const LOW_HEMI=2.1;   // Low graphics: how much brighter the hemisphere light is (it stands in for the fill & accent lights)
 const NZ=(function(){
   let s=1337; const rnd=()=>{ s=(Math.imul(s,1664525)+1013904223)>>>0; return s/4294967296; };
   const P=new Uint16Array(512), V=new Float32Array(256), perm=[...Array(256).keys()];
@@ -1285,7 +1285,7 @@ function coinDoorTex(ac){
 }
 
 // ── back-lit marquee (bulbs / glass LED / dot-matrix, per theme) ──
-let marqCanvas=null, marqBase=null, marqTex=null, marqPhase=0, marqFlash=0;
+let marqSmall=null, marqCanvas=null, marqBase=null, marqTex=null, marqPhase=0, marqFlash=0;
 function marqueeBase(t,canvas){
   const W=1024,H=512, g=canvas.getContext('2d'); g.save(); g.clearRect(0,0,W,H);
   if(t.marquee==='sunset'){
@@ -1381,7 +1381,7 @@ function marqueeBase(t,canvas){
 }
 function initMarquee(){
   marqCanvas=mkCanvas(1024,512); marqBase=mkCanvas(1024,512);
-  marqueeBase(curTheme(),marqBase); marqTex=toTex(marqCanvas); drawMarquee();
+  marqueeBase(curTheme(),marqBase); marqTex=toTex(PERF?(marqSmall=mkCanvas(512,256)):marqCanvas); drawMarquee();   /* Low graphics: a quarter-size copy is what gets uploaded */
 }
 const BULBS=(()=>{ const b=[], W=1024,H=512, m=44; for(let x=m;x<=W-m;x+=46){ b.push([x,m]); } for(let y=m+46;y<=H-m;y+=46){ b.push([W-m,y]); }
   for(let x=W-m-46;x>=m;x-=46){ b.push([x,H-m]); } for(let y=H-m-46;y>m;y-=46){ b.push([m,y]); } return b; })();
@@ -1434,7 +1434,7 @@ function drawMarquee(){
       else { rg.addColorStop(0,'#9a7a4a'); rg.addColorStop(0.6,'#5a3a1a'); rg.addColorStop(1,'rgba(40,20,10,0)'); }
       g.fillStyle=rg; g.beginPath(); g.arc(x,y,on?22:13,0,7); g.fill(); });
   }
-  if(marqTex) marqTex.needsUpdate=true;
+  if(marqTex){ if(marqSmall) marqSmall.getContext('2d').drawImage(marqCanvas,0,0,512,256); marqTex.needsUpdate=true; }
 }
 
 // ── seven-segment LED score panel ──
@@ -1643,9 +1643,10 @@ function setMat(m,p){
   m.needsUpdate=true;
 }
 const L={}; let neonMats=[], ceilMat=null;
-function applyTheme(id){
+function applyTheme(id){ applyThemeInner(id); if(scene) bakeNeighbors(); }
+function applyThemeInner(id){
   const t=THEMES.find(x=>x.id===id)||THEMES[0]; settings.theme=t.id; saveSettings();
-  if(!scene) return;
+  if(!scene) return; NEIGHBORS.forEach(unbake);
   const T=themeTex(t), grid=t.lane.kind==='grid', plate=t.lane.kind==='plate', hull=t.lane.kind==='hull'||t.lane.kind==='tube', flag=t.lane.kind==='flag', ice=t.lane.kind==='ice';
   setMat(M.lane,{map:T.lane,bumpMap:T.laneB,emissiveMap:T.laneG||null,emissive:T.laneG?0xffffff:0x000000,emissiveIntensity:grid?0.85:1,
     roughness:grid?0.22:plate?0.4:hull?0.32:flag?0.62:ice?0.08:0.34,metalness:plate?0.85:hull?0.6:0,clearcoat:plate?0:hull?0.35:flag?0.25:ice?1:0.8,bumpScale:plate?0.07:hull?0.03:flag?0.05:ice?0.02:0.015});
@@ -1665,7 +1666,7 @@ function applyTheme(id){
   marqueeBase(t,marqBase); drawMarquee();
   LEDS.forEach(l=>drawLED(l,l.score,l.ball));
   scene.background.set(t.bg); scene.fog.color.set(t.bg); scene.fog.near=t.fog[0]; scene.fog.far=t.fog[1];
-  L.hemi.color.set(t.hemi[0]); L.hemi.groundColor.set(t.hemi[1]); L.hemi.intensity=t.hemi[2]*(PERF?1.2:1);
+  L.hemi.color.set(t.hemi[0]); L.hemi.groundColor.set(t.hemi[1]); L.hemi.intensity=t.hemi[2]*(PERF?LOW_HEMI:1);
   L.fill.color.set(t.fill[0]); L.fill.intensity=t.fill[1];
   L.key.color.set(t.key[0]); L.key.intensity=t.key[1]; L.tgt.color.set(t.tgt[0]); L.tgt.intensity=t.tgt[1];
   L.acc1.color.set(t.acc[0][0]); L.acc1.intensity=t.acc[0][1]; L.acc2.color.set(t.acc[1][0]); L.acc2.intensity=t.acc[1][1];
@@ -1716,7 +1717,7 @@ function buildDecor(kind){
     for(let k=-NEIGH;k<NEIGH;k++){ const x0=(k+0.5)*MACH_PITCH;                                    // clusters on the floor between machines
       const a=pumpkinMesh(7,true); a.position.set(x0,7*0.8,-21); a.rotation.y=(NZ.rnd()-0.5)*0.6; group.add(a);
       const b=pumpkinMesh(4.5,true); b.position.set(x0+8,4.5*0.8,-25); b.rotation.y=0.4; group.add(b); }
-    const glow=new THREE.PointLight(0xff8a2a,0.9,140,1.6); glow.position.set(0,14,-24); group.add(glow);
+    const glow=new THREE.PointLight(0xff8a2a,0.9,140,1.6); glow.position.set(0,14,-24); if(!PERF) group.add(glow);
     for(const [x,y,z] of [[-70,122,60],[58,132,20],[-22,142,190],[96,118,150]]){ const gh=ghostMesh(); gh.scale.setScalar(1.6); gh.position.set(x,y,z); group.add(gh); ghosts.push({m:gh,x,y,z}); }
   }
   if(kind==='medieval'){
@@ -1731,7 +1732,7 @@ function buildDecor(kind){
       const f1=new THREE.Mesh(flameG(2.2,8),fOut); f1.position.y=64.4; ts.add(f1);
       const f2=new THREE.Mesh(flameG(1.1,4.6),fIn); f2.position.y=64.6; ts.add(f2);
       flames.push(f1,f2);
-      if(Math.abs(x0)<MACH_PITCH){ const pl=new THREE.PointLight(0xff9a3a,0.9,170,1.6); pl.position.set(x0,74,38); group.add(pl); lights.push(pl); } }
+      if(Math.abs(x0)<MACH_PITCH){ const pl=new THREE.PointLight(0xff9a3a,0.9,170,1.6); pl.position.set(x0,74,38); if(!PERF) group.add(pl); lights.push(pl); } }
     for(let k=-NEIGH;k<=NEIGH;k++){ const x0=k*MACH_PITCH;                                      // heraldic banners above each machine
       const rod=new THREE.Mesh(new THREE.CylinderGeometry(0.5,0.5,24,8),iron); rod.rotation.z=Math.PI/2; rod.position.set(x0,148,104); group.add(rod);
       const c=mkCanvas(256,512), g=c.getContext('2d'), blue=(k&1)!==0;
@@ -1843,15 +1844,15 @@ function initScene(){
   buildMaterials();
   // lights
   const hemi=new THREE.HemisphereLight(0x6a6090,0x1a1010,0.5); scene.add(hemi); L.hemi=hemi;
-  const fill=new THREE.DirectionalLight(0xffe8d0,0.25); fill.position.set(60,200,-120); scene.add(fill); L.fill=fill;
+  const fill=new THREE.DirectionalLight(0xffe8d0,0.25); fill.position.set(60,200,-120); if(!PERF) scene.add(fill); L.fill=fill;   /* Low graphics: no fill or accent lights (each light is paid for on every lit pixel); the hemisphere makes up for them */
   const key=new THREE.SpotLight(0xfff1dc,1.5,520,0.5,0.55,1.0);
   key.position.set(8,175,-10); key.target.position.set(0,40,70); scene.add(key); scene.add(key.target); L.key=key;
   if(!PERF){ key.castShadow=true; key.shadow.mapSize.set(GFX===2?2048:1024,GFX===2?2048:1024); key.shadow.camera.near=60; key.shadow.camera.far=360; key.shadow.bias=-0.0004; key.shadow.normalBias=0.03; }
   const tgt=new THREE.SpotLight(0xfff6ea,1.25,340,0.42,0.5,1.0);
   tgt.position.set(0,150,58); tgt.target.position.copy(boardPt(0,WC)); scene.add(tgt); scene.add(tgt.target); L.tgt=tgt;
   if(GFX===2){ tgt.castShadow=true; tgt.shadow.mapSize.set(1024,1024); tgt.shadow.camera.near=40; tgt.shadow.camera.far=240; tgt.shadow.bias=-0.0004; tgt.shadow.normalBias=0.03; }
-  const mag=new THREE.PointLight(0xff2fa8,0.7,420,1.5); mag.position.set(-110,90,150); scene.add(mag); L.acc1=mag;
-  const cyn=new THREE.PointLight(0x19e3ff,0.6,420,1.5); cyn.position.set(110,90,20); scene.add(cyn); L.acc2=cyn;
+  const mag=new THREE.PointLight(0xff2fa8,0.7,420,1.5); mag.position.set(-110,90,150); if(!PERF) scene.add(mag); L.acc1=mag;
+  const cyn=new THREE.PointLight(0x19e3ff,0.6,420,1.5); cyn.position.set(110,90,20); if(!PERF) scene.add(cyn); L.acc2=cyn;
 
   buildRoom();
   const NEIGH=PERF?1:2;
@@ -1883,8 +1884,24 @@ function buildRoom(){
 }
 
 // one complete alley cabinet centered at x=xo
+// ── Low graphics: each machine's static meshes are baked into one mesh per material (about 60 draw calls a machine down
+// to a handful); anything that moves is left out (skip). A theme change can show or hide some pieces (and reshape the
+// nets), so applyTheme un-bakes them first and bakes them again afterwards ──
+const NEIGHBORS=[];
+function unbake(N){ for(const m of N.baked){ N.root.remove(m); m.geometry.dispose(); } for(const o of N.hidden) o.visible=true; N.baked=[]; N.hidden=[]; }
+function bakeNeighbors(){ if(!PERF) return; const M4=new THREE.Matrix4();
+  const cat=a=>{ let n=0; for(const x of a) n+=x.length; const r=new Float32Array(n); let k=0; for(const x of a){ r.set(x,k); k+=x.length; } return r; };
+  for(const N of NEIGHBORS){ unbake(N); N.root.updateMatrixWorld(true); const inv=N.root.matrixWorld.clone().invert(), groups=new Map();
+    N.root.traverse(o=>{ if(!o.isMesh||Array.isArray(o.material)||!o.geometry.attributes.position) return; for(let p=o;p&&p!==N.root;p=p.parent) if(!p.visible||N.skip.has(p)) return;
+      const A=o.geometry.attributes, key=o.material.uuid+(A.normal?'n':'')+(A.uv?'u':''); if(!groups.has(key)) groups.set(key,[]); groups.get(key).push(o); });
+    for(const list of groups.values()){ if(list.length<2) continue; const A0=list[0].geometry.attributes, pos=[], nor=[], uv=[];
+      for(const o of list){ const g=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone(); M4.multiplyMatrices(inv,o.matrixWorld); g.applyMatrix4(M4);
+        pos.push(g.attributes.position.array); if(A0.normal) nor.push(g.attributes.normal.array); if(A0.uv) uv.push(g.attributes.uv.array); g.dispose(); o.visible=false; N.hidden.push(o); }
+      const bg=new THREE.BufferGeometry(); bg.setAttribute('position',new THREE.BufferAttribute(cat(pos),3));
+      if(A0.normal) bg.setAttribute('normal',new THREE.BufferAttribute(cat(nor),3)); if(A0.uv) bg.setAttribute('uv',new THREE.BufferAttribute(cat(uv),2));
+      const m=new THREE.Mesh(bg,list[0].material); N.root.add(m); N.baked.push(m); } } }
 function buildMachine(xo,main){
-  const root=new THREE.Group(); root.position.x=xo; scene.add(root);
+  const root=new THREE.Group(); root.position.x=xo; scene.add(root); const BK={root,baked:[],hidden:[],skip:new Set()}; NEIGHBORS.push(BK);
   const sh=m=>{ if(!PERF&&main){ m.castShadow=true; m.receiveShadow=true; } return m; };
   const add=(geo,mt,x,y,z,parent)=>{ const m=new THREE.Mesh(geo,mt); m.position.set(x,y,z); (parent||root).add(m); return sh(m); };
   // ── tilted lane assembly ──
@@ -1966,7 +1983,7 @@ function buildMachine(xo,main){
   add(new THREE.BoxGeometry(CAB_W,1.2,8),M.trim,0,104.4,103);
   add(new THREE.BoxGeometry(CAB_W,1.2,1.2),M.edge,0,88,99.3);
   if(!main){ // a few spare balls resting in the neighbor trays
-    const bm=new THREE.MeshPhysicalMaterial({map:toTex(ballCanvas(BALL_TYPES[(Math.random()*BALL_TYPES.length)|0].id)),roughness:0.35,clearcoat:0.7});
+    const bm=mat({map:toTex(ballCanvas(BALL_TYPES[(Math.random()*BALL_TYPES.length)|0].id)),roughness:0.35,clearcoat:0.7},true);
     for(let i=0;i<9;i++){ const b=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,20,14),bm); b.position.set(12.5-i*3.0,TRAY_Y+BALL_R,TRAY_Z); b.rotation.set(Math.random()*6,Math.random()*6,0); root.add(b); }
   }
 }
@@ -1984,7 +2001,7 @@ function applyBall(id){ settings.ball=id; saveSettings(); if(!ballMat) return;
   ballMat.map=tex; ballMat.emissive.set(bt.glow?0xffffff:0x000000); ballMat.emissiveMap=bt.glow?tex:null; ballMat.emissiveIntensity=bt.glow||1; ballMat.needsUpdate=true; }
 function applyCups(on){
   settings.cups=on; saveSettings(); POCKETS=buildPockets(); LIPS=buildLips();
-  if(boardCanvas) drawBoard(); cupMeshes.forEach(m=>m.visible=on);
+  if(boardCanvas) drawBoard(); NEIGHBORS.forEach(unbake); cupMeshes.forEach(m=>m.visible=on); bakeNeighbors();
 }
 
 function resize(){
@@ -2299,7 +2316,7 @@ function gfxActive(){ return !(phase==='menu'||phase==='over'||phase==='aim')||d
 function gfxStill(){ return false; }
 function gfxPlaying(){ return !(phase==='menu'||phase==='over')&&!document.getElementById('settings').classList.contains('open'); }
 // frames land on whole display refreshes (60 fps is 60 on a 60 Hz screen and 72 on a 144 Hz one, not a jittery 65)
-function frameGap(t){ if(gfxActive()) _busyT=t; _idle=t-_busyT>1500; const want=_idle?(t-_busyT>3000?66.7:(PERF?50:33.3)):16.7, r=_refresh, k=Math.max(1,Math.floor(want/r+0.25)); _target=k*r; return _target-r*0.5; }
+function frameGap(t){ if(gfxActive()) _busyT=t; _idle=t-_busyT>1500; const want=_idle?(t-_busyT>3000?66.7:(PERF?50:33.3)):(PERF?33.3:16.7), r=_refresh, k=Math.max(1,Math.floor(want/r+0.25)); _target=k*r; return _target-r*0.5; }
 function gfxFrameSkip(t){ return t-lastT<frameGap(t)||(_idle&&t-_busyT>3000&&_frameN>30&&gfxStill()); }
 function gfxShadows(){ if(renderer&&renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate=!_idle||(_frameN&1)===0; }   // idle: shadows every other frame
 const PF={t:0,n:0,sum:0,max:0,cpu:0,hitch:0,el:null,skip:0}, AT={t:0,n:0,sum:0,fast:0,hold:0}; let gfxPending=false;
@@ -2343,8 +2360,8 @@ function loop(t){
     if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').textContent=''; }
     marqT+=dt; if(marqFlash>0) marqFlash-=dt;
     if(curTheme().decor) animateDecor(t/1000);
-    if(curTheme().back==='rain'){ rainT+=dt; if(rainT>0.07){ rainT=0; stepRain(); } }
-    if(marqT>(marqFlash>0?0.09:(PERF?0.3:0.16))){ marqT=0; marqPhase++; drawMarquee(); }
+    if(curTheme().back==='rain'){ rainT+=dt; if(rainT>(PERF?0.14:0.07)){ rainT=0; stepRain(); } }
+    if(marqT>(marqFlash>0?(PERF?0.18:0.09):(PERF?0.45:0.16))){ marqT=0; marqPhase++; drawMarquee(); }
     if(renderer){ syncBall(dt); syncAim(); updateCamera(dt); renderer.render(scene,camera); }
   }catch(err){ showFatal(err); }
   perfSample(raw,performance.now()-c0);

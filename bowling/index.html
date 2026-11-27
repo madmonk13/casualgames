@@ -472,6 +472,9 @@ function loadTiledTex(url,repeat,cb,bgColor){
 
 // material factory: Standard (PBR) normally, cheap Lambert in Low graphics mode.
 // Lambert ignores roughness/metalness, so those keys are stripped when downgrading.
+// several geometries (already placed) as one: position, normal & uv joined end to end
+function mergeGeos(list){ const parts=list.map(g=>g.index?g.toNonIndexed():g), cat=(k,n)=>{ let len=0; for(const g of parts) len+=g.attributes[k].count*n; const r=new Float32Array(len); let o=0; for(const g of parts){ r.set(g.attributes[k].array,o); o+=g.attributes[k].count*n; } return new THREE.BufferAttribute(r,n); };
+  const out=new THREE.BufferGeometry(); out.setAttribute('position',cat('position',3)); out.setAttribute('normal',cat('normal',3)); out.setAttribute('uv',cat('uv',2)); list.forEach(g=>g.dispose()); parts.forEach(g=>g.dispose()); return out; }
 function mkMat(p){
   p=p||{};
   if(PERF){ const q={}; for(const k in p){ if(k!=='roughness'&&k!=='metalness') q[k]=p[k]; } return new THREE.MeshLambertMaterial(q); }
@@ -630,13 +633,13 @@ function addLaneStrip(xoff,deco){
   }
   // aiming arrows + approach dots + foul line (on every lane)
   const markMat=mkMat({color:0x3a230c,roughness:0.75});
+  const marks=[];      // (one mesh for all of a lane's arrows & dots: 1 draw call instead of 14)
   for(let a=-3;a<=3;a++){
     const sh=new THREE.Shape(); sh.moveTo(0,4); sh.lineTo(-2.4,-3); sh.lineTo(2.4,-3); sh.closePath();
-    const arw=new THREE.Mesh(new THREE.ShapeGeometry(sh),markMat);
-    arw.rotation.x=-Math.PI/2; arw.position.set(xoff+a*5.06,0.1,180+Math.abs(a)*14); arw.scale.set(2,2,2); scene.add(arw);
-    const dot=new THREE.Mesh(new THREE.CircleGeometry(1.6,16),markMat);
-    dot.rotation.x=-Math.PI/2; dot.position.set(xoff+a*5.06,0.1,84); scene.add(dot);
+    const ag=new THREE.ShapeGeometry(sh); ag.scale(2,2,2); ag.rotateX(-Math.PI/2); ag.translate(xoff+a*5.06,0.1,180+Math.abs(a)*14); marks.push(ag);
+    const dg=new THREE.CircleGeometry(1.6,16); dg.rotateX(-Math.PI/2); dg.translate(xoff+a*5.06,0.1,84); marks.push(dg);
   }
+  scene.add(new THREE.Mesh(mergeGeos(marks),markMat));
   const flMat=mkMat({color:0xf2f2f2,roughness:0.6});
   const fl=new THREE.Mesh(new THREE.BoxGeometry(2*PLAY,0.3,1.5),flMat);
   fl.position.set(xoff,0.15,2); scene.add(fl);
@@ -1147,7 +1150,7 @@ function gfxActive(){ return !(phase==='menu'||phase==='over'||phase==='aim')||d
 function gfxStill(){ return true; }
 function gfxPlaying(){ return !(phase==='menu'||phase==='over')&&!document.getElementById('settings').classList.contains('open'); }
 // frames land on whole display refreshes (60 fps is 60 on a 60 Hz screen and 72 on a 144 Hz one, not a jittery 65)
-function frameGap(t){ if(gfxActive()) _busyT=t; _idle=t-_busyT>1500; const want=_idle?(t-_busyT>3000?66.7:(PERF?50:33.3)):16.7, r=_refresh, k=Math.max(1,Math.floor(want/r+0.25)); _target=k*r; return _target-r*0.5; }
+function frameGap(t){ if(gfxActive()) _busyT=t; _idle=t-_busyT>1500; const want=_idle?(t-_busyT>3000?66.7:(PERF?50:33.3)):(PERF?33.3:16.7), r=_refresh, k=Math.max(1,Math.floor(want/r+0.25)); _target=k*r; return _target-r*0.5; }
 function gfxFrameSkip(t){ return t-lastT<frameGap(t)||(_idle&&t-_busyT>3000&&_frameN>30&&gfxStill()); }
 function gfxShadows(){ if(renderer&&renderer.shadowMap.enabled) renderer.shadowMap.needsUpdate=!_idle||(_frameN&1)===0; }   // idle: shadows every other frame
 const PF={t:0,n:0,sum:0,max:0,cpu:0,hitch:0,el:null,skip:0}, AT={t:0,n:0,sum:0,fast:0,hold:0}; let gfxPending=false;
