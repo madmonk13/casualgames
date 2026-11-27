@@ -232,7 +232,7 @@ html,body{width:100dvw;height:100dvh;background:#08060e;font-family:'Segoe UI',A
     <div class="cal-grid" id="calGrid"></div><div class="cal-sum" id="calSum"></div><div id="histList"></div>
     <div class="cp-row"><button id="histBack">Back<small>to courses</small></button></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.4 · Updated Nov 26, 2026</div>
+  <div id="ver">Version 0.9.5 · Updated Nov 26, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -934,7 +934,9 @@ function hAt(x,z){
   let h=0; if(!H) return 0;
   for(const f of H.feat){
     if(f.t==='base') h+=f.h;
-    else if(f.t==='ramp'||f.t==='zstep'){ const u=clamp((z-f.z0)/(f.z1-f.z0),0,1); h+=f.h*(f.lin?u:smooth(u)); }
+    else if(f.t==='ramp'||f.t==='zstep'){ const u=clamp((z-f.z0)/(f.z1-f.z0),0,1); let k=f.h*(f.lin?u:smooth(u));
+      if(k&&f.x0!=null){ const fe=Math.max(0.5,Math.min(2.5,(f.x1-f.x0)/3)); k*=smooth(clamp((x-f.x0)/fe,0,1))*smooth(clamp((f.x1-x)/fe,0,1)); }   /* one lane only: its sides bank down over a short edge */
+      h+=k; }
     else if(f.t==='pathRamp') h+=f.h*smooth(clamp((pathS(x,z)-f.s0)/(f.s1-f.s0),0,1));
     else if(f.t==='sink'){ if(inZone(f.zone,x,z)) h-=f.d*smooth(clamp(zoneEdgeDist(f.zone,x,z)/f.e,0,1)); }
     else if(f.t==='pit'){ const di=polyDepth(x,z,f.poly); if(di>0){ let k=smooth(clamp(di/f.e,0,1)); if(f.ramp) k*=1-smooth(clamp((z-f.ramp[0])/(f.ramp[1]-f.ramp[0]),0,1)); h-=f.d*k; } }
@@ -1284,7 +1286,8 @@ function buildClown(o,add){ const gy=BASE_Y+hAt(0,o.z-4);      // stands on the 
 function gateAngle(G,t){ return G.a0+(G.a1-G.a0)*(0.5-0.5*Math.cos(2*Math.PI*t/G.period)); }
 function updateGates(t){ for(const G of GATES){ const a=gateAngle(G,t), om=(G.a1-G.a0)*Math.PI/G.period*Math.sin(2*Math.PI*t/G.period);
   G.seg.b=[G.seg.hx+Math.cos(a)*G.len,G.seg.hz+Math.sin(a)*G.len]; G.seg.om=om; G.g.rotation.y=-a; } }
-function zoneAt(x,z,type){ for(const Z of ZONES) if(Z.t===type&&inZone(Z,x,z)) return Z; return null; }
+function zoneAt(x,z,type){ if(type==='water'&&LIFTS.length&&liftAt(x,z)) return null;   /* a bridge over water keeps the ball dry */
+  for(const Z of ZONES) if(Z.t===type&&inZone(Z,x,z)) return Z; return null; }
 function splash(){
   missHint.count('water',3,'The water keeps winning!<br>Tap the <b>map button</b> to see the whole hole first, and try a gentler putt — the bridges are narrow.');
   phase='splash'; stopRoll(); sfxSplash(); const sx=ball.x, sz=ball.z; ball.visible=false; strokes++; buildHUD();
@@ -1473,7 +1476,9 @@ function buildHole(){
     SEGS.push({a:p,b:q,r:BALL_R+RAIL_T/2,e:E_RAIL,kind:'rail'}); });
   for(const f of H.feat) if(f.t==='cone'&&f.rock!==false&&!H.obst.some(o=>o.t==='spin'&&o.c[0]===f.x&&o.c[1]===f.z)){ buildPieceMats();     // rock cone (not under a turntable's dome)
     const cone=add(diskGeom(f.x,f.z,f.r,0.04,14,CUP_R+3.6),M.rock,false); cone.receiveShadow=!PERF; }
-  for(const f of H.feat) if(f.t==='zstep'&&f.lip&&f.h<0) SEGS.push({a:[-999,f.z0],b:[999,f.z0],r:BALL_R,e:0.3,kind:'ledge',n:[0,1]});   // a tier's lip: drop down it, but no rolling back up
+  for(const f of H.feat) if(f.t==='zstep'&&f.lip&&f.h<0){ const lim=f.x0!=null, zE=bbox(H.pts)[3]+5;
+    SEGS.push({a:[lim?f.x0:-999,f.z0],b:[lim?f.x1:999,f.z0],r:BALL_R,e:0.3,kind:'ledge',n:[0,1]});
+    if(lim){ SEGS.push({a:[f.x0,f.z0],b:[f.x0,zE],r:BALL_R,e:0.3,kind:'ledge',n:[1,0]}); SEGS.push({a:[f.x1,f.z0],b:[f.x1,zE],r:BALL_R,e:0.3,kind:'ledge',n:[-1,0]}); } }   // a tier's lip: drop down it, but no rolling back up
   for(const o of H.obst){
     if(o.t==='wall'){ edges.push({a:o.a,b:o.b,n:null,skirt:false,h:o.h}); SEGS.push({a:o.a,b:o.b,r:BALL_R+RAIL_T/2,e:E_RAIL,kind:'rail'}); }
     else if(o.t==='post'){ const m=add(new THREE.CylinderGeometry(o.r,o.r,RAIL_H+1.5,24),M.white); m.position.set(o.x,BASE_Y+hAt(o.x,o.z)+(RAIL_H+1.5)/2,o.z);
@@ -1657,13 +1662,13 @@ function resumeGame(g){ tourPending=false;
 function startHole(){
   H=PLAY[holeIdx]; strokes=0; buildHole(); prewarmTOD(); gfxSettle();
   ball.x=H.tee[0]; ball.z=H.tee[1]; ball.vx=ball.vz=0; ball.sink=0; ball.visible=true; ballMesh.visible=true;
-  { const [ax,az]=pathAhead(ball.x,ball.z); viewDir.set(ax-ball.x,az-ball.z); if(viewDir.lengthSq()>4) viewDir.normalize(); else viewDir.set(0,1); }   // face down this hole now, or the fly-in starts along the last hole's final roll and swings round
+  viewHeld=false; { const [ax,az]=pathAhead(ball.x,ball.z); viewDir.set(ax-ball.x,az-ball.z); if(viewDir.lengthSq()>4) viewDir.normalize(); else viewDir.set(0,1); }   // face down this hole now, or the fly-in starts along the last hole's final roll and swings round
   phase='intro'; camMode='intro'; introT=0; viewOn=false; document.getElementById('view').classList.remove('on');
   showMsg(`HOLE ${HOLE_NO0+holeIdx+1} · ${H.name.toUpperCase()}<small>PAR ${H.par}</small>`,2.4);
   buildHUD(); saveGame();
 }
 function putt(dirx,dirz,pow){
-  ball.cupV=null; puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.15)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
+  ball.cupV=null; shotDir.set(dirx,dirz); viewHeld=true; puttFrom=Math.hypot(ball.x-H.cup[0],ball.z-H.cup[1]); const v=MAXV*Math.pow(pow,1.15)*settings.power; ball.vx=dirx*v; ball.vz=dirz*v; lastPos=[ball.x,ball.z];
   strokes++; phase='roll'; rollStart=clock; sfxPutt(pow); startRoll(); buildHUD();
 }
 let puttFrom=1e9;
@@ -1734,7 +1739,8 @@ function buildHUD(){
 // ═══════════════════════════════════════════════════════
 //  CAMERA: hole fly-over → behind the ball, looking down the hole → follows the roll
 // ═══════════════════════════════════════════════════════
-let camMode='intro', introT=0, viewOn=false;
+let camMode='intro', introT=0, viewOn=false, viewHeld=false, turnX=null;   /* viewHeld: the aim view stays where the player putted or turned it (not swung back to the hole) */
+const shotDir=new THREE.Vector2(0,1);
 const camPos=V3(0,200,-200), camLook=V3(0,0,0), _tp=V3(), _tl=V3(), viewDir=new THREE.Vector2(0,1), _v2=new THREE.Vector2();
 function pathDist(P,x,z){ let m=1e9; for(let i=0;i<P.length-1;i++){ const ax=P[i][0], az=P[i][1], dx=P[i+1][0]-ax, dz=P[i+1][1]-az, t=clamp(((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz||1),0,1); m=Math.min(m,Math.hypot(x-ax-dx*t,z-az-dz*t)); } return m; }
 function pathAhead(x,z){                          // a point ~70" further along the hole's guide path (or its alternate route, when that's nearer)
@@ -1759,7 +1765,7 @@ function updateCamera(dt){
   if(camMode==='intro'||camMode==='overview'){ overviewTargets(); }
   else {
     if(phase==='roll'&&Math.hypot(ball.vx,ball.vz)>25){ _v2.set(ball.vx,ball.vz).normalize(); viewDir.lerp(_v2,1-Math.exp(-dt*1.6)).normalize(); }
-    else if(phase==='aim'&&!aiming){ const [ax,az]=pathAhead(ball.x,ball.z); _v2.set(ax-ball.x,az-ball.z); if(_v2.lengthSq()>4){ _v2.normalize(); viewDir.lerp(_v2,1-Math.exp(-dt*2.5)).normalize(); } }
+    else if(phase==='aim'&&!aiming&&turnX==null){ if(viewHeld) _v2.copy(shotDir); else { const [ax,az]=pathAhead(ball.x,ball.z); _v2.set(ax-ball.x,az-ball.z); } if(_v2.lengthSq()>1e-4){ _v2.normalize(); viewDir.lerp(_v2,1-Math.exp(-dt*2.5)).normalize(); } }
     let back=phase==='roll'?52:CAM_AIM[0], up=phase==='roll'?42:CAM_AIM[1];
     for(const [kb,ku] of [[1,1],[0.85,1.35],[0.65,1.7],[0.42,2.05],[0.2,2.3]]){             // first camera height that sees the ball clear of rails & the windmill
       _tp.set(ball.x-viewDir.x*back*kb,by+up*ku,ball.z-viewDir.y*back*kb); if(!ballHidden(_tp,by)) break; } _tl.set(ball.x+viewDir.x*CAM_AIM[2],by,ball.z+viewDir.y*CAM_AIM[2]);
@@ -1809,18 +1815,20 @@ function onBall(e){
 function pdown(e){
   if(phase==='intro'){ camMode=viewOn?'overview':'aim'; phase='aim'; maybeTour(); return; }     // tap skips the fly-over
   if(phase!=='aim') return; e.preventDefault(); getAC(); initSfx(); startAmbient();
-  tapPx=null; if(!onBall(e)){ tapPx=[e.clientX,e.clientY]; return; }          // a putt has to start on the ball; elsewhere is only a tap (to place the ball on the tee mat)
+  tapPx=null; if(!onBall(e)){ tapPx=[e.clientX,e.clientY]; if(camMode==='aim'){ turnX=e.clientX; try{ renderer.domElement.setPointerCapture(e.pointerId); }catch(_){} } return; }   /* off the ball: a tap, or a sideways drag that turns the view */          // a putt has to start on the ball; elsewhere is only a tap (to place the ball on the tee mat)
   const p=planePt(e); if(!p) return; aiming=true; aimStart=p; aimPx=[e.clientX,e.clientY]; pullLen=pullFit(renderer.domElement.getBoundingClientRect(),e.clientY); aimPow=0; pullHist=[]; stage.classList.add('aiming');
   try{ renderer.domElement.setPointerCapture(e.pointerId); }catch(_){}
 }
 function pmove(e){
+  if(turnX!=null&&!aiming){ if(phase!=='aim'||camMode!=='aim'){ turnX=null; return; } e.preventDefault(); const a=Math.atan2(viewDir.x,viewDir.y)-(e.clientX-turnX)*0.005; turnX=e.clientX;
+    viewDir.set(Math.sin(a),Math.cos(a)); shotDir.copy(viewDir); viewHeld=true; return; }   /* drag right to look right */
   if(!aiming) return; e.preventDefault(); const p=planePt(e); if(!p) return;
   const dx=aimStart[0]-p[0], dz=aimStart[1]-p[1], l=Math.hypot(dx,dz);
   const full=pullLen, px=Math.hypot(e.clientX-aimPx[0],e.clientY-aimPx[1]);
   aimPow=clamp(px/full,0,1); if(l>0.3) aimDir.set(dx/l,dz/l); pullNote(aimPow,aimDir.x,aimDir.y);
 }
 function pup(e){
-  const tap=tapPx&&Math.hypot(e.clientX-tapPx[0],e.clientY-tapPx[1])<12; tapPx=null;
+  const tap=tapPx&&Math.hypot(e.clientX-tapPx[0],e.clientY-tapPx[1])<12; tapPx=null; turnX=null;
   if(!aiming&&!tap) return; e.preventDefault(); aiming=false; stage.classList.remove('aiming');
   { const h=pullRelease(); if(h){ aimPow=h[1]; aimDir.set(h[2],h[3]); } } pullHist=[];
   if(aimPow>0.04&&phase==='aim') putt(aimDir.x,aimDir.y,aimPow);
@@ -2134,7 +2142,7 @@ function setupSettings(){
 let tourPending=false;
 const tour={open:false,i:0};
 const TOUR=[
-  {t:'Putting',el:[],b:()=>'<p><b>Touch the ball and pull back</b>, away from where you want it to go, then let go to putt. The further you pull, the harder the putt.</p><p>The dotted guide shows your line and stretches to about where the putt will stop.</p>'},
+  {t:'Putting',el:[],b:()=>'<p><b>Touch the ball and pull back</b>, away from where you want it to go, then let go to putt. The further you pull, the harder the putt.</p><p>The dotted guide shows your line and stretches to about where the putt will stop.</p><p><b>Drag the grass left or right</b> (away from the ball) to turn and look another way.</p>'},
   {t:'The tee mat',el:[],b:()=>'<p>Before your first putt on each hole, tap anywhere on the dark <b>tee mat</b> to move your ball there and set up a better angle.</p>'},
   {t:'Scorecard',el:['#hud'],b:()=>'<p>Your strokes for each hole against par, with your running total and best round.</p>'},
   {t:'Overview',el:['#view'],b:()=>'<p>Tap for a view of the whole hole from above, so you can plan around the obstacles. Tap again to come back down.</p>'},

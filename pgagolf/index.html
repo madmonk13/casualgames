@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.8 · Updated Nov 26, 2026</div>
+  <div id="ver">Version 0.9.9 · Updated Nov 26, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -2581,8 +2581,10 @@ function syncAim(){
 let mapBase=null;
 function drawMap(rebuild){
   const cv=document.getElementById('map'), g=cv.getContext('2d'), W=cv.width, Hh=cv.height;
-  let ax0=1e9,ax1=-1e9,az1=-1e9; for(const [x,z] of H.route){ ax0=Math.min(ax0,x); ax1=Math.max(ax1,x); az1=Math.max(az1,z); }
-  let x0=ax0-H.ob*0.8, x1=ax1+H.ob*0.8, z0=-24, z1=az1+30; const asp=(z1-z0)/(x1-x0), want=Hh/W; if(asp<want){ const ex=((z1-z0)/want-(z1-z0))/2; z0-=ex*0.2; z1+=ex*1.8; } else { const ex=((z1-z0)/want-(x1-x0))/2; x0-=ex; x1+=ex; }
+  let ax0=1e9,ax1=-1e9,az0=1e9,az1=-1e9; const take=(x,z,r)=>{ ax0=Math.min(ax0,x-r); ax1=Math.max(ax1,x+r); az0=Math.min(az0,z-r); az1=Math.max(az1,z+r); };
+  for(const [x,z] of H.route) take(x,z,H.ob*0.8); take(H.tee[0],H.tee[1],24); take(H.pin[0],H.pin[1],30); take(H.green.c[0],H.green.c[1],Math.max(H.green.rx,H.green.rz)+8);
+  let x0=ax0, x1=ax1, z0=az0, z1=az1; const asp=(z1-z0)/(x1-x0), want=Hh/W;     /* fit the whole hole, keeping the map's shape */
+  if(asp<want){ const ex=((x1-x0)*want-(z1-z0))/2; z0-=ex*0.2; z1+=ex*1.8; } else { const ex=((z1-z0)/want-(x1-x0))/2; x0-=ex; x1+=ex; }
   const sx=W/(x1-x0), sz=Hh/(z1-z0), m=(x,z)=>[ (x1-x)*sx, Hh-(z-z0)*sz ];   // screen-left is world +x
   if(rebuild||!mapBase){ mapBase=mkCanvas(W,Hh); const b=mapBase.getContext('2d'), img=b.createImageData(W,Hh), d=img.data, c3=[0,0,0];
     for(let py=0;py<Hh;py++) for(let px=0;px<W;px++){ const x=x1-(px+0.5)/sx, z=z0+(Hh-py-0.5)/sz, s=surfAt(x,z), c=SURF_COL[s==='water'?'water':s], i=(py*W+px)*4;
