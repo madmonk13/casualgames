@@ -288,7 +288,7 @@ body.lefty #row{flex-direction:row-reverse;}
     </div>
     <div class="sec"><div class="sec-label" id="skinLbl">Course theme</div>
       <select id="skinSel" class="dd" aria-labelledby="skinLbl">
-      <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
+      <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="city">City Park</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
       <option value="dunes">Dunes</option><option value="highlands">Highlands</option><option value="jungle">Jungle</option><option value="ocean">Ocean Side</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
       </select>
     </div>
@@ -323,7 +323,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="histBack">Back<small>to courses</small></button></div></div>
   <div id="genPanel"><div class="cp-label" id="genThemeLbl">Theme</div>
     <select id="genThemeSel" class="dd gen-dd" aria-labelledby="genThemeLbl">
-      <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
+      <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="city">City Park</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
       <option value="dunes">Dunes</option><option value="highlands">Highlands</option><option value="jungle">Jungle</option><option value="ocean">Ocean Side</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
     </select>
     <div class="cp-label" id="genDiffLbl">Difficulty</div>
@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.12 · Updated Nov 27, 2026</div>
+  <div id="ver">Version 0.9.13 · Updated Nov 28, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -1140,6 +1140,8 @@ const THEMES={
   sketch:{name:'Sketch',hills:[0.9,2.0],mounds:[0,1.4],dense:0.9,water:0.5,wind:1,bunk:1,sketch:true},   // pencil on paper
   apoc:{name:'Post-Apocalypse',hills:[1.2,2.3],mounds:[0.6,1.8],dense:0.35,water:0.65,wind:1.2,bunk:0.9,apoc:true,trees:{dead:0.7,ashbush:0.3},haze:0x5a1808,   // scorched wasteland; water is lava
     surf:{fairway:[98,84,74],tee:[106,90,78],fringe:[84,66,58],green:[112,58,48],rough:[62,48,42],deep:[46,34,30],ob:[40,30,26],sand:[150,142,132]}},
+  city:{name:'City Park',hills:[0.6,1.3],mounds:[0.2,1.0],dense:0.8,water:0.55,wind:0.8,bunk:1,city:true,trees:{oak:0.45,poplar:0.2,shrub:0.2,pine:0.15},haze:0xc6cad2,   // a park in the middle of town: streets and buildings past out of bounds
+    land:[0.16,0.16,0.16],far:0x4a4c52},
   jungle:{name:'Jungle',hills:[1.1,2.1],mounds:[0.3,1.4],dense:1.35,water:0.7,wind:0.55,bunk:0.8,trees:{canopy:0.38,palm:0.14,banana:0.2,fern:0.28},haze:0xb2c8a8,
     wood:[0.018,0.06,0.016],land:[0.04,0.1,0.035],far:0x1f4a1a,
     surf:{fairway:[72,160,54],tee:[84,168,62],fringe:[62,148,50],green:[70,172,60],rough:[46,120,38],deep:[34,94,28],ob:[30,86,26],sand:[232,214,170]}},
@@ -1159,6 +1161,7 @@ const THEME_WORDS={default:['Oak','Willow','Meadow','Brook','Hollow','Ridge','Gl
   scifi:['Orbit','Nebula','Quasar','Station','Airlock','Comet','Ion','Pulsar','Docking','Warp','Zero-G','Hangar'],
   sketch:['Pencil','Graphite','Margin','Doodle','Draft','Inkwell','Charcoal','Easel','Folio','Linework','Notebook','Eraser'],
   apoc:['Fallout','Cinder','Rust','Ash','Ruin','Scorch','Wreck','Rubble','Ember','Ashfall','Husk','Wasteland'],
+  city:['Central','Plaza','Fountain','Bandstand','Lamppost','Boulevard','Avenue','Pigeon','Commons','Gazebo','Promenade','Skyline'],
   jungle:['Canopy','Vine','Orchid','Toucan','Jaguar','Mango','Lagoon','Fern','Monsoon','Bamboo','Cascade','Parrot'],
   ocean:['Seacliff','Breakers','Lighthouse','Surf','Gull','Cove','Tidepool','Spray','Kelp','Headland','Pelican','Bluff'],
   highlands:['Heather','Gorse','Thistle','Glen','Loch','Burn','Ben','Moor','Cairn','Crag','Stag','Bothy'],
@@ -1427,7 +1430,7 @@ function surfAt(x,z){
   for(const W of H.water) if(ellR(W,x,z)<1) return 'water';
   const T=H.teeBox; if(Math.abs(x-T.c[0])<T.w/2&&Math.abs(z-T.c[1])<T.d/2) return 'tee';
   const F=fairInfo(x,z), wob=NZ.n2(x*0.07+3,z*0.07)*3-1.5;
-  const R=routeInfo(x,z); if(R.d>H.ob+NZ.n2(R.s*0.02,1)*4||R.s<-1&&Math.hypot(x-H.tee[0],z-H.tee[1])>28) return 'ob';
+  const R=routeInfo(x,z); _rd=R.d; _rs=R.s; if(R.d>H.ob+NZ.n2(R.s*0.02,1)*4||R.s<-1&&Math.hypot(x-H.tee[0],z-H.tee[1])>28) return 'ob';
   if(F.d<F.hw+wob) return 'fairway';
   return F.d<F.hw+wob+10?'rough':'deep';
 }
@@ -1443,6 +1446,11 @@ const seaY=()=>SEA_REL+((H&&H.base)||0);
 function coastTint(x,z,c,out){ const k=seaK(x,z); if(k<=0.02){ out[0]=c[0]; out[1]=c[1]; out[2]=c[2]; return out; }
   const r=smooth(clamp((k-0.02)/0.1,0,1)), sb=smooth(clamp((k-0.5)/0.2,0,1)), n=0.9+NZ.n2(x*0.3,z*0.3)*0.2;
   for(let i=0;i<3;i++){ const rock=[132,122,108][i]*n, bed=[120,128,112][i]; out[i]=mix(mix(c[i],rock,r),bed,sb); } return out; }
+// City Park: past out of bounds a sidewalk, a street (with its centre line) and another sidewalk, then the city
+let _rd=0, _rs=0;
+function cityTint(c,out){ const e=_rd-H.ob; let k=c;
+  if(e>3.5&&e<5.5||e>17.5&&e<20) k=[172,170,164]; else if(e>=5.5&&e<=17.5) k=(Math.abs(e-11.5)<0.14&&(((_rs/3)|0)&1))?[226,196,60]:[64,66,70]; else if(e>=20) k=[146,142,134];
+  out[0]=k[0]; out[1]=k[1]; out[2]=k[2]; return out; }
 let G0=0;                                          // ground height at the green centre (computed once)
 function baseH(x,z){ const x0=x, z0=z, o=H&&H.ter; if(o){ x+=o[0]; z+=o[1]; }
   let h=(NZ.fbm(x*0.0055+17,z*0.0055+3,4)*7-3.5)*((H&&H.hills)||1)+NZ.n2(x*0.025,z*0.025)*0.7;     // hills: how rolling the ground is (broad swells)
@@ -1505,6 +1513,7 @@ function surfPixel(x,z,out){                      // sRGB surface colour for the
   else if(s==='deep'||s==='ob') k=0.88+NZ.n2(x*0.15,z*0.15)*0.2;
   else if(s==='sand'){ let r=0; for(const B of H.bunkers) r=Math.max(r,ellR(B,x,z)<1?ellR(B,x,z):0); k=(0.95+NZ.n2(x*2.1,z*2.1)*0.08)*(0.8+0.2*smooth(clamp((0.98-r)/0.2,0,1))); }   // shaded face under the lip
   if(s!=='water'&&s!=='green') k*=wetK(x,z);
+  if(H.city&&s==='ob'){ const cc=cityTint(c,[0,0,0]), n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.04; out[0]=clamp(cc[0]*n,0,255); out[1]=clamp(cc[1]*n,0,255); out[2]=clamp(cc[2]*n,0,255); out[3]=255; return out; }
   if(H._sea&&s==='ob'){ const cc=coastTint(x,z,c,[0,0,0]), n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.05; out[0]=clamp(cc[0]*k*n,0,255); out[1]=clamp(cc[1]*k*n,0,255); out[2]=clamp(cc[2]*k*n,0,255); out[3]=255; return out; }
   const n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.05; out[0]=clamp(c[0]*k*n,0,255); out[1]=clamp(c[1]*k*n,0,255); out[2]=clamp(c[2]*k*n,0,255); out[3]=s==='sand'?128:255; return out;
 }
@@ -1514,7 +1523,7 @@ function surfColor(x,z,out){
   else if(s==='green'){ k=(Math.floor((x*0.8+z*0.6)/2.4)&1)?1.05:0.96; }
   else if(s==='rough'||s==='deep'||s==='ob') k=0.9+NZ.n2(x*0.15,z*0.15)*0.2;
   if(s!=='water') k*=wetK(x,z);
-  const cc=H._sea&&s==='ob'?coastTint(x,z,c,[0,0,0]):c;
+  const cc=H._sea&&s==='ob'?coastTint(x,z,c,[0,0,0]):H.city&&s==='ob'?cityTint(c,[0,0,0]):c;
   out[0]=Math.pow(cc[0]*k/255,2.2); out[1]=Math.pow(cc[1]*k/255,2.2); out[2]=Math.pow(cc[2]*k/255,2.2); return out; }
 
 const BALL_TYPES=[
@@ -1876,7 +1885,7 @@ function flagPixTex(){ if(flagPixTex.t) return flagPixTex.t; const c=mkCanvas(10
   const t=toTex(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return flagPixTex.t=t; }
 function buildHole(){
   { const SK=THEMES[roundSkin()]||THEMES.default, own=THEMES[H.theme]||THEMES.default;          // dress the hole in the round's theme (its layout stays as made)
-    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.pixel=!!SK.pixel; H.cyber=!!SK.cyber; H.apoc=!!SK.apoc; H.snow=!!SK.snow; H.sketch=!!SK.sketch; H.space=!!SK.space; H.denseK=SK.dense/own.dense; H.sea=!!SK.sea; H.mtn=!!SK.mtn; H.wood=SK.wood; H.land=SK.land; H.farCol=SK.far; H._sea=H.sea?seaSetup():null; }
+    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.pixel=!!SK.pixel; H.cyber=!!SK.cyber; H.apoc=!!SK.apoc; H.snow=!!SK.snow; H.sketch=!!SK.sketch; H.space=!!SK.space; H.denseK=SK.dense/own.dense; H.sea=!!SK.sea; H.mtn=!!SK.mtn; H.city=!!SK.city; H.wood=SK.wood; H.land=SK.land; H.farCol=SK.far; H._sea=H.sea?seaSetup():null; }
   SURF_COL=H.surf?Object.assign({},SURF_BASE,H.surf):SURF_BASE;
   pixelLook(!!H.pixel); postLook(H.cyber?0:H.sketch?1:-1); themeSky();
   if(holeGroup) disposeGroup(holeGroup);
@@ -1936,7 +1945,7 @@ function buildHole(){
   pinMesh=new THREE.Group(); pinMesh.position.set(px,py,pz); holeGroup.add(pinMesh);
   const pole=new THREE.Mesh(H.pixel?new THREE.BoxGeometry(0.035,2.13,0.035):new THREE.CylinderGeometry(0.012,0.012,2.13,8),M.white); pole.position.y=1.065; pinMesh.add(pole); if(!PERF) pole.castShadow=true;
   const fg=new THREE.PlaneGeometry(0.5,0.34,10,1); fg.translate(0.25,0,0); if(H.pixel&&!M.flagPx) M.flagPx=new THREE.MeshStandardMaterial({map:flagPixTex(),emissive:0x5a0000,roughness:0.7,side:THREE.DoubleSide}); flagCloth=new THREE.Mesh(fg,H.pixel?M.flagPx:M.flag); flagCloth.position.y=1.95; flagCloth.userData.base=fg.attributes.position.array.slice(); pinMesh.add(flagCloth);
-  buildTrees(); buildGreenAids();
+  buildTrees(); buildGreenAids(); if(H.city) buildCity(); else CITY=[];
 }
 // Ocean Side: one wide sheet of sea from just inside the coast out to the horizon (and all round, past the far hills)
 function buildSea(){ const S=H._sea;
@@ -1945,8 +1954,47 @@ function buildSea(){ const S=H._sea;
   const m=new THREE.Mesh(g,M.sea); m.rotation.y=Math.atan2(-S.nz,S.nx); m.position.set(S.tx+S.nx*(S.coast-8),seaY(),S.tz+S.nz*(S.coast-8)); holeGroup.add(m);
   const ring=new THREE.Mesh(new THREE.RingGeometry(1900,9000,48,1),M.sea); ring.rotation.x=-Math.PI/2; ring.position.set(S.tx,seaY()-0.05,S.tz); holeGroup.add(ring); }
 function sfxWaves(){ if(!audioOK()) return; const t=_ac.currentTime; burst(t,3.4,0.06,'lowpass',380,0.6,1300,1.3); burst(t+1.2,2.2,0.035,'bandpass',2400,0.5,900,0.9); }
+// City Park: blocks of buildings along both sides past the street, a second, taller row behind, and a skyline further out.
+// All the walls are one mesh (window texture, a tint per building, windows that light at night) and the roofs another
+let CITY=[];
+function facadeTex(lit){ const S=PERF?64:128, c=mkCanvas(S,S), g=c.getContext('2d'); g.fillStyle=lit?'#000':'#fff'; g.fillRect(0,0,S,S);   // one tile: 4 bays × 3 floors
+  for(let f=0;f<3;f++) for(let b=0;b<4;b++){ const x=b*S/4+S*0.045, y=f*S/3+S*0.07, w=S/4-S*0.09, h=S/3-S*0.15;
+    if(lit){ const on=Math.random()<0.45; g.fillStyle=on?`hsl(${40+Math.random()*12},${70+Math.random()*25}%,${50+Math.random()*25}%)`:'#000'; g.fillRect(x,y,w,h); }
+    else { const k=40+Math.random()*30; g.fillStyle=`rgb(${k},${k+12},${k+28})`; g.fillRect(x,y,w,h); g.fillStyle='rgba(255,255,255,.18)'; g.fillRect(x,y,w,h*0.3); } }
+  const t=toTex(c); t.wrapS=t.wrapT=THREE.RepeatWrapping; return t; }
+function buildCity(){
+  CITY=[]; const rnd=NZ.rnd, rr=(a,b)=>a+rnd()*(b-a), L=H.len, P0=routePoint(0), P1=routePoint(L);
+  const at=s=>{ if(s<0) return [P0[0]+P0[2]*s,P0[1]+P0[3]*s,P0[2],P0[3]]; if(s>L) return [P1[0]+P1[2]*(s-L),P1[1]+P1[3]*(s-L),P1[2],P1[3]]; return routePoint(s); };
+  const clear=(cx,cz,ax,az,hw,hd,min)=>{ for(const [u,v] of [[0,0],[1,1],[1,-1],[-1,1],[-1,-1]]){ const x=cx+ax*hw*u-az*hd*v, z=cz+az*hw*u+ax*hd*v; if(routeInfo(x,z).d<min) return false; if(Math.hypot(x-H.tee[0],z-H.tee[1])<H.ob+20) return false; } return true; };
+  const add=(cx,cz,ax,az,hw,hd,h)=>{ for(const B of CITY) if(Math.hypot(B.cx-cx,B.cz-cz)<Math.max(B.hw,B.hd)+Math.max(hw,hd)-2) return false;
+    CITY.push({cx,cz,ax,az,hw,hd,h,col:[[0.66,0.38,0.3],[0.78,0.7,0.56],[0.64,0.64,0.66],[0.5,0.6,0.7],[0.84,0.83,0.8],[0.56,0.5,0.46]][(rnd()*6)|0]}); return true; };
+  for(const side of [-1,1]) for(let row=0;row<(PERF?1:2);row++){ let s=-60;
+    while(s<L+90){ const w=rr(16,30), d=rr(16,26), [px,pz,dx,dz]=at(s+w/2), off=H.ob+21+d/2+(row?rr(36,46):rr(0,4));
+      const cx=px-dz*off*side, cz=pz+dx*off*side, h=row?rr(30,95):(rnd()<0.12?rr(45,90):rr(12,36));
+      if(clear(cx,cz,dx,dz,w/2,d/2,H.ob+19)) add(cx,cz,dx,dz,w/2,d/2,h); s+=w+rr(3,9); } }
+  { let cx0=0,cz0=0; for(const [x,z] of H.route){ cx0+=x; cz0+=z; } cx0/=H.route.length; cz0/=H.route.length;                // the skyline out past the terrain
+    for(let i=0;i<(PERF?30:70);i++){ const a=rnd()*6.283, r=rr(H.len*0.55+260,H.len*0.55+900), cx=cx0+Math.cos(a)*r, cz=cz0+Math.sin(a)*r, t=rr(0,3.14);
+      add(cx,cz,Math.cos(t),Math.sin(t),rr(14,34),rr(14,34),rnd()<0.3?rr(90,200):rr(30,90)); } }
+  const pos=[], nor=[], uv=[], col=[], rp=[], rn=[], TILE=12;
+  for(const B of CITY){ const c=(u,v)=>[B.cx+B.ax*B.hw*u-B.az*B.hd*v,B.cz+B.az*B.hw*u+B.ax*B.hd*v], cs=[c(1,1),c(-1,1),c(-1,-1),c(1,-1)];
+    let lo=1e9, hi=-1e9; for(const [x,z] of cs){ const y=baseH(x,z); lo=Math.min(lo,y); hi=Math.max(hi,y); } B.y0=lo-3; B.top=hi+B.h;
+    for(let i=0;i<4;i++){ const [x1,z1]=cs[i], [x2,z2]=cs[(i+1)%4], len=Math.hypot(x2-x1,z2-z1), nx=(z2-z1)/len, nz=-(x2-x1)/len, ox=(x1+x2)/2-B.cx, oz=(z1+z2)/2-B.cz, sg=nx*ox+nz*oz>0?1:-1;
+      const q=[[x1,B.y0,z1,0,(B.y0-hi)/TILE],[x2,B.y0,z2,len/TILE,(B.y0-hi)/TILE],[x2,B.top,z2,len/TILE,B.h/TILE],[x1,B.top,z1,0,B.h/TILE]];
+      for(const k of sg>0?[0,1,2,0,2,3]:[0,2,1,0,3,2]){ pos.push(q[k][0],q[k][1],q[k][2]); nor.push(nx*sg,0,nz*sg); uv.push(q[k][3],q[k][4]); col.push(B.col[0],B.col[1],B.col[2]); } }
+    for(const k of [0,1,2,0,2,3]){ rp.push(cs[k][0],B.top,cs[k][1]); rn.push(0,1,0); } }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.setAttribute('normal',new THREE.Float32BufferAttribute(nor,3)); g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2)); g.setAttribute('color',new THREE.Float32BufferAttribute(col,3));
+  if(!M.cityWall){ M.cityWall=new THREE.MeshStandardMaterial({map:facadeTex(false),emissiveMap:facadeTex(true),emissive:0xffd890,emissiveIntensity:0,vertexColors:true,roughness:0.7,metalness:0.05,side:THREE.DoubleSide}); M.cityRoof=new THREE.MeshStandardMaterial({color:0x3a3c42,roughness:0.9,side:THREE.DoubleSide}); }
+  const walls=new THREE.Mesh(g,M.cityWall); walls.castShadow=!PERF; holeGroup.add(walls);
+  const rg=new THREE.BufferGeometry(); rg.setAttribute('position',new THREE.Float32BufferAttribute(rp,3)); rg.setAttribute('normal',new THREE.Float32BufferAttribute(rn,3)); holeGroup.add(new THREE.Mesh(rg,M.cityRoof));
+  cityNight(); }
+function cityNight(){ if(M.cityWall) M.cityWall.emissiveIntensity=settings.tod===3?1.1:settings.tod===2?0.25:0; }
+// a ball that reaches a building bounces back off its wall (it's out of bounds either way)
+function cityHit(P,V){ for(const B of CITY){ const dx=P.x-B.cx, dz=P.z-B.cz; if(dx*dx+dz*dz>(B.hw+B.hd+1)**2||P.y>B.top) continue;
+    const u=dx*B.ax+dz*B.az, v=-dx*B.az+dz*B.ax, pu=B.hw+BALL_R-Math.abs(u), pv=B.hd+BALL_R-Math.abs(v); if(pu<=0||pv<=0) continue;
+    if(pu<pv){ const s=Math.sign(u), vn=V.x*B.ax+V.z*B.az; if(vn*s<0){ V.x-=1.4*vn*B.ax; V.z-=1.4*vn*B.az; sfxLand(Math.abs(vn),'rough'); } P.x+=B.ax*s*pu; P.z+=B.az*s*pu; }
+    else { const s=Math.sign(v), nx=-B.az, nz=B.ax, vn=V.x*nx+V.z*nz; if(vn*s<0){ V.x-=1.4*vn*nx; V.z-=1.4*vn*nz; sfxLand(Math.abs(vn),'rough'); } P.x+=nx*s*pv; P.z+=nz*s*pv; } } }
 // rolling, wooded hills beyond the playing area: rings of terrain grown outward from the course terrain's own edge (so the two meet exactly)
-function hillsAt(x,z,d){ const r=smooth(clamp(d/320,0,1)), A=(16+75*smooth(clamp((d-260)/900,0,1)))*(H&&H.mtn?1+2.2*smooth(clamp((d-200)/700,0,1)):1); return r*A*(0.25+NZ.fbm(x*0.0032+5,z*0.0032+9,4)*0.9)*(H&&H._sea?1-seaK(x,z):1); }   // (Highlands: mountains; Ocean Side: none out at sea)
+function hillsAt(x,z,d){ const r=smooth(clamp(d/320,0,1)), A=(16+75*smooth(clamp((d-260)/900,0,1)))*(H&&H.mtn?1+2.2*smooth(clamp((d-200)/700,0,1)):1); return r*A*(0.25+NZ.fbm(x*0.0032+5,z*0.0032+9,4)*0.9)*(H&&H._sea?1-seaK(x,z):1)*(H&&H.city?0.12:1); }   // (Highlands: mountains; Ocean Side: none out at sea; City Park: built-up flat land)
 function buildOuterLand(gOut){
   const {X0,Z0,cs,nx,nz,pos}=TER, X1=X0+(nx-1)*cs, Z1=Z0+(nz-1)*cs, cx=(X0+X1)/2, cz=(Z0+Z1)/2, nIn=gOut.attributes.normal, cIn=gOut.attributes.color;
   const ring=[]; for(let i=0;i<nx;i++) ring.push(i); for(let j=1;j<nz;j++) ring.push(j*nx+nx-1); for(let i=nx-2;i>=0;i--) ring.push((nz-1)*nx+i); for(let j=nz-2;j>=1;j--) ring.push(j*nx);
@@ -1957,7 +2005,7 @@ function buildOuterLand(gOut){
       P[v]=x; P[v+1]=j?baseH(x,z)+hillsAt(x,z,dOut):by; P[v+2]=z;
       if(!j){ C[v]=cIn.getX(b); C[v+1]=cIn.getY(b); C[v+2]=cIn.getZ(b); continue; }
       surfColor(x,z,c3); const f=NZ.fbm(x*0.006+2,z*0.006+7,3), wood=smooth(clamp((f-0.48)/0.12,0,1))*smooth(clamp(dOut/60,0,1)), t=smooth(clamp(dOut/200,0,1));
-      const wc=H.apoc?[0.05,0.03,0.025]:H.snow?[0.2,0.26,0.24]:H.wood||[0.035,0.075,0.025], ld=H.land||[0.06,0.12,0.04], sk=H._sea?seaK(x,z):0, wd=wood*(1-sk);   // (Post-Apocalypse: burnt land, not forest)
+      const wc=H.apoc?[0.05,0.03,0.025]:H.snow?[0.2,0.26,0.24]:H.wood||[0.035,0.075,0.025], ld=H.land||[0.06,0.12,0.04], sk=H._sea?seaK(x,z):0, wd=H.city?0:wood*(1-sk);   // (Post-Apocalypse: burnt land, not forest)
       fc.setRGB(mix(c3[0],wc[0],wd*0.85),mix(c3[1],wc[1],wd*0.85),mix(c3[2],wc[2],wd*0.85)); fc.lerp(H.apoc?new THREE.Color(0.09,0.04,0.03):H.snow?new THREE.Color(0.8,0.84,0.88):new THREE.Color(ld[0],ld[1],ld[2]),t*0.25*(1-wd)*(1-sk));
       if(H.mtn){ const up=P[v+1]-baseH(x,z), rk=smooth(clamp((up-60)/90,0,1)), sn=smooth(clamp((up-190)/60,0,1)); fc.lerp(new THREE.Color(0.2,0.19,0.18),rk*0.85); fc.lerp(new THREE.Color(0.75,0.77,0.8),sn*0.7); }   // bare rock up high, a dusting of snow on the tops
       C[v]=fc.r; C[v+1]=fc.g; C[v+2]=fc.b; } }
@@ -1970,7 +2018,7 @@ function buildOuterLand(gOut){
   const list=[]; for(let i=0;i<4000&&list.length<(PERF?160:260);i++){ const k=(NZ.rnd()*N)|0, j=1+NZ.rnd()*7.5, j0=Math.floor(j), t=j-j0, dd=mix(D[j0],D[j0+1],t), b=base[k];
     let dx=pos[b*3]-cx, dz=pos[b*3+2]-cz; const l=Math.hypot(dx,dz)||1; const x=pos[b*3]+dx/l*dd, z=pos[b*3+2]+dz/l*dd;
     if(NZ.fbm(x*0.006+2,z*0.006+7,3)<0.47&&NZ.rnd()<0.85) continue;
-    const dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1)); if(dOut<8) continue; if(H._sea&&seaK(x,z)>0.01) continue;
+    const dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1)); if(dOut<8) continue; if(H._sea&&seaK(x,z)>0.01||H.city) continue;
     const v=(j0*N+k)*3, v2=((j0+1)*N+k)*3, y=mix(P[v+1],P[v2+1],t)-0.6, kk=NZ.rnd();
     let sp=kk<0.45?'pine':kk<0.85?'oak':'poplar'; if(H.trees){ let k2=NZ.rnd(); for(const [name,w] of Object.entries(H.trees)){ sp=name; if((k2-=w)<0) break; } }   // the theme's own trees out here too
     list.push({x,y,z,s:0.8+NZ.rnd()*0.6,sp,rot:sp.startsWith('block')?0:undefined}); }
@@ -2028,7 +2076,7 @@ function buildTrees(){
   for(let tries=0;TREES.length<want&&tries<6000;tries++){
     const [rpx,rpz,rdx,rdz]=routePoint(-40+rnd()*(H.len+90)), side=rnd()<0.5?-1:1, off=(H.dense?16:24)+rnd()*(H.ob+30), x=rpx-rdz*off*side, z=rpz+rdx*off*side, s=surfAt(x,z);
     if(s==='fairway'||s==='green'||s==='fringe'||s==='tee'||s==='water'||s==='sand'||(H.space&&s==='ob')) continue;
-    const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(H._sea&&seaK(x,z)>0.01) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
+    const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(H._sea&&seaK(x,z)>0.01) continue; if(H.city&&routeInfo(x,z).d>H.ob+2) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
     if(TREES.some(t=>Math.hypot(t.x-x,t.z-z)<4.5)||onCart(x,z)||onCart(x+2,z)||onCart(x-2,z)) continue;
     let k=rnd(), sp=k<(H.dense?0.3:0.5)?'oak':k<(H.dense?0.85:0.78)?'pine':'poplar';
     if(H.trees){ k=rnd(); for(const [name,w] of Object.entries(H.trees)){ sp=name; if((k-=w)<0) break; } }      // a theme's own mix (shrubs, pines…)
@@ -2124,6 +2172,7 @@ function flightStep(dt){
   for(const W of H.water) if(ellR(W,P.x,P.z)<1.18&&P.y<=waterLevel(W)){ penalty('water'); return; }
   const gy=meshH(P.x,P.z);
   if(H._sea&&P.y<=seaY()&&seaK(P.x,P.z)>0.2){ penalty('sea'); return; }
+  if(H.city&&CITY.length) cityHit(P,V);
   if(H.space&&surfAt(P.x,P.z)==='ob'){ if(P.y<gy-6) penalty('ob'); return; }              // Sci-Fi: off the platform there's only space — it falls away
   if(P.y<=gy+BALL_R&&V.y<0){                                                               // landing / bounce
     const s=surfAt(P.x,P.z); if(s==='water'){ penalty('water'); return; }
@@ -2141,6 +2190,7 @@ function rollStep(dt){
   if(s==='water'||inWater(P.x,P.z)){ penalty('water'); return; }
   if(H.space&&s==='ob'){ ball.mode='fly'; V.y=-0.3; ball.rpm=0; return; }                  // rolled off the edge
   if(H._sea&&P.y<=seaY()+BALL_R&&seaK(P.x,P.z)>0.2){ penalty('sea'); return; }             // rolled down the cliff into the sea
+  if(H.city&&CITY.length) cityHit(P,V);
   const [gx,gz]=grad(P.x,P.z), slopeA=(5/7)*G*Math.hypot(gx,gz), sp0=Math.hypot(V.x,V.z);
   if(sp0<0.04&&slopeA<S2.roll*0.98){ V.set(0,0,0); ballStopped(); return; }
   V.x-=(5/7)*G*gx*dt; V.z-=(5/7)*G*gz*dt;
@@ -2559,18 +2609,18 @@ function updateCamera(dt){
   else if(camMode==='putt'&&ball.mode==='roll'&&puttLine){
     // putting: like a bowling lane camera: square behind the line to the cup, sliding part of the way across with the ball,
     // and stopping short of the cup (rising a little) so you watch it arrive; past the cup it just turns to follow the ball
-    const Lp=puttLine, rx=P.x-Lp.x, rz=P.z-Lp.z, s=rx*Lp.ux+rz*Lp.uz, lat=rx*-Lp.uz+rz*Lp.ux, stop=Math.max(0,Lp.L-1.6), cs=Math.min(s,stop);
-    const near=clamp((s-(Lp.L-3.5))/3.5,0,1), back=2.6+near*0.8, up=1.15+near*0.55, at=(d,o)=>[Lp.x+Lp.ux*d-Lp.uz*o,Lp.z+Lp.uz*d+Lp.ux*o];
-    const [px,pz]=at(cs-back,lat*0.45); _tp.set(px,hAt(P.x,P.z)+up,pz);
-    if(s<=stop+0.05){ const [lx,lz]=at(cs+2.2,lat*0.6); _tl.set(lx,P.y-0.1,lz); } else _tl.copy(P);
-    k=1-Math.exp(-dt*4); }
+    const Lp=puttLine, rx=P.x-Lp.x, rz=P.z-Lp.z, s=rx*Lp.ux+rz*Lp.uz, lat=rx*-Lp.uz+rz*Lp.ux, stop=Math.max(0,Lp.L-1.0), cs=Math.min(s,stop);
+    const near=clamp((s-(Lp.L-2.5))/2.5,0,1), back=1.05+near*0.55, up=0.42+near*0.38, at=(d,o)=>[Lp.x+Lp.ux*d-Lp.uz*o,Lp.z+Lp.uz*d+Lp.ux*o];
+    const [px,pz]=at(cs-back,lat*0.8); _tp.set(px,hAt(P.x,P.z)+up,pz);
+    if(s<=stop+0.05){ const [lx,lz]=at(cs+1.6,lat*0.85); _tl.set(lx,P.y-0.12,lz); } else _tl.copy(P);
+    k=1-Math.exp(-dt*(camPos.distanceTo(_tp)>2.5?10:4)); }   // swoop in from the aiming view quickly, then ride along
   else if((camMode==='flight'&&ball.mode==='fly')||ball.mode==='roll'){
     if(!tracking){ camOff.subVectors(camPos,P); lookOff.subVectors(camLook,P); tracking=true; trackDir.set(Math.sin(aim),Math.cos(aim)); }
     const vh=Math.hypot(ball.v.x,ball.v.z); if(vh>0.25){ _v2.set(ball.v.x/vh,ball.v.z/vh); trackDir.lerp(_v2,1-Math.exp(-dt*(ball.mode==='fly'?3:2))).normalize(); }
-    const putting=camMode==='putt', fly=ball.mode==='fly', back=putting?2.4:fly?1.8:1.8, up=putting?1.1:fly?0.7:0.7, ahead=putting?2:fly?6:4.5;   // close enough to see a true-size ball
-    _tp.set(-trackDir.x*back,up,-trackDir.y*back); _tl.set(trackDir.x*ahead,putting?-0.05:fly?-1.2:-0.9,trackDir.y*ahead);   /* aimed low enough that the ball sits a little below the middle of the screen */
+    const putting=camMode==='putt', fly=ball.mode==='fly', back=putting?1.0:fly?0.9:0.95, up=putting?0.42:fly?0.26:0.32, ahead=putting?1.6:fly?5:3.5;   // tucked in close behind, like Just Bowl's chase camera, so the true-size ball reads
+    _tp.set(-trackDir.x*back,up,-trackDir.y*back); _tl.set(trackDir.x*ahead,putting?-0.12:fly?-0.62:-0.55,trackDir.y*ahead);   /* aimed low enough that the ball sits a little below the middle of the screen */
     const kk=1-Math.exp(-dt*(camOff.length()>back*1.6?7:3)); camOff.lerp(_tp,kk); lookOff.lerp(_tl,kk); camPos.copy(P).add(camOff); camLook.copy(P).add(lookOff);   // catch up quickly from the aiming view, then follow gently
-    const gy2=meshH(camPos.x,camPos.z)+0.5; if(camPos.y<gy2) camPos.y=gy2;
+    const gy2=meshH(camPos.x,camPos.z)+0.22; if(camPos.y<gy2) camPos.y=gy2;
     camera.position.copy(camPos); camera.lookAt(camLook); placeSun(P); return; }
   else if(phase==='replay'&&replay){ _tp.set(replay.cam[0],hAt(replay.cam[0],replay.cam[1])+0.55,replay.cam[1]); _tl.set(P.x,P.y,P.z); k=1-Math.exp(-dt*8); }   // cup-cam: the ball rolls towards you
   else if(phase==='sunk'){ const putting=camMode==='putt';
@@ -2687,8 +2737,10 @@ function drawMap(rebuild){
   const sx=W/(x1-x0), sz=Hh/(z1-z0), m=(x,z)=>[ (x1-x)*sx, Hh-(z-z0)*sz ];   // screen-left is world +x
   if(rebuild||!mapBase){ mapBase=mkCanvas(W,Hh); const b=mapBase.getContext('2d'), img=b.createImageData(W,Hh), d=img.data, c3=[0,0,0];
     for(let py=0;py<Hh;py++) for(let px=0;px<W;px++){ const x=x1-(px+0.5)/sx, z=z0+(Hh-py-0.5)/sz, s=surfAt(x,z), c=SURF_COL[s==='water'?'water':s], i=(py*W+px)*4;
-      const k=s==='water'||H._sea&&seaK(x,z)>0.45?(H.apoc?[255,96,24]:H.snow?[200,226,242]:[50,110,190]):H._sea&&s==='ob'?coastTint(x,z,c,[0,0,0]):c; d[i]=k[0]; d[i+1]=k[1]; d[i+2]=k[2]; d[i+3]=255; }
-    b.putImageData(img,0,0); b.fillStyle='rgba(20,60,20,.85)'; for(const T of TREES){ const [px,py]=m(T.x,T.z); b.beginPath(); b.arc(px,py,Math.max(1.4,T.cr*sx*0.8),0,7); b.fill(); } }
+      const k=s==='water'||H._sea&&seaK(x,z)>0.45?(H.apoc?[255,96,24]:H.snow?[200,226,242]:[50,110,190]):H._sea&&s==='ob'?coastTint(x,z,c,[0,0,0]):H.city&&s==='ob'?cityTint(c,[0,0,0]):c; d[i]=k[0]; d[i+1]=k[1]; d[i+2]=k[2]; d[i+3]=255; }
+    b.putImageData(img,0,0);
+    if(H.city){ b.fillStyle='rgba(70,72,80,.95)'; for(const B of CITY){ b.beginPath(); for(const [u,v] of [[1,1],[1,-1],[-1,-1],[-1,1]]){ const [qx,qy]=m(B.cx+B.ax*B.hw*u-B.az*B.hd*v,B.cz+B.az*B.hw*u+B.ax*B.hd*v); b.lineTo(qx,qy); } b.fill(); } }   // the city blocks
+    b.fillStyle='rgba(20,60,20,.85)'; for(const T of TREES){ const [px,py]=m(T.x,T.z); b.beginPath(); b.arc(px,py,Math.max(1.4,T.cr*sx*0.8),0,7); b.fill(); } }
   g.drawImage(mapBase,0,0);
   const [bx,by]=m(ball.p.x,ball.p.z), [px,py]=m(H.pin[0],H.pin[1]);
   if(phase==='aim'||phase==='swing'){ const [reach,side]=planCarry(), [lx,ly]=m(ball.p.x+Math.sin(aim)*reach+Math.cos(aim)*side,ball.p.z+Math.cos(aim)*reach-Math.sin(aim)*side);
@@ -2791,6 +2843,7 @@ function applyTOD(){ if(!L.sun) return; wake(); envApplyTOD(settings.tod,{sun:L.
   if(H&&H.mtn&&settings.tod!==3){ if(M.skyMesh) M.skyMesh.material.color.lerp(new THREE.Color(0xa8b2ba),0.4); if(M.pano) M.pano.material.color.lerp(new THREE.Color(0x9a9890),0.35); }   // a grey, Highland sky
   if(H&&H.space){ if(M.skyMesh) M.skyMesh.material.color.set(0xffffff); scene.fog.color.set(0x05060c); ENV.cloudAmt.value=0;   // deep space: hard white sunlight, a dim blue fill
     L.sun.color.set(0xffffff); L.hemi.color.set(0x5866a0); L.hemi.groundColor.set(0x0c0e18); L.hemi.intensity*=0.7; }
+  if(H&&H.city) cityNight();
   if(H&&holeGroup&&GFX<2) buildTreeShade();
   if(ball&&ball.p) placeSun(ball.p); }   // 3 = night: bright moonlight under a starry sky
 const _sd=V3();
@@ -2859,7 +2912,7 @@ function tuftWork(J,budget){                        // true once the patch is do
   const t0=performance.now(), c=_tcol, cap=GFX===2?3600:2200;
   while(J.i<10000&&J.list.length<cap){ J.i++; const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*TUFT_R, x=J.x+Math.cos(a)*r, z=J.z+Math.sin(a)*r;      // ~2.4 blades per m² of rough at most
     if(J.others.some(T=>Math.hypot(x-T.x,z-T.z)<TUFT_R)) continue;                                     // already grassed by another patch
-    const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue; if(H._sea&&seaK(x,z)>0.02) continue;
+    const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?(H.city&&_rd>H.ob+3?0:0.85):0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue; if(H._sea&&seaK(x,z)>0.02) continue;
     const col=SURF_COL[s], kk=0.95+NZ.rnd()*0.25; c.setRGB(Math.pow(col[0]*kk/255,2.2)*1.6,Math.pow(col[1]*kk/255,2.2)*1.6,Math.pow(col[2]*kk/255,2.2)*1.6);
     J.list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7),k:1,c:c.clone()});
     if((J.i&63)===0&&performance.now()-t0>budget) return false; }
