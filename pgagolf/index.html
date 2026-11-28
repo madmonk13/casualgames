@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.11 · Updated Nov 27, 2026</div>
+  <div id="ver">Version 0.9.12 · Updated Nov 27, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -738,12 +738,11 @@ function envTemplate(sp){
     for(let f=0;f<nf;f++){ const a=f/nf*6.28+NZ.rnd()*0.4, rise=b?0.9+NZ.rnd()*0.4:0.95+NZ.rnd()*0.5, L=b?2.3+NZ.rnd()*0.7:1.3+NZ.rnd()*0.6;
       for(let k=1;k<=seg;k++){ const t=k/seg, rr=L*t, dy=rise*rr-1.5*t*t*L*0.55; cards.push({p:[top[0]+Math.cos(a)*rr,top[1]+dy,top[2]+Math.sin(a)*rr],s:(b?0.62:0.36)*(1-t*0.35),n:[Math.cos(a)*0.5,0.86,Math.sin(a)*0.5],k:0.7+0.3*(1-t)}); } }
     T=b?{leaf:'leaf',h:top[1]+1.6,cy:top[1]+0.5,r:2.2,trunkR:0.18,trunkH:top[1],flat:false}:{leaf:'needle',h:1.4,cy:0.6,r:1.3,trunkR:0,trunkH:0,flat:false};
-  } else if(sp==='cypress'){                       // windswept sea cypress: a leaning, twisted trunk and flat shelves of foliage blown to one side
-    const lean=0.45+NZ.rnd()*0.2; wood.push(envCyl(0.36,0.22,3.4,8,V(0,0,0),V(lean,1,0.1)));
-    const tp=V(0,0,0).addScaledVector(V(lean,1,0.1).normalize(),3.4); wood.push(envCyl(0.2,0.08,3.2,6,tp,V(1,0.35,0.2)));
-    for(let i=0;i<3;i++){ const a=-0.9+i*0.9+NZ.rnd()*0.4; wood.push(envCyl(0.12,0.05,2.4,5,tp,V(Math.cos(a)*1.2,0.45,Math.sin(a)*1.2))); }
-    const lobes=[]; for(let i=0;i<6;i++){ const d=-0.6+i*0.75+NZ.rnd()*0.3, side=(NZ.rnd()-0.5)*2.4; lobes.push({c:[tp.x+d,tp.y+0.9+(i%3)*0.7+NZ.rnd()*0.4,tp.z+side],r:1.3+NZ.rnd()*0.45,sy:0.38}); }
-    envLobeCards(cards,lobes,[tp.x+1.2,tp.y+1.4,tp.z],Math.round(150*q),0.9); T={leaf:'needle',h:tp.y+3.2,cy:tp.y+1.4,r:2.8,trunkR:0.3,trunkH:tp.y,flat:false};
+  } else if(sp==='cypress'){                       // sea cypress: a stout, upright trunk forking into broad, flat-topped shelves of dark foliage
+    const th=4.2+NZ.rnd()*0.8; wood.push(envCyl(0.4,0.24,th,8,V(0,0,0),V((NZ.rnd()-0.5)*0.08,1,(NZ.rnd()-0.5)*0.08)));
+    for(let i=0;i<4;i++){ const a=i/4*6.28+NZ.rnd()*0.6; wood.push(envCyl(0.15,0.06,2.6,5,V(0,th-1.2,0),V(Math.cos(a)*1.1,0.75,Math.sin(a)*1.1))); }
+    const lobes=[{c:[0,th+1.6,0],r:2.4,sy:0.4}]; for(let i=0;i<6;i++){ const a=i/6*6.28+NZ.rnd()*0.5, d=1.9+NZ.rnd()*0.6; lobes.push({c:[Math.cos(a)*d,th+0.7+NZ.rnd()*1.1,Math.sin(a)*d],r:1.4+NZ.rnd()*0.4,sy:0.4}); }
+    envLobeCards(cards,lobes,[0,th+1.2,0],Math.round(160*q),0.95); T={leaf:'needle',h:th+2.8,cy:th+1.2,r:3.2,trunkR:0.34,trunkH:th,flat:false};
   } else if(sp==='scotspine'){                     // Scots pine: a tall, bare, orange-barked trunk under a few flat crowns of needles
     const th=8.6+NZ.rnd()*1.6; wood.push(envCyl(0.3,0.12,th+1,8,V(0,0,0),V((NZ.rnd()-0.5)*0.1,1,(NZ.rnd()-0.5)*0.1)));
     for(let i=0;i<4;i++){ const a=i/4*6.28+NZ.rnd(); wood.push(envCyl(0.1,0.04,2.2,5,V(0,th-1.4+i*0.5,0),V(Math.cos(a)*1.5,0.55,Math.sin(a)*1.5))); }
