@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Puck Rush</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0a0e1a">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Puck Rush">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100dvw;height:100dvh;background:#0a0e1a;font-family:'Segoe UI',Arial,sans-serif;color:#fff;
+  user-select:none;-webkit-user-select:none;touch-action:none;overflow:hidden;display:flex;flex-direction:column;}
+#hud{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:rgba(0,0,0,.55);z-index:6;}
+#score{display:flex;align-items:center;gap:14px;font-weight:900;font-size:clamp(1.1rem,4.4vw,1.6rem);letter-spacing:1px;}
+#score .who{font-size:.62em;font-weight:700;letter-spacing:1.5px;opacity:.8;}
+#score .s1{color:#5aa8ff;} #score .s2{color:#ff5a6a;} #score .dash{opacity:.5;}
+#score .to{font-size:.5em;opacity:.55;font-weight:600;}
+.ib{border:none;background:none;color:#cfd8ea;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:.9;padding:0;}
+.ib:hover{opacity:1;} .ib svg{width:28px;height:28px;display:block;}
+#stage{flex:1;position:relative;min-height:0;overflow:hidden;cursor:none;}
+#stage canvas{display:block;width:100%;height:100%;}
+#msg{position:absolute;top:50%;left:0;right:0;transform:translateY(-50%);text-align:center;font-size:clamp(2.2rem,11vw,4.6rem);font-weight:900;letter-spacing:4px;
+  pointer-events:none;z-index:5;opacity:0;transition:opacity .2s;text-shadow:0 0 30px rgba(0,0,0,.8),0 4px 0 rgba(0,0,0,.5);}
+#msg.show{opacity:1;}
+#loader{position:fixed;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  background:radial-gradient(ellipse at center,#16233a 0%,#05070e 100%);transition:opacity .45s;}
+#loader.done{opacity:0;pointer-events:none;}
+#loader h1,#ov h2{font-size:clamp(2rem,9vw,3.4rem);letter-spacing:3px;color:#ffd54a;text-shadow:0 0 24px rgba(255,170,0,.5);}
+.spin{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.15);border-top-color:#ffd54a;animation:ldspin .8s linear infinite;}
+#loader small{color:#9fb0d8;font:600 .8rem 'Segoe UI',Arial,sans-serif;letter-spacing:2px;}
+@keyframes ldspin{to{transform:rotate(360deg)}}
+#ov{position:fixed;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;text-align:center;
+  background:radial-gradient(ellipse at center,rgba(6,10,20,.55) 0%,rgba(6,10,20,.85) 100%);opacity:0;pointer-events:none;transition:opacity .25s;}
+#ov.show{opacity:1;pointer-events:auto;}
+#ov p{color:#cfd8ea;font-size:clamp(.85rem,2.6vw,1rem);line-height:1.6;max-width:400px;}
+#ov p b{color:#ffd54a;}
+.modes{display:flex;flex-direction:column;gap:9px;width:min(320px,86vw);}
+.modes .row{display:flex;gap:8px;}
+.btn{flex:1;padding:12px 10px;border:1px solid #33405a;border-radius:10px;background:#1a2130;color:#e6ecf8;font-size:1rem;font-weight:800;cursor:pointer;letter-spacing:.5px;}
+.btn:hover{border-color:#5a6a90;}
+.btn.primary{background:#ffd54a;border-color:#ffd54a;color:#181000;}
+.btn small{display:block;font-size:.7rem;font-weight:600;opacity:.7;margin-top:2px;}
+a.back{color:#67769c;font-size:.8rem;text-decoration:none;margin-top:4px;}
+a.back:hover{color:#9fb0d8;text-decoration:underline;}
+#settings{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;background:rgba(2,4,8,.62);}
+#settings.open{display:flex;}
+.modal-card{width:min(94vw,440px);max-height:88vh;overflow:auto;display:flex;flex-direction:column;gap:16px;background:rgba(14,18,28,.98);
+  border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px;box-shadow:0 24px 60px rgba(0,0,0,.6);}
+@media (max-width:520px){ .modal-card{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;border:none;} }
+.modal-head{display:flex;align-items:center;justify-content:space-between;}
+.modal-head h3{color:#ffd54a;font-size:1.2rem;letter-spacing:1px;}
+#settingsClose{background:none;border:none;color:#9fb0d8;font-size:1.3rem;cursor:pointer;padding:4px 6px;}
+.sec-label{color:#9fb0d8;font-size:.8rem;letter-spacing:.5px;margin-bottom:8px;text-transform:uppercase;}
+.seg{display:flex;border:1px solid #3d3058;border-radius:9px;overflow:hidden;}
+.seg label{flex:1;cursor:pointer;display:flex;}
+.seg input{position:absolute;opacity:0;pointer-events:none;}
+.seg span{flex:1;display:flex;flex-direction:column;justify-content:center;padding:9px 4px;text-align:center;background:#1d1630;color:#ddd3ee;font-size:.88rem;font-weight:700;border-left:1px solid #3d3058;}
+.seg label:first-child span{border-left:none;}
+.seg span small{display:block;font-size:.68rem;font-weight:600;opacity:.75;}
+.seg input:checked+span{background:#ffd54a;color:#181000;}
+.seg input:focus-visible+span{outline:2px solid #fff;outline-offset:-3px;}
+.toggle{width:100%;padding:11px;border:1px solid #33405a;border-radius:9px;background:#1a2130;color:#cfd8ea;font-size:.9rem;font-weight:700;cursor:pointer;}
+.toggle.on{background:#ffd54a;color:#181000;border-color:#ffd54a;}
+#fps{position:fixed;left:50%;bottom:8px;transform:translateX(-50%);z-index:20;display:none;font:600 11px/1.35 ui-monospace,Menlo,monospace;color:#eafff0;background:rgba(0,0,0,.6);padding:3px 9px;border-radius:6px;pointer-events:none;white-space:pre;text-align:center;}
+</style>
+</head>
+<body>
+<div id="hud">
+  <button class="ib" id="cog" title="Settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14 12.94a7.6 7.6 0 000-1.88l2.03-1.58a.5.5 0 00.12-.64l-1.92-3.32a.5.5 0 00-.61-.22l-2.39.96a7.03 7.03 0 00-1.62-.94l-.36-2.54a.5.5 0 00-.5-.42h-3.84a.5.5 0 00-.5.42l-.36 2.54c-.58.24-1.12.56-1.62.94l-2.39-.96a.5.5 0 00-.61.22L2.68 8.84a.5.5 0 00.12.64l2.03 1.58a7.6 7.6 0 000 1.88l-2.03 1.58a.5.5 0 00-.12.64l1.92 3.32a.5.5 0 00.61.22l2.39-.96c.5.38 1.04.7 1.62.94l.36 2.54a.5.5 0 00.5.42h3.84a.5.5 0 00.5-.42l.36-2.54c.58-.24 1.12-.56 1.62-.94l2.39.96a.5.5 0 00.61-.22l1.92-3.32a.5.5 0 00-.12-.64l-2.03-1.58zM12 15.5A3.5 3.5 0 1112 8.5a3.5 3.5 0 010 7z"/></svg></button>
+  <div id="score"></div>
+  <button class="ib" id="mute" title="Mute" aria-label="Mute"></button>
+</div>
+<div id="stage"><div id="msg"></div></div>
+<div id="fps"></div>
+<div id="loader"><h1>PUCK RUSH</h1><div class="spin"></div><small>LOADING</small></div>
+<div id="ov">
+  <h2 id="ovTitle">PUCK RUSH</h2>
+  <p id="ovText">Air hockey. Move your mallet with your finger or mouse and <b>hit the puck into the far goal</b>. You can't cross the centre line.</p>
+  <div class="modes">
+    <div class="row">
+      <button class="btn" data-mode="easy">Easy<small>vs CPU</small></button>
+      <button class="btn primary" data-mode="medium">Medium<small>vs CPU</small></button>
+      <button class="btn" data-mode="hard">Hard<small>vs CPU</small></button>
+    </div>
+    <button class="btn" data-mode="2p">2 Players<small>one at each end of the screen</small></button>
+  </div>
+  <a class="back" href="../index.html">← All games</a>
+</div>
+<div id="settings">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Settings</h3><button id="settingsClose" aria-label="Close">✕</button></div>
+    <div><div class="sec-label" id="toLbl">First to</div>
+      <div class="seg" role="radiogroup" aria-labelledby="toLbl">
+        <label><input type="radio" name="to" value="5"><span>5</span></label>
+        <label><input type="radio" name="to" value="7"><span>7</span></label>
+        <label><input type="radio" name="to" value="9"><span>9</span></label>
+      </div>
+    </div>
+    <div><div class="sec-label" id="gfxLbl">Graphics</div>
+      <div class="seg" role="radiogroup" aria-labelledby="gfxLbl">
+        <label><input type="radio" name="gfx" value="auto"><span>Auto<small id="gfxAutoLbl"></small></span></label>
+        <label><input type="radio" name="gfx" value="high"><span>High</span></label>
+        <label><input type="radio" name="gfx" value="medium"><span>Medium</span></label>
+        <label><input type="radio" name="gfx" value="low"><span>Low</span></label>
+      </div>
+    </div>
+    <button class="toggle" id="setFps"></button>
+    <button class="toggle" id="menuBtn">Change mode / New game</button>
+  </div>
+</div>
+<script src="lib/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  PUCK RUSH — air hockey seen from straight overhead. Player 1 at the bottom of the screen; the CPU (or player 2) at the top.
+//  2D sim on the table (x across, z along: +z is player 1's end), drawn in 3D
+// ═══════════════════════════════════════════════════════
+function showFatal(err){ try{ console.error(err); }catch(e){} const o=document.getElementById('ov'); if(!o) return; o.classList.add('show'); document.getElementById('ovText').textContent='⚠ '+((err&&(err.message||err))+'').slice(0,200); }
+window.addEventListener('error',e=>showFatal(e.error||e.message));
+
+const W=100, L=180, HW=W/2, HL=L/2;             // playing surface (cm)
+const GOAL=34;                                   // goal mouth width
+const PR=3.4, MR=5.6;                            // puck and mallet radii
+const MAXV=330, MALLET_MAX=520;                  // top puck speed; fastest a mallet can be swung (cm/s)
+const E_WALL=0.88, E_MALLET=0.9, AIR=0.1;        // bounce off the rails / mallets; air-table drag
+const CPU={easy:{spd:95,react:0.2,err:9,aim:0.35},medium:{spd:150,react:0.1,err:5,aim:0.6},hard:{spd:225,react:0.04,err:2,aim:0.9}};
+
+const settings={to:7,mode:'medium',muted:false,gfx:'auto',gfxAuto:null,fps:false};
+function saveSettings(){ try{ localStorage.setItem('puckrush',JSON.stringify(settings)); }catch(e){} }
+function loadSettings(){ try{ Object.assign(settings,JSON.parse(localStorage.getItem('puckrush')||'{}')); }catch(e){} if(![5,7,9].includes(+settings.to)) settings.to=7; settings.to=+settings.to; }
+
+// ── state ──
+const puck={x:0,z:HL/2,vx:0,vz:0};
+const M1={x:0,z:HL-20,vx:0,vz:0,tx:0,tz:HL-20,px:0,pz:HL-20};     // player 1 (bottom)
+const M2={x:0,z:-(HL-20),vx:0,vz:0,tx:0,tz:-(HL-20),px:0,pz:-(HL-20)};
+let score=[0,0], phase='menu', pauseT=0, servingTo=1, cpuT=0;
+
+// ═══════════════════════════════════════════════════════
+//  GRAPHICS TIERS (Auto / High / Medium / Low), as in the other games
+// ═══════════════════════════════════════════════════════
+const GFX_NAMES=['Low','Medium','High'];
+let GFX=1, PERF=false;
+function gpuGuess(){ try{ const c=document.createElement('canvas'), gl=c.getContext('webgl'); if(!gl) return 0;
+    const e=gl.getExtension('WEBGL_debug_renderer_info'), s=String(e?gl.getParameter(e.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)), lose=gl.getExtension('WEBGL_lose_context'); if(lose) lose.loseContext();
+    if(/swiftshader|llvmpipe|software|basic render/i.test(s)) return 0;
+    if(/nvidia|geforce|quadro|radeon (rx|pro)|apple m\d (pro|max|ultra)|apple m[3-9]/i.test(s)) return 2;
+    return 1; }catch(e){ return 1; } }
+function resolveGfx(){ const g=settings.gfx; if(g==='high') return 2; if(g==='medium') return 1; if(g==='low') return 0;
+  if(settings.gfxAuto==null){ settings.gfxAuto=gpuGuess(); saveSettings(); } return Math.max(0,Math.min(2,settings.gfxAuto|0)); }
+
+// ═══════════════════════════════════════════════════════
+//  SCENE
+// ═══════════════════════════════════════════════════════
+let renderer,scene,camera,puckMesh,m1Mesh,m2Mesh,ledMat,trail=[],lastW=0,lastH=0;
+const stage=document.getElementById('stage');
+function mkMat(p){ if(PERF){ const q={}; for(const k in p) if(k!=='roughness'&&k!=='metalness') q[k]=p[k]; return new THREE.MeshLambertMaterial(q); } return new THREE.MeshStandardMaterial(p); }
+function mkCanvas(w,h){ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; }
+function surfaceTex(){                            // the playing surface: air holes, centre line and circle, goal creases
+  const pxs=PERF?4:6, Wp=W*pxs, Hp=L*pxs, c=mkCanvas(Wp,Hp), g=c.getContext('2d'), X=x=>(x+HW)*pxs, Z=z=>(z+HL)*pxs;
+  const bg=g.createRadialGradient(Wp/2,Hp/2,10,Wp/2,Hp/2,Hp*0.7); bg.addColorStop(0,'#f4f9fc'); bg.addColorStop(1,'#d8e6f0'); g.fillStyle=bg; g.fillRect(0,0,Wp,Hp);
+  g.fillStyle='rgba(60,90,120,.28)'; for(let x=-HW+2.5;x<HW;x+=2.5) for(let z=-HL+2.5;z<HL;z+=2.5){ g.beginPath(); g.arc(X(x),Z(z),0.28*pxs,0,7); g.fill(); }   // air holes
+  g.strokeStyle='#d8323e'; g.lineWidth=0.9*pxs; g.beginPath(); g.moveTo(0,Z(0)); g.lineTo(Wp,Z(0)); g.stroke();
+  g.beginPath(); g.arc(X(0),Z(0),15*pxs,0,7); g.stroke(); g.fillStyle='#d8323e'; g.beginPath(); g.arc(X(0),Z(0),1.4*pxs,0,7); g.fill();
+  g.strokeStyle='#2a6ad8'; g.lineWidth=0.7*pxs; for(const s of [-1,1]){ g.beginPath(); g.arc(X(0),Z(s*HL),GOAL*0.72*pxs,s>0?Math.PI:0,s>0?0:Math.PI,s>0); g.stroke();   // goal creases
+    g.beginPath(); g.moveTo(0,Z(s*HL*0.55)); g.lineTo(Wp,Z(s*HL*0.55)); g.globalAlpha=0.35; g.stroke(); g.globalAlpha=1; }
+  g.save(); g.translate(X(0),Z(0)); g.textAlign='center'; g.textBaseline='middle'; g.font=`900 ${Math.round(4.6*pxs)}px "Arial Black",Impact,sans-serif`; g.fillStyle='rgba(216,50,62,.22)'; g.fillText('PUCK',0,-3.4*pxs); g.fillText('RUSH',0,3.4*pxs); g.restore();
+  const t=new THREE.CanvasTexture(c); t.anisotropy=PERF?1:4; return t; }
+function malletMesh(col){ const g=new THREE.Group(), seg=PERF?20:40, m=mkMat({color:col,roughness:0.35,metalness:0.1}), hi=mkMat({color:new THREE.Color(col).lerp(new THREE.Color(0xffffff),0.35),roughness:0.3});
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(MR,MR,1.4,seg),m); base.position.y=0.7; g.add(base);
+  const dome=new THREE.Mesh(new THREE.CylinderGeometry(MR*0.62,MR*0.9,1.4,seg),m); dome.position.y=2.1; g.add(dome);
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(MR*0.42,seg/2,seg/4),hi); knob.position.y=3.4; knob.scale.y=0.9; g.add(knob);
+  if(!PERF) g.traverse(o=>{ if(o.isMesh) o.castShadow=GFX===2; }); return g; }
+function initScene(){
+  GFX=resolveGfx(); PERF=GFX===0;
+  renderer=new THREE.WebGLRenderer({antialias:GFX>0,powerPreference:PERF?'low-power':'high-performance',precision:PERF?'mediump':'highp'});
+  renderer.setPixelRatio(Math.min(GFX===2?1.75:GFX===1?1.25:1,window.devicePixelRatio||1));
+  if(GFX===2){ renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap; }
+  stage.appendChild(renderer.domElement);
+  scene=new THREE.Scene(); scene.background=new THREE.Color(0x0a0e1a);
+  camera=new THREE.PerspectiveCamera(40,1,10,2000); camera.up.set(0,0,-1);
+  scene.add(new THREE.HemisphereLight(0xeaf2ff,0x202838,PERF?1.0:0.8));
+  const key=new THREE.DirectionalLight(0xffffff,PERF?0.45:0.6); key.position.set(-30,200,60); scene.add(key);
+  if(GFX===2){ key.castShadow=true; key.shadow.mapSize.set(1024,1024); const sc=key.shadow.camera; sc.left=-70; sc.right=70; sc.top=110; sc.bottom=-110; sc.near=50; sc.far=400; key.shadow.bias=-0.0015; }
+  // surface, rails with a glowing strip, goal slots, and the cabinet underneath
+  const top=new THREE.Mesh(new THREE.PlaneGeometry(W,L),mkMat({map:surfaceTex(),roughness:0.25,metalness:0})); top.rotation.x=-Math.PI/2; top.receiveShadow=GFX===2; scene.add(top);
+  const RT=6, RH=3.2, railM=mkMat({color:0x1c2232,roughness:0.5,metalness:0.2}); ledMat=new THREE.MeshBasicMaterial({color:0x22d4ff});
+  for(const s of [-1,1]){ const r=new THREE.Mesh(new THREE.BoxGeometry(RT,RH,L+2*RT),railM); r.position.set(s*(HW+RT/2),RH/2,0); scene.add(r);
+    const led=new THREE.Mesh(new THREE.BoxGeometry(1,0.4,L+2*RT),ledMat); led.position.set(s*(HW+RT/2),RH+0.2,0); scene.add(led);
+    const seg=(HW-GOAL/2); for(const t of [-1,1]){ const e=new THREE.Mesh(new THREE.BoxGeometry(seg,RH,RT),railM); e.position.set(t*(GOAL/2+seg/2),RH/2,s*(HL+RT/2)); scene.add(e);
+      const l2=new THREE.Mesh(new THREE.BoxGeometry(seg,0.4,1),ledMat); l2.position.set(t*(GOAL/2+seg/2),RH+0.2,s*(HL+RT/2)); scene.add(l2); }
+    const slot=new THREE.Mesh(new THREE.BoxGeometry(GOAL,0.5,RT),new THREE.MeshBasicMaterial({color:0x020306})); slot.position.set(0,0.05,s*(HL+RT/2)); scene.add(slot); }
+  const cab=new THREE.Mesh(new THREE.BoxGeometry(W+2*RT+4,14,L+2*RT+4),mkMat({color:0x121826,roughness:0.7})); cab.position.y=-7.2; scene.add(cab);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(1400,1400),mkMat({color:0x0d1220,roughness:1})); floor.rotation.x=-Math.PI/2; floor.position.y=-60; scene.add(floor);
+  // the puck: a low disc with a light ring on top
+  puckMesh=new THREE.Group(); const pm=mkMat({color:0x18191d,roughness:0.3,metalness:0.1});
+  const pb=new THREE.Mesh(new THREE.CylinderGeometry(PR,PR,1.0,PERF?20:36),pm); pb.position.y=0.5; puckMesh.add(pb);
+  const pr=new THREE.Mesh(new THREE.TorusGeometry(PR*0.62,0.22,6,PERF?16:28),mkMat({color:0x9aa2ae,roughness:0.35,metalness:0.4})); pr.rotation.x=Math.PI/2; pr.position.y=1.02; puckMesh.add(pr);
+  if(GFX===2) pb.castShadow=true; scene.add(puckMesh);
+  if(!PERF) for(let i=0;i<8;i++){ const t=new THREE.Mesh(new THREE.CircleGeometry(PR*0.9,16),new THREE.MeshBasicMaterial({color:0x2a2e38,transparent:true,opacity:0,depthWrite:false})); t.rotation.x=-Math.PI/2; t.position.y=0.05; scene.add(t); trail.push({m:t,x:0,z:0}); }   // a fading streak behind a fast puck
+  m1Mesh=malletMesh(0x2a6ef0); m2Mesh=malletMesh(0xe8344a); scene.add(m1Mesh,m2Mesh);
+  resize(); if(window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+}
+function resize(){ if(!renderer) return; const w=stage.clientWidth, h=stage.clientHeight; if(w<2||h<2||(w===lastW&&h===lastH)) return; lastW=w; lastH=h;
+  renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix();
+  const t=Math.tan(camera.fov*Math.PI/360), needZ=(L+2*6+8)/2, needX=(W+2*6+8)/2, d=Math.max(needZ/t,needX/(t*camera.aspect));   // fit the whole table, rails included
+  camera.position.set(0,d,0.0001); camera.lookAt(0,0,0); }
+window.addEventListener('resize',resize);
+
+// ═══════════════════════════════════════════════════════
+//  SOUND (synthesised): mallet hits, rail knocks, goals
+// ═══════════════════════════════════════════════════════
+let _ac=null, master=null;
+function getAC(){ if(!_ac){ const AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null; _ac=new AC({latencyHint:'interactive'}); master=_ac.createGain(); master.gain.value=settings.muted?0:1; master.connect(_ac.destination);
+    try{ if(navigator.audioSession) navigator.audioSession.type='ambient'; }catch(e){} } if(_ac.state!=='running') _ac.resume().catch(()=>{}); return _ac; }
+['pointerdown','touchend','visibilitychange'].forEach(ev=>window.addEventListener(ev,()=>{ if(_ac) getAC(); },{passive:true}));
+const _lastSnd={};
+function tone(f,dur,vol,type,f1){ if(!_ac||settings.muted) return; const t=_ac.currentTime, o=_ac.createOscillator(), g=_ac.createGain(); o.type=type||'triangle'; o.frequency.setValueAtTime(f,t); if(f1) o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02); }
+let _nb=null; function clack(vol,freq,dur){ if(!_ac||settings.muted) return; const t=_ac.currentTime; if(!_nb){ const n=_ac.sampleRate*0.3|0; _nb=_ac.createBuffer(1,n,_ac.sampleRate); const d=_nb.getChannelData(0); for(let i=0;i<n;i++) d[i]=Math.random()*2-1; }
+  const s=_ac.createBufferSource(), f=_ac.createBiquadFilter(), g=_ac.createGain(); s.buffer=_nb; f.type='bandpass'; f.frequency.value=freq; f.Q.value=1.4; g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0008,t+dur); s.connect(f); f.connect(g); g.connect(master); s.start(t); s.stop(t+dur+0.02); }
+function sndHit(v){ const k=Math.min(1,v/MAXV); if(!gate('hit',0.05)) return; clack(0.25+0.55*k,1700+900*k,0.07); tone(420+260*k,0.06,0.12*k+0.04,'square',260); }
+function sndRail(v){ const k=Math.min(1,v/MAXV); if(k<0.06||!gate('rail',0.05)) return; clack(0.12+0.35*k,900,0.06); tone(180,0.07,0.1*k,'triangle',120); }
+function sndGoal(good){ tone(good?523:330,0.16,0.18,'square'); setTimeout(()=>tone(good?784:262,0.22,0.18,'square'),140); if(good) setTimeout(()=>tone(1046,0.3,0.15,'square'),300); clack(0.4,300,0.3); }
+function gate(k,gap){ const t=_ac?_ac.currentTime:0; if(_lastSnd[k]!=null&&t-_lastSnd[k]<gap) return false; _lastSnd[k]=t; return true; }
+function muteIcon(m){ return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 9v6h4l5 4V5L7 9H3z"/>'+(m?'<path d="M16 9l6 6M22 9l-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>':'<path d="M15.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M18 6a9 9 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>')+'</svg>'; }
+
+// ═══════════════════════════════════════════════════════
+//  PHYSICS
+// ═══════════════════════════════════════════════════════
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+function limitMallet(m,top){ m.tx=clamp(m.tx,-HW+MR,HW-MR); m.tz=top?clamp(m.tz,-HL+MR,-MR):clamp(m.tz,MR,HL-MR); }   // each side stays in its own half
+function hitMallet(m,dt){
+  const dx=puck.x-m.x, dz=puck.z-m.z, d=Math.hypot(dx,dz), min=PR+MR; if(d>=min||d<1e-6) return;
+  const nx=dx/d, nz=dz/d; puck.x=m.x+nx*min; puck.z=m.z+nz*min;
+  const rvx=puck.vx-m.vx, rvz=puck.vz-m.vz, vn=rvx*nx+rvz*nz;
+  if(vn<0){ puck.vx-=(1+E_MALLET)*vn*nx; puck.vz-=(1+E_MALLET)*vn*nz; const sp=Math.hypot(puck.vx,puck.vz); if(sp>MAXV){ puck.vx*=MAXV/sp; puck.vz*=MAXV/sp; } sndHit(-vn); }
+  // a puck pinned against a rail by the mallet squeezes out sideways rather than sticking
+  if(Math.abs(puck.x)>HW-PR){ puck.x=Math.sign(puck.x)*(HW-PR); puck.vz+=(puck.z>m.z?1:-1)*30; }
+}
+function post(px,pz){ const dx=puck.x-px, dz=puck.z-pz, d=Math.hypot(dx,dz); if(d>=PR||d<1e-6) return; const nx=dx/d, nz=dz/d; puck.x=px+nx*PR; puck.z=pz+nz*PR; const vn=puck.vx*nx+puck.vz*nz; if(vn<0){ puck.vx-=(1+E_WALL)*vn*nx; puck.vz-=(1+E_WALL)*vn*nz; sndRail(-vn); } }
+function physStep(dt,f){
+  for(const m of [M1,M2]){ m.x=m.px+(m.tx-m.px)*f; m.z=m.pz+(m.tz-m.pz)*f; }    // mallets sweep smoothly through the frame (no tunnelling)
+  puck.x+=puck.vx*dt; puck.z+=puck.vz*dt; const k=Math.exp(-AIR*dt); puck.vx*=k; puck.vz*=k;
+  if(Math.abs(puck.z)>HL-PR-MR*1.7&&Math.hypot(puck.vx,puck.vz)<40) puck.vz-=Math.sign(puck.z)*55*dt;   // a puck resting against a back rail drifts out on the air (no mallet can get behind it there)
+  if(Math.abs(puck.x)>HW-PR){ const s=Math.sign(puck.x); puck.x=s*(HW-PR); if(puck.vx*s>0){ sndRail(Math.abs(puck.vx)); puck.vx=-puck.vx*E_WALL; } }
+  if(Math.abs(puck.z)>HL-PR){ const s=Math.sign(puck.z);
+    if(Math.abs(puck.x)<GOAL/2-PR*0.3){ if(Math.abs(puck.z)>HL+PR){ goal(s>0?2:1); return; } }   // into the goal mouth
+    else if(Math.abs(puck.z)<HL+PR*0.5){ puck.z=s*(HL-PR); if(puck.vz*s>0){ sndRail(Math.abs(puck.vz)); puck.vz=-puck.vz*E_WALL; } } }
+  for(const s of [-1,1]) for(const t of [-1,1]) post(t*GOAL/2,s*HL);
+  hitMallet(M1,dt); hitMallet(M2,dt);
+}
+function goal(scorer){
+  score[scorer-1]++; drawScore(); const youScored=scorer===1||settings.mode==='2p';
+  sndGoal(youScored); ledFlash=1; ledCol=scorer===1?0x4a9aff:0xff4a5a;
+  const who=settings.mode==='2p'?(scorer===1?'P1':'P2'):(scorer===1?'YOU':'CPU');
+  showMsg('GOAL!',scorer===1?'#5aa8ff':'#ff5a6a');
+  puck.vx=puck.vz=0; puck.x=0; puck.z=scorer===1?-HL*1.4:HL*1.4;            // (out of sight until the serve)
+  if(score[scorer-1]>=settings.to){ phase='over'; setTimeout(()=>gameOver(scorer),1300); return; }
+  servingTo=scorer===1?2:1; phase='goal'; pauseT=1.3; void who;
+}
+function serve(){ puck.x=0; puck.z=servingTo===1?HL*0.42:-HL*0.42; puck.vx=puck.vz=0; phase='play'; }
+
+// ── CPU: defends on the line to its goal, comes out to strike a puck in its half, aiming for open space ──
+let cpuAim=0;
+function cpuThink(dt){
+  const C=CPU[settings.mode]||CPU.medium; cpuT-=dt;
+  const attacking=puck.z<-2&&!(puck.vz<-20&&puck.z>-HL*0.5&&Math.abs(puck.vz)>140);
+  if(cpuT<=0||attacking){ if(cpuT<=0) cpuT=C.react;
+    const home={x:0,z:-HL+16}, inHalf=puck.z<-2, toward=puck.vz<-20;
+    let tx, tz;
+    if(inHalf&&!(toward&&puck.z>-HL*0.5&&Math.abs(puck.vz)>140)){
+      // get behind the puck (on its goal side), then drive through it toward the far goal
+      if(Math.random()<0.02||!cpuAim) cpuAim=(Math.random()*2-1)*(GOAL/2)*(1-C.aim*0.6)+(Math.random()<0.25?(Math.random()<0.5?-1:1)*HW*0.7:0);   // straight in, or off a rail
+      const gx=cpuAim, gz=HL, ax=gx-puck.x, az=gz-puck.z, al=Math.hypot(ax,az)||1, dx=ax/al, dz=az/al;
+      const behind=M2.z<puck.z-PR-MR*0.6, pinned=puck.z<-HL+PR+MR*1.6;
+      if(pinned){ tx=clamp(puck.x,-GOAL/2,GOAL/2)*0.7; tz=puck.z+PR+MR+6; }      // tight to its own back rail (no room to get behind): guard the goal while the air lifts it out
+      else if(behind){ tx=puck.x+dx*16; tz=puck.z+dz*16; }                       // swing through
+      else { const side=M2.x<puck.x?-1:1, clear=Math.abs(M2.x-puck.x)>PR+MR+2;      // come round behind it: step out sideways first, so it never walks the puck into its own goal
+        if(!clear&&M2.z>puck.z-PR-MR){ tx=puck.x+side*(PR+MR+6); tz=Math.max(M2.z,puck.z+2); } else { tx=puck.x-dx*(PR+MR+3); tz=puck.z-(PR+MR+4); } }
+    } else {
+      // guard: between the puck and the goal, a little out from it, following where the puck is heading
+      const look=puck.vz<0?clamp((home.z-puck.z)/puck.vz,0,0.6):0, px=clamp(puck.x+puck.vx*look,-HW,HW);
+      tx=px*0.55; tz=home.z+(puck.z<0?6:0);
+    }
+    if(cpuT===C.react||!attacking){ M2.ex=(Math.random()*2-1)*C.err; M2.ez=(Math.random()*2-1)*C.err*0.5; }   // (its aim wobbles at its reaction rate; the chase itself is every frame)
+    M2.gx=tx+(M2.ex||0); M2.gz=tz+(M2.ez||0);
+  }
+  if(M2.gx==null) return;
+  const dx=M2.gx-M2.tx, dz=M2.gz-M2.tz, d=Math.hypot(dx,dz), step=C.spd*dt;
+  if(d>step){ M2.tx+=dx/d*step; M2.tz+=dz/d*step; } else { M2.tx=M2.gx; M2.tz=M2.gz; }
+  limitMallet(M2,true);
+}
+
+// ═══════════════════════════════════════════════════════
+//  INPUT: each finger (or the mouse) drives the mallet on its half; the mouse needn't be pressed
+// ═══════════════════════════════════════════════════════
+const ray=new THREE.Raycaster(), plane=new THREE.Plane(new THREE.Vector3(0,1,0),-1.5), _v=new THREE.Vector3();
+function toTable(cx,cy){ const r=renderer.domElement.getBoundingClientRect(); ray.setFromCamera({x:((cx-r.left)/r.width)*2-1,y:-((cy-r.top)/r.height)*2+1},camera); return ray.ray.intersectPlane(plane,_v)?{x:_v.x,z:_v.z}:null; }
+const owner={};                                   // pointerId → 1 or 2
+function pointer(e){ if(phase==='menu'||phase==='paused') return; const p=toTable(e.clientX,e.clientY); if(!p) return;
+  let who=owner[e.pointerId]; if(!who){ who=settings.mode==='2p'&&p.z<0?2:1; if(e.type==='pointerdown') owner[e.pointerId]=who; }
+  if(settings.mode!=='2p') who=1;
+  const m=who===1?M1:M2; m.tx=p.x; m.tz=p.z; limitMallet(m,who===2); }
+function bindInput(){ const el=renderer.domElement;
+  el.addEventListener('pointerdown',e=>{ getAC(); e.preventDefault(); pointer(e); });
+  el.addEventListener('pointermove',e=>{ if(e.pointerType==='mouse'||e.buttons||owner[e.pointerId]) pointer(e); });
+  const end=e=>{ delete owner[e.pointerId]; }; el.addEventListener('pointerup',end); el.addEventListener('pointercancel',end); }
+
+// ═══════════════════════════════════════════════════════
+//  GAME FLOW, HUD, LOOP
+// ═══════════════════════════════════════════════════════
+let msgT=0, ledFlash=0, ledCol=0x22d4ff;
+function showMsg(t,col){ const m=document.getElementById('msg'); m.textContent=t; m.style.color=col||'#ffd54a'; m.classList.add('show'); msgT=1.1; }
+function names(){ return settings.mode==='2p'?['P1','P2']:['YOU','CPU']; }
+function drawScore(){ const n=names(); document.getElementById('score').innerHTML=`<span class="who s1">${n[0]}</span><span class="s1">${score[0]}</span><span class="dash">–</span><span class="s2">${score[1]}</span><span class="who s2">${n[1]}</span><span class="to">TO ${settings.to}</span>`; }
+function resetMallets(){ for(const [m,s] of [[M1,1],[M2,-1]]){ m.x=m.tx=m.px=0; m.z=m.tz=m.pz=s*(HL-20); m.vx=m.vz=0; m.gx=m.gz=null; } }
+function newGame(mode){ settings.mode=mode; saveSettings(); score=[0,0]; drawScore(); resetMallets(); servingTo=1; serve(); phase='countdown'; pauseT=0.9; showMsg(mode==='2p'?'FACE OFF':'GO!');
+  document.getElementById('ov').classList.remove('show'); }
+function gameOver(w){ const n=names(), ov=document.getElementById('ov');
+  document.getElementById('ovTitle').textContent=settings.mode==='2p'?(w===1?'PLAYER 1 WINS':'PLAYER 2 WINS'):(w===1?'YOU WIN!':'CPU WINS');
+  document.getElementById('ovText').innerHTML=`Final score <b>${score[0]} – ${score[1]}</b>. Play again?`; void n;
+  ov.classList.add('show'); phase='menu'; }
+let lastT=0, acc=0; const STEP=1/240;
+function loop(t){
+  const raw=Math.min(0.05,(t-lastT)/1000||0); lastT=t;
+  try{
+    if(phase==='play'||phase==='countdown'||phase==='goal'){
+      if(phase==='countdown'||phase==='goal'){ pauseT-=raw; if(pauseT<=0){ if(phase==='goal') serve(); else phase='play'; } }
+      if(settings.mode!=='2p') cpuThink(raw);
+      for(const m of [M1,M2]){ const dx=m.tx-m.px, dz=m.tz-m.pz, d=Math.hypot(dx,dz), cap=MALLET_MAX*raw; if(d>cap){ m.tx=m.px+dx/d*cap; m.tz=m.pz+dz/d*cap; }   // no teleporting mallets
+        m.vx=raw>0?(m.tx-m.px)/raw:0; m.vz=raw>0?(m.tz-m.pz)/raw:0; }
+      if(phase==='play'){ const n=Math.max(1,Math.round(raw/STEP)), h=raw/n; for(let i=0;i<n&&phase==='play';i++) physStep(h,(i+1)/n);
+      }
+      for(const m of [M1,M2]){ m.x=m.tx; m.z=m.tz; m.px=m.tx; m.pz=m.tz; }
+    }
+    if(msgT>0){ msgT-=raw; if(msgT<=0) document.getElementById('msg').classList.remove('show'); }
+    draw(raw);
+  }catch(err){ showFatal(err); }
+  perf(raw); requestAnimationFrame(loop);
+}
+function draw(dt){
+  puckMesh.position.set(puck.x,0,puck.z); puckMesh.visible=Math.abs(puck.z)<HL+PR*2;
+  m1Mesh.position.set(M1.x,0,M1.z); m2Mesh.position.set(M2.x,0,M2.z);
+  if(trail.length){ const sp=Math.hypot(puck.vx,puck.vz); for(let i=trail.length-1;i>0;i--){ trail[i].x=trail[i-1].x; trail[i].z=trail[i-1].z; } trail[0].x=puck.x; trail[0].z=puck.z;
+    trail.forEach((T,i)=>{ T.m.position.x=T.x; T.m.position.z=T.z; T.m.material.opacity=phase==='play'?Math.max(0,(sp-90)/240)*(1-i/trail.length)*0.45:0; T.m.scale.setScalar(1-i/trail.length*0.5); }); }
+  if(ledFlash>0){ ledFlash=Math.max(0,ledFlash-dt*0.8); const on=(ledFlash*10|0)%2===0; ledMat.color.setHex(on?ledCol:0x22d4ff); } else ledMat.color.setHex(0x22d4ff);
+  renderer.render(scene,camera);
+}
+const PF={t:0,n:0,sum:0,max:0};
+function perf(raw){ if(!settings.fps) return; PF.n++; PF.sum+=raw; PF.max=Math.max(PF.max,raw); PF.t+=raw; if(PF.t<0.5) return; const el=document.getElementById('fps'), a=PF.sum/PF.n, ri=renderer.info.render;
+  el.textContent=`${Math.round(1/a)} fps · worst ${(PF.max*1000).toFixed(0)} ms · ${GFX_NAMES[GFX]}${settings.gfx==='auto'?' (auto)':''} · ${ri.calls} draws`; PF.t=PF.n=PF.sum=PF.max=0; }
+
+// ═══════════════════════════════════════════════════════
+//  SETTINGS + START
+// ═══════════════════════════════════════════════════════
+let pausedFrom=null;
+function openSettings(on){ const s=document.getElementById('settings'); s.classList.toggle('open',on);
+  if(on&&phase!=='menu'){ pausedFrom=phase; phase='paused'; } else if(!on&&pausedFrom){ phase=pausedFrom; pausedFrom=null; } }
+function setup(){
+  loadSettings(); drawScore();
+  const mb=document.getElementById('mute'); const setMute=m=>{ settings.muted=m; saveSettings(); mb.innerHTML=muteIcon(m); if(master) master.gain.value=m?0:1; }; setMute(!!settings.muted);
+  mb.addEventListener('click',()=>{ getAC(); setMute(!settings.muted); });
+  document.getElementById('cog').addEventListener('click',()=>openSettings(true));
+  document.getElementById('settingsClose').addEventListener('click',()=>openSettings(false));
+  document.getElementById('settings').addEventListener('click',e=>{ if(e.target.id==='settings') openSettings(false); });
+  document.querySelectorAll('input[name="to"]').forEach(r=>{ r.checked=+r.value===settings.to; r.addEventListener('change',()=>{ if(r.checked){ settings.to=+r.value; saveSettings(); drawScore(); } }); });
+  const gr=[...document.querySelectorAll('input[name="gfx"]')]; document.getElementById('gfxAutoLbl').textContent=settings.gfx==='auto'?GFX_NAMES[resolveGfx()]:'';
+  gr.forEach(r=>{ r.checked=r.value===settings.gfx; r.addEventListener('change',()=>{ if(!r.checked) return; settings.gfx=r.value; if(r.value==='auto') settings.gfxAuto=null; saveSettings(); location.reload(); }); });
+  const fb=document.getElementById('setFps'), rf=()=>{ fb.classList.toggle('on',settings.fps); fb.textContent='Frame rate readout: '+(settings.fps?'On':'Off'); document.getElementById('fps').style.display=settings.fps?'block':'none'; };
+  rf(); fb.addEventListener('click',()=>{ settings.fps=!settings.fps; saveSettings(); rf(); });
+  document.getElementById('menuBtn').addEventListener('click',()=>{ pausedFrom=null; openSettings(false); phase='menu'; document.getElementById('ovTitle').textContent='PUCK RUSH'; document.getElementById('ov').classList.add('show'); });
+  document.querySelectorAll('[data-mode]').forEach(b=>{ b.classList.toggle('primary',b.dataset.mode===settings.mode); b.addEventListener('click',()=>{ getAC(); document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('primary',x===b)); newGame(b.dataset.mode); }); });
+  document.addEventListener('visibilitychange',()=>{ if(document.hidden&&(phase==='play'||phase==='countdown'||phase==='goal')) openSettings(true); });
+}
+function boot(){ setup(); initScene(); bindInput(); resetMallets(); serve(); phase='menu';
+  requestAnimationFrame(t=>{ lastT=t; loop(t); requestAnimationFrame(()=>{ const L=document.getElementById('loader'); L.classList.add('done'); setTimeout(()=>L.remove(),500); document.getElementById('ov').classList.add('show'); }); }); }
+requestAnimationFrame(()=>setTimeout(()=>{ try{ boot(); }catch(e){ showFatal(e); } },0));
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
