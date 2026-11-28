@@ -289,7 +289,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="sec"><div class="sec-label" id="skinLbl">Course theme</div>
       <select id="skinSel" class="dd" aria-labelledby="skinLbl">
       <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
-      <option value="dunes">Dunes</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
+      <option value="dunes">Dunes</option><option value="highlands">Highlands</option><option value="jungle">Jungle</option><option value="ocean">Ocean Side</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
       </select>
     </div>
     <button class="toggle" id="setLefty"></button>
@@ -324,7 +324,7 @@ body.lefty #row{flex-direction:row-reverse;}
   <div id="genPanel"><div class="cp-label" id="genThemeLbl">Theme</div>
     <select id="genThemeSel" class="dd gen-dd" aria-labelledby="genThemeLbl">
       <option value="default">Default</option><option value="8bit">8 Bit</option><option value="canyon">Canyon</option><option value="cyber">Cyber</option><option value="desert">Desert</option>
-      <option value="dunes">Dunes</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
+      <option value="dunes">Dunes</option><option value="highlands">Highlands</option><option value="jungle">Jungle</option><option value="ocean">Ocean Side</option><option value="apoc">Post-Apocalypse</option><option value="scifi">Sci-Fi</option><option value="sketch">Sketch</option><option value="winter">Winter</option>
     </select>
     <div class="cp-label" id="genDiffLbl">Difficulty</div>
     <div class="seg gen-diff" role="radiogroup" aria-labelledby="genDiffLbl">
@@ -339,7 +339,7 @@ body.lefty #row{flex-direction:row-reverse;}
     <div class="cp-row"><button id="genPlay" class="last">Play course<small id="genPlaySub">18 holes</small></button><button id="genBack">Back<small>to courses</small></button></div>
     <div class="cp-label" id="genSavedLbl">Saved courses</div><div id="genSaved"></div></div>
   <button id="startbtn">START</button>
-  <div id="ver">Version 0.9.10 · Updated Nov 27, 2026</div>
+  <div id="ver">Version 0.9.11 · Updated Nov 27, 2026</div>
 </div>
 <div id="tour" role="dialog" aria-modal="true" aria-labelledby="tourTitle">
   <svg aria-hidden="true"><defs><mask id="tourMask"><rect width="100%" height="100%" fill="#fff"/><g id="tourHoles"></g></mask></defs>
@@ -726,14 +726,41 @@ function envTemplate(sp){
   } else if(sp==='dunegrass'||sp==='sage'||sp==='ashbush'){         // dune grass / desert sage / burnt scrub: a low, loose clump
     const g=sp==='dunegrass'; envLobeCards(cards,[{c:[0,0.5,0],r:0.9,sy:g?1.1:0.7},{c:[0.5,0.4,0.2],r:0.55,sy:g?1.1:0.7},{c:[-0.45,0.38,-0.25],r:0.55,sy:g?1.1:0.7}],[0,0.3,0],Math.round(60*q),g?0.5:0.5);
     T={leaf:g?'needle':'leaf',h:1.2,cy:0.5,r:0.9,trunkR:0,trunkH:0,flat:false};
+  } else if(sp==='canopy'){                        // jungle giant: a buttressed trunk, then a broad, flat-topped crown high up
+    wood.push(envCyl(0.95,0.42,1.6,9,V(0,0,0),up)); wood.push(envCyl(0.44,0.3,11.5,9,V(0,1.2,0),V(0.04,1,0.02)));
+    for(let i=0;i<4;i++){ const a=i/4*6.28+NZ.rnd()*0.6; wood.push(envCyl(0.5,0.05,1.9,4,V(0,0,0),V(Math.cos(a)*1.4,0.5,Math.sin(a)*1.4))); }   // buttress roots
+    for(let i=0;i<5;i++){ const a=i/5*6.28+NZ.rnd(); wood.push(envCyl(0.16,0.06,3.6,5,V(0,9.8+NZ.rnd()*1.2,0),V(Math.cos(a)*1.3,0.7,Math.sin(a)*1.3))); }
+    const lobes=[{c:[0,13.4,0],r:3.4,sy:0.42}]; for(let i=0;i<6;i++){ const a=i/6*6.28+NZ.rnd()*0.5, d=2.8+NZ.rnd()*0.8; lobes.push({c:[Math.cos(a)*d,12.6+NZ.rnd()*1.2,Math.sin(a)*d],r:1.9+NZ.rnd()*0.5,sy:0.5}); }
+    envLobeCards(cards,lobes,[0,12.8,0],Math.round(200*q),1.35); T={leaf:'leaf',h:15.2,cy:13,r:4.4,trunkR:0.44,trunkH:12.6,flat:false};
+  } else if(sp==='banana'||sp==='fern'){            // banana: a short stem under a few huge arching leaves / fern: fronds arching from the ground
+    const b=sp==='banana', top=[0,b?2.6+NZ.rnd()*0.8:0.25,0]; if(b) wood.push(envCyl(0.2,0.15,top[1],7,V(0,0,0),up));
+    const nf=b?7:Math.round(11*q+2), seg=b?9:8;
+    for(let f=0;f<nf;f++){ const a=f/nf*6.28+NZ.rnd()*0.4, rise=b?0.9+NZ.rnd()*0.4:0.95+NZ.rnd()*0.5, L=b?2.3+NZ.rnd()*0.7:1.3+NZ.rnd()*0.6;
+      for(let k=1;k<=seg;k++){ const t=k/seg, rr=L*t, dy=rise*rr-1.5*t*t*L*0.55; cards.push({p:[top[0]+Math.cos(a)*rr,top[1]+dy,top[2]+Math.sin(a)*rr],s:(b?0.62:0.36)*(1-t*0.35),n:[Math.cos(a)*0.5,0.86,Math.sin(a)*0.5],k:0.7+0.3*(1-t)}); } }
+    T=b?{leaf:'leaf',h:top[1]+1.6,cy:top[1]+0.5,r:2.2,trunkR:0.18,trunkH:top[1],flat:false}:{leaf:'needle',h:1.4,cy:0.6,r:1.3,trunkR:0,trunkH:0,flat:false};
+  } else if(sp==='cypress'){                       // windswept sea cypress: a leaning, twisted trunk and flat shelves of foliage blown to one side
+    const lean=0.45+NZ.rnd()*0.2; wood.push(envCyl(0.36,0.22,3.4,8,V(0,0,0),V(lean,1,0.1)));
+    const tp=V(0,0,0).addScaledVector(V(lean,1,0.1).normalize(),3.4); wood.push(envCyl(0.2,0.08,3.2,6,tp,V(1,0.35,0.2)));
+    for(let i=0;i<3;i++){ const a=-0.9+i*0.9+NZ.rnd()*0.4; wood.push(envCyl(0.12,0.05,2.4,5,tp,V(Math.cos(a)*1.2,0.45,Math.sin(a)*1.2))); }
+    const lobes=[]; for(let i=0;i<6;i++){ const d=-0.6+i*0.75+NZ.rnd()*0.3, side=(NZ.rnd()-0.5)*2.4; lobes.push({c:[tp.x+d,tp.y+0.9+(i%3)*0.7+NZ.rnd()*0.4,tp.z+side],r:1.3+NZ.rnd()*0.45,sy:0.38}); }
+    envLobeCards(cards,lobes,[tp.x+1.2,tp.y+1.4,tp.z],Math.round(150*q),0.9); T={leaf:'needle',h:tp.y+3.2,cy:tp.y+1.4,r:2.8,trunkR:0.3,trunkH:tp.y,flat:false};
+  } else if(sp==='scotspine'){                     // Scots pine: a tall, bare, orange-barked trunk under a few flat crowns of needles
+    const th=8.6+NZ.rnd()*1.6; wood.push(envCyl(0.3,0.12,th+1,8,V(0,0,0),V((NZ.rnd()-0.5)*0.1,1,(NZ.rnd()-0.5)*0.1)));
+    for(let i=0;i<4;i++){ const a=i/4*6.28+NZ.rnd(); wood.push(envCyl(0.1,0.04,2.2,5,V(0,th-1.4+i*0.5,0),V(Math.cos(a)*1.5,0.55,Math.sin(a)*1.5))); }
+    const lobes=[{c:[0,th+0.9,0],r:1.9,sy:0.45}]; for(let i=0;i<4;i++){ const a=i/4*6.28+NZ.rnd()*0.6, d=1.5+NZ.rnd()*0.5; lobes.push({c:[Math.cos(a)*d,th-0.3+NZ.rnd()*1.2,Math.sin(a)*d],r:1.2+NZ.rnd()*0.35,sy:0.45}); }
+    envLobeCards(cards,lobes,[0,th+0.4,0],Math.round(140*q),0.9); T={leaf:'needle',h:th+2,cy:th+0.4,r:2.4,trunkR:0.26,trunkH:th,flat:false};
+  } else if(sp==='gorse'||sp==='heather'){         // gorse: a dense, prickly, yellow-flowered bush / heather: a low purple mat
+    const g=sp==='gorse', sy=g?0.85:0.45, R0=g?1.0:1.1;
+    envLobeCards(cards,[{c:[0,R0*sy*0.8,0],r:R0,sy},{c:[0.6,R0*sy*0.6,0.25],r:R0*0.62,sy},{c:[-0.55,R0*sy*0.55,-0.3],r:R0*0.62,sy},{c:[0.1,R0*sy*0.5,-0.7],r:R0*0.55,sy}],[0,0.3,0],Math.round((g?78:64)*q),g?0.5:0.42);
+    T={leaf:'needle',h:g?1.7:0.9,cy:g?0.7:0.35,r:g?1.1:1.1,trunkR:0,trunkH:0,flat:false};
   } else {                                          // shrub: a low dome of leaf cards
     envLobeCards(cards,[{c:[0,0.55,0],r:0.95,sy:0.7},{c:[0.45,0.45,0.2],r:0.6,sy:0.7},{c:[-0.4,0.42,-0.25],r:0.6,sy:0.7}],[0,0.3,0],Math.round(64*q),0.55);
     T={leaf:'leaf',h:1.3,cy:0.5,r:1,trunkR:0,trunkH:0,flat:false};
   }
   T.wood=wood.length?envMerge(wood):null; T.leaves=cards.length?envCards(cards,T.flat):null; if(T.wood) T.wood.userData.shared=true; if(T.leaves) T.leaves.userData.shared=true; return ENV.tpl[sp]=T;
 }
-const ENV_LEAF={crystal:0x7fe6ff,snowpine:0xffffff,ashbush:0x5c4c44,dead:0x2e2420,oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e,palm:0xcfe68e,juniper:0x86a088,dunegrass:0xd8c890,sage:0xb4bea2,cactus:0x6f9a52};
-const ENV_BARK={dead:0x40332c,poplar:0xd8d2c4,palm:0xffffff,juniper:0xa08a78};   // bark tints (×the bark texture); a cactus is plain ribbed green
+const ENV_LEAF={canopy:0x9ccf80,banana:0xd8f49a,fern:0xa8dc86,cypress:0x7d9c7a,scotspine:0x92ac8a,gorse:0xffffff,heather:0xffffff,crystal:0x7fe6ff,snowpine:0xffffff,ashbush:0x5c4c44,dead:0x2e2420,oak:0xb8d49a,pine:0x9cb894,poplar:0xd2e2a0,shrub:0xaccc8e,palm:0xcfe68e,juniper:0x86a088,dunegrass:0xd8c890,sage:0xb4bea2,cactus:0x6f9a52};
+const ENV_BARK={canopy:0xd0c6b2,banana:0xb6c68c,cypress:0x9a8676,scotspine:0xe0985e,dead:0x40332c,poplar:0xd8d2c4,palm:0xffffff,juniper:0xa08a78};   // bark tints (×the bark texture); a cactus is plain ribbed green
 function envCactusCanvas(){ const c=mkCanvas(64,128), g=c.getContext('2d');                  // vertical ribs, light and dark green
   for(let x=0;x<64;x++){ const k=0.5+0.5*Math.cos(x/64*Math.PI*2*6); g.fillStyle=`rgb(${Math.round(70+k*40)},${Math.round(112+k*44)},${Math.round(58+k*26)})`; g.fillRect(x,0,1,128); } return c; }
 function envPalmCanvas(){ const c=mkCanvas(32,128), g=c.getContext('2d');                    // a ringed, light grey-brown palm trunk
@@ -745,7 +772,11 @@ function envMaterials(sp,heightW){                  // per species: leaves + bar
   if(sp==='crystal'){ const cm=new THREE.MeshStandardMaterial({color:0x7fe6ff,emissive:0x1d7a99,roughness:0.15,metalness:0.2,flatShading:true}); return ENV.mats[key]={leaf:cm,bark:cm}; }   // glassy, faintly glowing
   if(sp==='snowpine'&&!ENV.snowTex){ const c=envLeafCanvas('needle'), g=c.getContext('2d'), im=g.getImageData(0,0,c.width,c.height), d=im.data;   // needles mostly under snow
     for(let i=0;i<d.length;i+=4){ const k=(i>>2)%7<5?0.82:0.35; d[i]=d[i]+(242-d[i])*k; d[i+1]=d[i+1]+(246-d[i+1])*k; d[i+2]=d[i+2]+(252-d[i+2])*k; } g.putImageData(im,0,0); ENV.snowTex=toTex(c); }
-  const T=envTemplate(sp), map=sp==='snowpine'?ENV.snowTex:T.leaf==='needle'?ENV.needleTex:ENV.leafTex, K=(sp==='shrub'?0.05:0.3)*ENV.U;
+  if((sp==='gorse'||sp==='heather')&&!ENV[sp+'Tex']){ const c=envLeafCanvas('needle'), g=c.getContext('2d'), im=g.getImageData(0,0,c.width,c.height), d=im.data;   // gorse: dark green, thick with yellow flowers; heather: purple bells
+    for(let i=0;i<d.length;i+=4){ if(!d[i+3]) continue; const r=Math.random(), L=(d[i]+d[i+1]+d[i+2])/3/110;
+      const k=sp==='gorse'?(r<0.42?[236,196,40]:r<0.5?[200,160,30]:[54,78,40]):(r<0.62?[150,84,150]:r<0.82?[118,62,112]:[92,92,58]); d[i]=k[0]*(0.75+L*0.4); d[i+1]=k[1]*(0.75+L*0.4); d[i+2]=k[2]*(0.75+L*0.4); }
+    g.putImageData(im,0,0); ENV[sp+'Tex']=toTex(c); }
+  const T=envTemplate(sp), map=sp==='snowpine'?ENV.snowTex:sp==='gorse'||sp==='heather'?ENV[sp+'Tex']:T.leaf==='needle'?ENV.needleTex:ENV.leafTex, K=(sp==='shrub'||sp==='fern'||sp==='gorse'||sp==='heather'?0.05:0.3)*ENV.U;
   const leaf=envPatch(new THREE.MeshStandardMaterial({map,color:ENV_LEAF[sp],alphaTest:0.5,side:THREE.DoubleSide,vertexColors:true,roughness:0.82}),{sway:true,cloud:true,soft:true,swayH:heightW,swayK:K});
   leaf.customDepthMaterial=new THREE.MeshDepthMaterial({depthPacking:THREE.RGBADepthPacking,map,alphaTest:0.5});
   const bark=envPatch(sp==='palm'?new THREE.MeshStandardMaterial({map:ENV.palmTex||(ENV.palmTex=toTex(envPalmCanvas(),{repeat:[1,3]})),color:0xffffff,roughness:0.9}):sp==='cactus'?new THREE.MeshStandardMaterial({map:ENV.cactusTex||(ENV.cactusTex=toTex(envCactusCanvas(),{repeat:[1,2]})),color:0xffffff,roughness:0.75}):new THREE.MeshStandardMaterial({map:ENV.barkTex,color:ENV_BARK[sp]||0xffffff,roughness:0.95}),{sway:true,cloud:true,swayH:heightW,swayK:sp==='cactus'?0:K});
@@ -1110,6 +1141,14 @@ const THEMES={
   sketch:{name:'Sketch',hills:[0.9,2.0],mounds:[0,1.4],dense:0.9,water:0.5,wind:1,bunk:1,sketch:true},   // pencil on paper
   apoc:{name:'Post-Apocalypse',hills:[1.2,2.3],mounds:[0.6,1.8],dense:0.35,water:0.65,wind:1.2,bunk:0.9,apoc:true,trees:{dead:0.7,ashbush:0.3},haze:0x5a1808,   // scorched wasteland; water is lava
     surf:{fairway:[98,84,74],tee:[106,90,78],fringe:[84,66,58],green:[112,58,48],rough:[62,48,42],deep:[46,34,30],ob:[40,30,26],sand:[150,142,132]}},
+  jungle:{name:'Jungle',hills:[1.1,2.1],mounds:[0.3,1.4],dense:1.35,water:0.7,wind:0.55,bunk:0.8,trees:{canopy:0.38,palm:0.14,banana:0.2,fern:0.28},haze:0xb2c8a8,
+    wood:[0.018,0.06,0.016],land:[0.04,0.1,0.035],far:0x1f4a1a,
+    surf:{fairway:[72,160,54],tee:[84,168,62],fringe:[62,148,50],green:[70,172,60],rough:[46,120,38],deep:[34,94,28],ob:[30,86,26],sand:[232,214,170]}},
+  ocean:{name:'Ocean Side',hills:[1.0,1.9],mounds:[0.5,1.6],dense:0.6,water:0.3,wind:1.5,bunk:1.2,sea:true,trees:{cypress:0.45,dunegrass:0.3,shrub:0.15,pine:0.1},haze:0xd2e2ec,   // sea cliffs along one side
+    surf:{fairway:[86,164,64],tee:[96,170,70],fringe:[74,152,58],green:[84,174,68],rough:[92,140,60],deep:[104,132,68],ob:[98,128,64],sand:[236,222,184]}},
+  highlands:{name:'Highlands',hills:[1.6,2.7],mounds:[0.8,2.0],dense:0.55,water:0.45,wind:1.6,bunk:1.4,mtn:true,trees:{scotspine:0.3,gorse:0.4,heather:0.3},haze:0xc4cad0,   // moors, heather and far mountains
+    wood:[0.08,0.055,0.06],land:[0.12,0.11,0.07],far:0x4a463c,
+    surf:{fairway:[116,162,72],tee:[120,168,76],fringe:[102,150,66],green:[90,162,68],rough:[114,124,78],deep:[108,98,76],ob:[102,90,80],sand:[214,198,156]}},
   cyber:{name:'Cyber',hills:[0.9,1.9],mounds:[0.3,1.5],dense:0.8,water:0.45,wind:1,bunk:1.1,cyber:true,haze:0x0c2a14},     // everything seen as glowing green code
 };
 const THEME_WORDS={default:['Oak','Willow','Meadow','Brook','Hollow','Ridge','Glen','Maple','Heather','Fox','Birch','Orchard'],
@@ -1121,6 +1160,9 @@ const THEME_WORDS={default:['Oak','Willow','Meadow','Brook','Hollow','Ridge','Gl
   scifi:['Orbit','Nebula','Quasar','Station','Airlock','Comet','Ion','Pulsar','Docking','Warp','Zero-G','Hangar'],
   sketch:['Pencil','Graphite','Margin','Doodle','Draft','Inkwell','Charcoal','Easel','Folio','Linework','Notebook','Eraser'],
   apoc:['Fallout','Cinder','Rust','Ash','Ruin','Scorch','Wreck','Rubble','Ember','Ashfall','Husk','Wasteland'],
+  jungle:['Canopy','Vine','Orchid','Toucan','Jaguar','Mango','Lagoon','Fern','Monsoon','Bamboo','Cascade','Parrot'],
+  ocean:['Seacliff','Breakers','Lighthouse','Surf','Gull','Cove','Tidepool','Spray','Kelp','Headland','Pelican','Bluff'],
+  highlands:['Heather','Gorse','Thistle','Glen','Loch','Burn','Ben','Moor','Cairn','Crag','Stag','Bothy'],
   cyber:['Signal','Node','Kernel','Vector','Cipher','Proxy','Daemon','Packet','Root','Cache','Socket','Binary']};
 const NAME_ENDS=['Run','Bend','Way','Rise','Lane','Corner','Crossing','Pass','View','Turn','Point','Reach','Drop','Climb'];
 const SEED_CH='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';                                // no 0/O or 1/I, so seeds read back easily
@@ -1390,6 +1432,18 @@ function surfAt(x,z){
   if(F.d<F.hw+wob) return 'fairway';
   return F.d<F.hw+wob+10?'rough':'deep';
 }
+// Ocean Side: the land breaks off in cliffs to the sea a little beyond out of bounds, on one side of the hole (the coast runs
+// parallel to the tee→green line, set back past the widest point of the route on that side)
+const SEA_REL=-10;
+function seaSetup(){ const [tx,tz]=H.tee, gx=H.green.c[0]-tx, gz=H.green.c[1]-tz, gl=Math.hypot(gx,gz)||1, ax=gx/gl, az=gz/gl;
+  const side=(seedNum((H.name||'')+'|'+Math.round(H.len))&1)?1:-1, nx=-az*side, nz=ax*side; let far=0;
+  for(let s=0;s<=H.len;s+=4){ const [x,z]=routePoint(s); far=Math.max(far,(x-tx)*nx+(z-tz)*nz); }
+  return {tx,tz,ax,az,nx,nz,coast:far+H.ob+14}; }
+function seaK(x,z){ const S=H&&H._sea; if(!S) return 0; const dx=x-S.tx, dz=z-S.tz, q=dx*S.nx+dz*S.nz-S.coast-(NZ.n2((dx*S.ax+dz*S.az)*0.008,3.3)-0.5)*14; return q<=0?0:q>=13?1:Math.pow(smooth(q/13),0.8); }
+const seaY=()=>SEA_REL+((H&&H.base)||0);
+function coastTint(x,z,c,out){ const k=seaK(x,z); if(k<=0.02){ out[0]=c[0]; out[1]=c[1]; out[2]=c[2]; return out; }
+  const r=smooth(clamp((k-0.02)/0.1,0,1)), sb=smooth(clamp((k-0.5)/0.2,0,1)), n=0.9+NZ.n2(x*0.3,z*0.3)*0.2;
+  for(let i=0;i<3;i++){ const rock=[132,122,108][i]*n, bed=[120,128,112][i]; out[i]=mix(mix(c[i],rock,r),bed,sb); } return out; }
 let G0=0;                                          // ground height at the green centre (computed once)
 function baseH(x,z){ const x0=x, z0=z, o=H&&H.ter; if(o){ x+=o[0]; z+=o[1]; }
   let h=(NZ.fbm(x*0.0055+17,z*0.0055+3,4)*7-3.5)*((H&&H.hills)||1)+NZ.n2(x*0.025,z*0.025)*0.7;     // hills: how rolling the ground is (broad swells)
@@ -1400,6 +1454,7 @@ function baseH(x,z){ const x0=x, z0=z, o=H&&H.ter; if(o){ x+=o[0]; z+=o[1]; }
   if(H&&(H.rise||H.walls)){ const R=routeInfo(x0,z0);
     if(H.rise){ const L=H.len, sr=clamp(R.s,0,L), k=1-smooth(clamp((R.d-(H.ob+20))/90,0,1)); h+=H.rise*(H.rise<0?sr-L:sr)*k; }
     if(H.walls) h+=26*smooth(clamp((R.d-(H.ob+4))/45,0,1))*(0.75+0.5*NZ.n2(x*0.012,z*0.012)); }   // canyon: rock walls rise beyond out of bounds
+  if(H&&H._sea){ const k=seaK(x0,z0); if(k>0) h=mix(h,SEA_REL-5,k); }                          // Ocean Side: down the cliff to the sea bed
   return h+((H&&H.base)||0); }
 function hAt(x,z){
   let h=baseH(x,z);
@@ -1451,6 +1506,7 @@ function surfPixel(x,z,out){                      // sRGB surface colour for the
   else if(s==='deep'||s==='ob') k=0.88+NZ.n2(x*0.15,z*0.15)*0.2;
   else if(s==='sand'){ let r=0; for(const B of H.bunkers) r=Math.max(r,ellR(B,x,z)<1?ellR(B,x,z):0); k=(0.95+NZ.n2(x*2.1,z*2.1)*0.08)*(0.8+0.2*smooth(clamp((0.98-r)/0.2,0,1))); }   // shaded face under the lip
   if(s!=='water'&&s!=='green') k*=wetK(x,z);
+  if(H._sea&&s==='ob'){ const cc=coastTint(x,z,c,[0,0,0]), n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.05; out[0]=clamp(cc[0]*k*n,0,255); out[1]=clamp(cc[1]*k*n,0,255); out[2]=clamp(cc[2]*k*n,0,255); out[3]=255; return out; }
   const n=1+(NZ.n2(x*3.1,z*3.1)-0.5)*0.05; out[0]=clamp(c[0]*k*n,0,255); out[1]=clamp(c[1]*k*n,0,255); out[2]=clamp(c[2]*k*n,0,255); out[3]=s==='sand'?128:255; return out;
 }
 function surfColor(x,z,out){
@@ -1459,8 +1515,8 @@ function surfColor(x,z,out){
   else if(s==='green'){ k=(Math.floor((x*0.8+z*0.6)/2.4)&1)?1.05:0.96; }
   else if(s==='rough'||s==='deep'||s==='ob') k=0.9+NZ.n2(x*0.15,z*0.15)*0.2;
   if(s!=='water') k*=wetK(x,z);
-  out[0]=Math.pow(c[0]*k/255,2.2); out[1]=Math.pow(c[1]*k/255,2.2); out[2]=Math.pow(c[2]*k/255,2.2); return out;   // vertex colours are linear
-}
+  const cc=H._sea&&s==='ob'?coastTint(x,z,c,[0,0,0]):c;
+  out[0]=Math.pow(cc[0]*k/255,2.2); out[1]=Math.pow(cc[1]*k/255,2.2); out[2]=Math.pow(cc[2]*k/255,2.2); return out; }
 
 const BALL_TYPES=[
   {id:'white',label:'White',col:[246,246,242]},
@@ -1821,7 +1877,7 @@ function flagPixTex(){ if(flagPixTex.t) return flagPixTex.t; const c=mkCanvas(10
   const t=toTex(c); t.magFilter=THREE.NearestFilter; t.minFilter=THREE.NearestFilter; t.generateMipmaps=false; return flagPixTex.t=t; }
 function buildHole(){
   { const SK=THEMES[roundSkin()]||THEMES.default, own=THEMES[H.theme]||THEMES.default;          // dress the hole in the round's theme (its layout stays as made)
-    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.pixel=!!SK.pixel; H.cyber=!!SK.cyber; H.apoc=!!SK.apoc; H.snow=!!SK.snow; H.sketch=!!SK.sketch; H.space=!!SK.space; H.denseK=SK.dense/own.dense; }
+    H.surf=SK.surf; H.trees=SK.trees; H.walls=SK.walls; H.haze=SK.haze; H.pixel=!!SK.pixel; H.cyber=!!SK.cyber; H.apoc=!!SK.apoc; H.snow=!!SK.snow; H.sketch=!!SK.sketch; H.space=!!SK.space; H.denseK=SK.dense/own.dense; H.sea=!!SK.sea; H.mtn=!!SK.mtn; H.wood=SK.wood; H.land=SK.land; H.farCol=SK.far; H._sea=H.sea?seaSetup():null; }
   SURF_COL=H.surf?Object.assign({},SURF_BASE,H.surf):SURF_BASE;
   pixelLook(!!H.pixel); postLook(H.cyber?0:H.sketch?1:-1); themeSky();
   if(holeGroup) disposeGroup(holeGroup);
@@ -1866,7 +1922,8 @@ function buildHole(){
   for(const [geo,m] of [[gIn,M.ground],[gOut,M.groundFar]]){ const o=new THREE.Mesh(geo,m); o.receiveShadow=!PERF; holeGroup.add(o); }
   if(H.space) buildPlatformEdge(pos,inner.concat(outer)); else buildOuterLand(gOut);
   // far fields so the horizon isn't empty
-  if(!H.space){ const far=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshBasicMaterial({color:H.apoc?0x2a1410:H.snow?0xdfe6ee:0x2f5a26})); far.rotation.x=-Math.PI/2; far.position.y=-6; holeGroup.add(far); }   // hazed like the backdrop's base
+  if(!H.space&&!H.sea){ const far=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshBasicMaterial({color:H.apoc?0x2a1410:H.snow?0xdfe6ee:H.farCol||0x2f5a26})); far.rotation.x=-Math.PI/2; far.position.y=-6; holeGroup.add(far); }   // hazed like the backdrop's base
+  if(H.sea) buildSea();
   // water
   for(const W of H.water){ const w=new THREE.Mesh(waterGeo(W),H.apoc?M.lava:H.snow?M.ice:H.space?M.plasma:M.water); w.position.set(W.c[0],waterLevel(W),W.c[1]); holeGroup.add(w); w.updateMatrixWorld(); if(!(H.apoc||H.snow||H.space)) envAddWater(w,waterLevel(W)); }
   // tee markers, yardage posts, OB stakes
@@ -1882,8 +1939,15 @@ function buildHole(){
   const fg=new THREE.PlaneGeometry(0.5,0.34,10,1); fg.translate(0.25,0,0); if(H.pixel&&!M.flagPx) M.flagPx=new THREE.MeshStandardMaterial({map:flagPixTex(),emissive:0x5a0000,roughness:0.7,side:THREE.DoubleSide}); flagCloth=new THREE.Mesh(fg,H.pixel?M.flagPx:M.flag); flagCloth.position.y=1.95; flagCloth.userData.base=fg.attributes.position.array.slice(); pinMesh.add(flagCloth);
   buildTrees(); buildGreenAids();
 }
+// Ocean Side: one wide sheet of sea from just inside the coast out to the horizon (and all round, past the far hills)
+function buildSea(){ const S=H._sea;
+  if(!M.sea){ const t=toTex(waterTexG(),{repeat:[420,420]}); t.anisotropy=ANISO; M.sea=new THREE.MeshStandardMaterial({map:t,color:0x86aac4,roughness:0.16,metalness:0.12,transparent:true,opacity:0.94}); }
+  const g=new THREE.PlaneGeometry(9000,9000); g.rotateX(-Math.PI/2); g.translate(4500,0,0);                  // local +x = out to sea
+  const m=new THREE.Mesh(g,M.sea); m.rotation.y=Math.atan2(-S.nz,S.nx); m.position.set(S.tx+S.nx*(S.coast-8),seaY(),S.tz+S.nz*(S.coast-8)); holeGroup.add(m);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(1900,9000,48,1),M.sea); ring.rotation.x=-Math.PI/2; ring.position.set(S.tx,seaY()-0.05,S.tz); holeGroup.add(ring); }
+function sfxWaves(){ if(!audioOK()) return; const t=_ac.currentTime; burst(t,3.4,0.06,'lowpass',380,0.6,1300,1.3); burst(t+1.2,2.2,0.035,'bandpass',2400,0.5,900,0.9); }
 // rolling, wooded hills beyond the playing area: rings of terrain grown outward from the course terrain's own edge (so the two meet exactly)
-function hillsAt(x,z,d){ const r=smooth(clamp(d/320,0,1)), A=16+75*smooth(clamp((d-260)/900,0,1)); return r*A*(0.25+NZ.fbm(x*0.0032+5,z*0.0032+9,4)*0.9); }
+function hillsAt(x,z,d){ const r=smooth(clamp(d/320,0,1)), A=(16+75*smooth(clamp((d-260)/900,0,1)))*(H&&H.mtn?1+2.2*smooth(clamp((d-200)/700,0,1)):1); return r*A*(0.25+NZ.fbm(x*0.0032+5,z*0.0032+9,4)*0.9)*(H&&H._sea?1-seaK(x,z):1); }   // (Highlands: mountains; Ocean Side: none out at sea)
 function buildOuterLand(gOut){
   const {X0,Z0,cs,nx,nz,pos}=TER, X1=X0+(nx-1)*cs, Z1=Z0+(nz-1)*cs, cx=(X0+X1)/2, cz=(Z0+Z1)/2, nIn=gOut.attributes.normal, cIn=gOut.attributes.color;
   const ring=[]; for(let i=0;i<nx;i++) ring.push(i); for(let j=1;j<nz;j++) ring.push(j*nx+nx-1); for(let i=nx-2;i>=0;i--) ring.push((nz-1)*nx+i); for(let j=nz-2;j>=1;j--) ring.push(j*nx);
@@ -1894,8 +1958,9 @@ function buildOuterLand(gOut){
       P[v]=x; P[v+1]=j?baseH(x,z)+hillsAt(x,z,dOut):by; P[v+2]=z;
       if(!j){ C[v]=cIn.getX(b); C[v+1]=cIn.getY(b); C[v+2]=cIn.getZ(b); continue; }
       surfColor(x,z,c3); const f=NZ.fbm(x*0.006+2,z*0.006+7,3), wood=smooth(clamp((f-0.48)/0.12,0,1))*smooth(clamp(dOut/60,0,1)), t=smooth(clamp(dOut/200,0,1));
-      const wc=H.apoc?[0.05,0.03,0.025]:H.snow?[0.2,0.26,0.24]:[0.035,0.075,0.025];   // (Post-Apocalypse: burnt land, not forest)
-      fc.setRGB(mix(c3[0],wc[0],wood*0.85),mix(c3[1],wc[1],wood*0.85),mix(c3[2],wc[2],wood*0.85)); fc.lerp(H.apoc?new THREE.Color(0.09,0.04,0.03):H.snow?new THREE.Color(0.8,0.84,0.88):new THREE.Color(0.06,0.12,0.04),t*0.25*(1-wood));
+      const wc=H.apoc?[0.05,0.03,0.025]:H.snow?[0.2,0.26,0.24]:H.wood||[0.035,0.075,0.025], ld=H.land||[0.06,0.12,0.04], sk=H._sea?seaK(x,z):0, wd=wood*(1-sk);   // (Post-Apocalypse: burnt land, not forest)
+      fc.setRGB(mix(c3[0],wc[0],wd*0.85),mix(c3[1],wc[1],wd*0.85),mix(c3[2],wc[2],wd*0.85)); fc.lerp(H.apoc?new THREE.Color(0.09,0.04,0.03):H.snow?new THREE.Color(0.8,0.84,0.88):new THREE.Color(ld[0],ld[1],ld[2]),t*0.25*(1-wd)*(1-sk));
+      if(H.mtn){ const up=P[v+1]-baseH(x,z), rk=smooth(clamp((up-60)/90,0,1)), sn=smooth(clamp((up-190)/60,0,1)); fc.lerp(new THREE.Color(0.2,0.19,0.18),rk*0.85); fc.lerp(new THREE.Color(0.75,0.77,0.8),sn*0.7); }   // bare rock up high, a dusting of snow on the tops
       C[v]=fc.r; C[v+1]=fc.g; C[v+2]=fc.b; } }
   const idx=[]; for(let j=0;j<R-1;j++) for(let k=0;k<N;k++){ const k2=(k+1)%N, a=j*N+k, b=j*N+k2, c=(j+1)*N+k, d=(j+1)*N+k2; idx.push(a,b,c,b,d,c); }
   const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(P,3)); g.setAttribute('color',new THREE.BufferAttribute(C,3)); g.setIndex(idx); g.computeVertexNormals();
@@ -1906,7 +1971,7 @@ function buildOuterLand(gOut){
   const list=[]; for(let i=0;i<4000&&list.length<(PERF?160:260);i++){ const k=(NZ.rnd()*N)|0, j=1+NZ.rnd()*7.5, j0=Math.floor(j), t=j-j0, dd=mix(D[j0],D[j0+1],t), b=base[k];
     let dx=pos[b*3]-cx, dz=pos[b*3+2]-cz; const l=Math.hypot(dx,dz)||1; const x=pos[b*3]+dx/l*dd, z=pos[b*3+2]+dz/l*dd;
     if(NZ.fbm(x*0.006+2,z*0.006+7,3)<0.47&&NZ.rnd()<0.85) continue;
-    const dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1)); if(dOut<8) continue;
+    const dOut=Math.hypot(Math.max(X0-x,0,x-X1),Math.max(Z0-z,0,z-Z1)); if(dOut<8) continue; if(H._sea&&seaK(x,z)>0.01) continue;
     const v=(j0*N+k)*3, v2=((j0+1)*N+k)*3, y=mix(P[v+1],P[v2+1],t)-0.6, kk=NZ.rnd();
     let sp=kk<0.45?'pine':kk<0.85?'oak':'poplar'; if(H.trees){ let k2=NZ.rnd(); for(const [name,w] of Object.entries(H.trees)){ sp=name; if((k2-=w)<0) break; } }   // the theme's own trees out here too
     list.push({x,y,z,s:0.8+NZ.rnd()*0.6,sp,rot:sp.startsWith('block')?0:undefined}); }
@@ -1964,7 +2029,7 @@ function buildTrees(){
   for(let tries=0;TREES.length<want&&tries<6000;tries++){
     const [rpx,rpz,rdx,rdz]=routePoint(-40+rnd()*(H.len+90)), side=rnd()<0.5?-1:1, off=(H.dense?16:24)+rnd()*(H.ob+30), x=rpx-rdz*off*side, z=rpz+rdx*off*side, s=surfAt(x,z);
     if(s==='fairway'||s==='green'||s==='fringe'||s==='tee'||s==='water'||s==='sand'||(H.space&&s==='ob')) continue;
-    const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
+    const F=fairInfo(x,z); if(F.d<F.hw+7) continue; if(H._sea&&seaK(x,z)>0.01) continue; if(Math.hypot(x-H.pin[0],z-H.pin[1])<34) continue; if(Math.hypot(x-H.tee[0],z-H.tee[1])<16) continue;
     if(TREES.some(t=>Math.hypot(t.x-x,t.z-z)<4.5)||onCart(x,z)||onCart(x+2,z)||onCart(x-2,z)) continue;
     let k=rnd(), sp=k<(H.dense?0.3:0.5)?'oak':k<(H.dense?0.85:0.78)?'pine':'poplar';
     if(H.trees){ k=rnd(); for(const [name,w] of Object.entries(H.trees)){ sp=name; if((k-=w)<0) break; } }      // a theme's own mix (shrubs, pines…)
@@ -2059,6 +2124,7 @@ function flightStep(dt){
   // water surface
   for(const W of H.water) if(ellR(W,P.x,P.z)<1.18&&P.y<=waterLevel(W)){ penalty('water'); return; }
   const gy=meshH(P.x,P.z);
+  if(H._sea&&P.y<=seaY()&&seaK(P.x,P.z)>0.2){ penalty('sea'); return; }
   if(H.space&&surfAt(P.x,P.z)==='ob'){ if(P.y<gy-6) penalty('ob'); return; }              // Sci-Fi: off the platform there's only space — it falls away
   if(P.y<=gy+BALL_R&&V.y<0){                                                               // landing / bounce
     const s=surfAt(P.x,P.z); if(s==='water'){ penalty('water'); return; }
@@ -2075,6 +2141,7 @@ function rollStep(dt){
   const P=ball.p, V=ball.v, s=surfAt(P.x,P.z), S2=SURF[s]; ball.lie=s;
   if(s==='water'||inWater(P.x,P.z)){ penalty('water'); return; }
   if(H.space&&s==='ob'){ ball.mode='fly'; V.y=-0.3; ball.rpm=0; return; }                  // rolled off the edge
+  if(H._sea&&P.y<=seaY()+BALL_R&&seaK(P.x,P.z)>0.2){ penalty('sea'); return; }             // rolled down the cliff into the sea
   const [gx,gz]=grad(P.x,P.z), slopeA=(5/7)*G*Math.hypot(gx,gz), sp0=Math.hypot(V.x,V.z);
   if(sp0<0.04&&slopeA<S2.roll*0.98){ V.set(0,0,0); ballStopped(); return; }
   V.x-=(5/7)*G*gx*dt; V.z-=(5/7)*G*gz*dt;
@@ -2255,8 +2322,9 @@ function penalty(kind){
     for(let k=0;k<30&&surfAt(x,z)==='deep'&&Math.hypot(ball.last[0]-x,ball.last[1]-z)>3;k++){ const nx=x+dx/l, nz=z+dz/l, ns=surfAt(nx,nz); if(wetAt(nx,nz)||ns==='sand'||ns==='ob') break; x=nx; z=nz; }   // …but never into another hazard
     showMsg((H.apoc?'Lava!':H.snow?'Through the ice!':H.space?'Zapped!':'Splash!')+'<small>1-STROKE PENALTY · DROP</small>',1.8);
     tween(0.01,()=>{},()=>{ ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); ball.visible=true; nextShot(); },1.8); }
-  else { showMsg((H.space?'Lost in space!':'Out of bounds')+'<small>STROKE AND DISTANCE</small>',1.8);
-    tween(0.01,()=>{},()=>{ const [x,z]=ball.last; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); nextShot(); },1.8); }
+  else { if(kind==='sea'){ sfxSplash(); ball.visible=false; envSplash(holeGroup,P.x,seaY()+0.02,P.z,1.6); }
+    showMsg((kind==='sea'?'Into the sea!':H.space?'Lost in space!':'Out of bounds')+'<small>STROKE AND DISTANCE</small>',1.8);
+    tween(0.01,()=>{},()=>{ const [x,z]=ball.last; ball.p.set(x,meshH(x,z)+BALL_R,z); ball.lie=surfAt(x,z); ball.visible=true; nextShot(); },1.8); }
 }
 function holed(){
   pendingReplay=!!(replayRec&&camMode==='putt'&&replayRec.from*3.281>=REPLAY_FT&&!H.range);
@@ -2620,7 +2688,7 @@ function drawMap(rebuild){
   const sx=W/(x1-x0), sz=Hh/(z1-z0), m=(x,z)=>[ (x1-x)*sx, Hh-(z-z0)*sz ];   // screen-left is world +x
   if(rebuild||!mapBase){ mapBase=mkCanvas(W,Hh); const b=mapBase.getContext('2d'), img=b.createImageData(W,Hh), d=img.data, c3=[0,0,0];
     for(let py=0;py<Hh;py++) for(let px=0;px<W;px++){ const x=x1-(px+0.5)/sx, z=z0+(Hh-py-0.5)/sz, s=surfAt(x,z), c=SURF_COL[s==='water'?'water':s], i=(py*W+px)*4;
-      const k=s==='water'?(H.apoc?[255,96,24]:H.snow?[200,226,242]:[50,110,190]):c; d[i]=k[0]; d[i+1]=k[1]; d[i+2]=k[2]; d[i+3]=255; }
+      const k=s==='water'||H._sea&&seaK(x,z)>0.45?(H.apoc?[255,96,24]:H.snow?[200,226,242]:[50,110,190]):H._sea&&s==='ob'?coastTint(x,z,c,[0,0,0]):c; d[i]=k[0]; d[i+1]=k[1]; d[i+2]=k[2]; d[i+3]=255; }
     b.putImageData(img,0,0); b.fillStyle='rgba(20,60,20,.85)'; for(const T of TREES){ const [px,py]=m(T.x,T.z); b.beginPath(); b.arc(px,py,Math.max(1.4,T.cr*sx*0.8),0,7); b.fill(); } }
   g.drawImage(mapBase,0,0);
   const [bx,by]=m(ball.p.x,ball.p.z), [px,py]=m(H.pin[0],H.pin[1]);
@@ -2634,7 +2702,7 @@ function drawMap(rebuild){
 // ═══════════════════════════════════════════════════════
 //  RENDER LOOP
 // ═══════════════════════════════════════════════════════
-let lastT=0, mapT=0, birdT=6;
+let lastT=0, mapT=0, birdT=6, waveT=3;
 // frame pacing: about 60 fps (30 on Low graphics) however fast the screen refreshes, and once nothing has moved for a moment
 // (aiming, the menu) about 30 (20) — the laptop's fans and battery notice, the player doesn't. Frames land on whole refreshes
 // (every 2nd on a 120 Hz screen, every 2nd on 144 Hz = 72 fps) so the pace is even rather than a beat of 2s and 3s
@@ -2697,7 +2765,7 @@ function loop(t){
       if(flagCloth){ const p=flagCloth.geometry.attributes.position, b=flagCloth.userData.base, ws=0.6+wind.mph/14; const st=H.pixel?0.034:0; for(let i=0;i<p.count;i++){ const x=st?Math.floor(b[i*3]/0.1)*0.1:b[i*3]; let v=Math.sin(clock*4*ws+x*9)*0.04*(x/0.5)*ws; if(st) v=Math.round(v/st)*st; p.setZ(i,v); } p.needsUpdate=true;   // 8 Bit: it flaps in steps
         pinMesh.rotation.y=Math.atan2(wind.x,wind.z)-Math.PI/2; pinMesh.visible=phase!=='replay'&&!(ball.lie==='green'&&toPin()<1.2&&ball.mode!=='rest'); }
       if(msgT>0){ msgT-=dt; if(msgT<=0) document.getElementById('msg').innerHTML=''; }
-      if(M.water.map) M.water.map.offset.x+=dt*0.01;
+      if(M.water.map) M.water.map.offset.x+=dt*0.01; if(H._sea&&M.sea){ M.sea.map.offset.x+=dt*0.004; M.sea.map.offset.y=Math.sin(clock*0.4)*0.02; waveT-=dt; if(waveT<0){ waveT=6+Math.random()*5; sfxWaves(); } }
       if(H.space){ M.plasma.map.offset.x+=dt*0.03; M.plasma.map.offset.y-=dt*0.02; }
       if(H.apoc){ M.lava.map.offset.x+=dt*0.006; M.lava.map.offset.y+=dt*0.004; M.lava.color.setScalar(0.88+0.12*Math.sin(clock*1.3)); }   // slow churn and a breathing glow
       stepEmbers(dt); envStep(dt,wind.x||0.4,wind.z||0.15,0.25+(wind.mph||0)/11); if(M.skyMesh) M.skyMesh.rotation.y+=dt*0.002*(1+(wind.mph||0)/8);
@@ -2721,6 +2789,7 @@ function applyTOD(){ if(!L.sun) return; wake(); envApplyTOD(settings.tod,{sun:L.
     L.sun.color.lerp(r,0.45); L.hemi.color.lerp(r,0.5); L.hemi.groundColor.set(0x3a1006); }
   if(H&&H.snow){ if(M.skyMesh) M.skyMesh.material.color.lerp(new THREE.Color(0xb8c2cc),0.7); if(M.pano) M.pano.material.color.lerp(new THREE.Color(0xe8eef4),0.5); if(settings.tod!==3) scene.fog.color.set(0xdfe6ee);   // overcast and snowy
     L.hemi.groundColor.set(0xc8d4e0); L.sun.color.lerp(new THREE.Color(0xe8f0ff),0.5); }
+  if(H&&H.mtn&&settings.tod!==3){ if(M.skyMesh) M.skyMesh.material.color.lerp(new THREE.Color(0xa8b2ba),0.4); if(M.pano) M.pano.material.color.lerp(new THREE.Color(0x9a9890),0.35); }   // a grey, Highland sky
   if(H&&H.space){ if(M.skyMesh) M.skyMesh.material.color.set(0xffffff); scene.fog.color.set(0x05060c); ENV.cloudAmt.value=0;   // deep space: hard white sunlight, a dim blue fill
     L.sun.color.set(0xffffff); L.hemi.color.set(0x5866a0); L.hemi.groundColor.set(0x0c0e18); L.hemi.intensity*=0.7; }
   if(H&&holeGroup&&GFX<2) buildTreeShade();
@@ -2791,7 +2860,7 @@ function tuftWork(J,budget){                        // true once the patch is do
   const t0=performance.now(), c=_tcol, cap=GFX===2?3600:2200;
   while(J.i<10000&&J.list.length<cap){ J.i++; const a=NZ.rnd()*6.283, r=Math.sqrt(NZ.rnd())*TUFT_R, x=J.x+Math.cos(a)*r, z=J.z+Math.sin(a)*r;      // ~2.4 blades per m² of rough at most
     if(J.others.some(T=>Math.hypot(x-T.x,z-T.z)<TUFT_R)) continue;                                     // already grassed by another patch
-    const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue;
+    const s=surfAt(x,z), dens=s==='deep'?1:s==='rough'?0.7:s==='ob'?0.85:0; if(NZ.rnd()>dens) continue; if(onCart(x,z)) continue; if(H._sea&&seaK(x,z)>0.02) continue;
     const col=SURF_COL[s], kk=0.95+NZ.rnd()*0.25; c.setRGB(Math.pow(col[0]*kk/255,2.2)*1.6,Math.pow(col[1]*kk/255,2.2)*1.6,Math.pow(col[2]*kk/255,2.2)*1.6);
     J.list.push({x,y:meshH(x,z)-0.01,z,s:(s==='deep'?1.35:1)*(0.7+NZ.rnd()*0.7),k:1,c:c.clone()});
     if((J.i&63)===0&&performance.now()-t0>budget) return false; }
