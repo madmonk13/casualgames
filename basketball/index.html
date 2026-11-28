@@ -335,16 +335,16 @@ const THEMES=[
   coin:['#ff7a1a','#8a3200','#ffd27a'],marquee:'spooky',back:'graveyard',carpet:'spooky',wall:[30,22,44],wallKind:'graveyard',guide:'#ff8a1a',net:0x2a2830,
   deck:{kind:'pumpkins'},decor:'halloween'},
  {id:'street',label:'Street',
-  bg:0x0c0c10,fog:[340,1000],hemi:[0xb8b0c8,0x1c1a18,0.8],fill:[0xffd8b0,0.3],key:[0xffd2a0,1.55],tgt:[0xfff0dc,1.15],acc:[[0xff2e88,0.75],[0x20d0ff,0.65]],
-  neon:[0xff2e88,0x20d0ff,0xffd400],ceil:0xffd8a8,env:{base:0x1a1a1e,panel:0xffe2c0,neon:[0xff2e88,0x20d0ff,0xffd400]},
+  bg:0x0c0c10,fog:[340,1000],hemi:[0xc4bab0,0x1c1a18,0.8],fill:[0xffd8b0,0.3],key:[0xffd2a0,1.55],tgt:[0xfff0dc,1.15],acc:[[0xff4a24,0.6],[0x20d0ff,0.65]],
+  neon:[0xff4a24,0x20d0ff,0xffd400],ceil:0xffd8a8,env:{base:0x1a1a1e,panel:0xffe2c0,neon:[0xff4a24,0x20d0ff,0xffd400]},
   lane:{kind:'court'},cab:{kind:'brick'},
-  trim:{color:0x9aa0a6,metal:0.9,rough:0.45,emissive:0x000000,ei:0},edge:{color:0x000000,metal:0,rough:0.4,emissive:0xff2e88,ei:0.85},
+  trim:{color:0x9aa0a6,metal:0.9,rough:0.45,emissive:0x000000,ei:0},edge:{color:0x000000,metal:0,rough:0.4,emissive:0xff4a24,ei:0.85},
   lam:{tex:true,color:0x6a6a70},front:0x1c1c20,
   board:{top:'#dcdcd4',bot:'#b8b8ae',c40:'#e2571e',stripe:'rgba(30,30,30,.55)',num:'#1a1a1a',ten:'#e2571e',stroke:'rgba(0,0,0,.6)',
     scuff:1.6,scuffCol:'70,60,50',glow:null,tags:true,rust:true},
   led:{label:'#ff9a3a',on:'#ff3b30',off:'#2a0806',ball:'#ffd400',ballOff:'#2a2200'},
-  coin:['#ff2e88','#8a0a44','#ffd400'],marquee:'street',back:'mural',carpet:'asphalt',wall:[60,40,36],wallKind:'graffiti',guide:'#ffd400',net:0x9aa0a6,
-  deck:['#ff2e88','#20d0ff','#ffd400'],decor:'street'},
+  coin:['#e8402a','#7a1c0c','#ffd400'],marquee:'street',back:'mural',carpet:'asphalt',wall:[60,40,36],wallKind:'graffiti',guide:'#ffd400',net:0x9aa0a6,
+  deck:['#e8402a','#20d0ff','#ffd400'],decor:'street'},
  {id:'highschool',label:'High School',
   bg:0x0d0f0c,fog:[320,950],hemi:[0xe8e4d4,0x1a1a14,0.5],fill:[0xfff0d8,0.18],key:[0xfff0dc,1.15],tgt:[0xfff2e0,0.95],acc:[[0xd4a22a,0.2],[0xd4a22a,0.12]],
   neon:[0xd4a22a,0x2e7a46,0xd4a22a],ceil:0xf2e8d0,env:{base:0x1c1e18,panel:0xf2e8d0,neon:[0xd4a22a,0x2e7a46,0xd4a22a]},
@@ -908,7 +908,7 @@ function netTex(){
 
 
 // ── Street: blacktop, brick and spray paint ──
-const SPRAY=['#ff2e88','#20d0ff','#ffd400','#7cff3a','#ff6a1a','#b05cff'];
+const SPRAY=['#e8402a','#20d0ff','#ffd400','#7cff3a','#ff6a1a','#b05cff'];
 const TAG_WORDS=['HOOP','DUNK','23','KING','BALL','ACE','SWISH','NEXT'];
 function darkHex(h,k){ const n=parseInt(h.slice(1),16); return `rgb(${((n>>16)&255)*k|0},${((n>>8)&255)*k|0},${(n&255)*k|0})`; }
 // bubble-letter "piece" with outline, drop shadow, overspray haze & drips — or a thin marker-style tag
@@ -941,7 +941,7 @@ function brickTex(W,H,bw,bh){
 }
 function brickWithTags(W,H,bw,bh,n,big){
   const b=brickTex(W,H,bw,bh), g=b.color.getContext('2d');
-  if(big) sprayTag(g,big,W*0.5,H*0.52,H*0.3,SPRAY[0],{col2:'#7a0a44',drips:9});
+  if(big) sprayTag(g,big,W*0.5,H*0.52,H*0.3,SPRAY[0],{col2:'#6a1608',drips:9});
   for(let i=0;i<n;i++){ const sz=H*(0.08+NZ.rnd()*0.1), x=W*(0.12+NZ.rnd()*0.76), y=H*(0.12+NZ.rnd()*0.76), word=TAG_WORDS[(NZ.rnd()*TAG_WORDS.length)|0], col=SPRAY[(NZ.rnd()*SPRAY.length)|0];
     if(NZ.rnd()<0.45) sprayTag(g,word,x,y,sz*0.9,col,{thin:true,rot:(NZ.rnd()-0.5)*0.4}); else sprayTag(g,word,x,y,sz,col,{rot:(NZ.rnd()-0.5)*0.25,drips:3}); }
   for(let i=0;i<4;i++) splatter(g,W*(0.1+NZ.rnd()*0.8),H*(0.1+NZ.rnd()*0.8),H*0.05,SPRAY[(NZ.rnd()*SPRAY.length)|0]);
@@ -985,13 +985,13 @@ function asphaltFloor(S){                                                   // t
 }
 function muralTex(){                                                       // the wall behind the backboard: a big piece low down where it shows
   const W=512, b=brickWithTags(W,W,64,24,5,null), g=b.color.getContext('2d');
-  const sky=g.createLinearGradient(0,0,0,W); sky.addColorStop(0,'rgba(40,20,90,.55)'); sky.addColorStop(1,'rgba(255,46,136,.25)'); g.fillStyle=sky; g.fillRect(0,0,W,W);
+  const sky=g.createLinearGradient(0,0,0,W); sky.addColorStop(0,'rgba(30,24,40,.4)'); sky.addColorStop(1,'rgba(255,110,50,.16)'); g.fillStyle=sky; g.fillRect(0,0,W,W);
   for(let i=0;i<14;i++){ const x=NZ.rnd()*W, y=NZ.rnd()*W*0.5; g.fillStyle='rgba(255,255,255,.8)'; g.beginPath(); for(let k=0;k<10;k++){ const a=k*Math.PI/5, rr=k&1?5:12; g[k?'lineTo':'moveTo'](x+Math.cos(a)*rr,y+Math.sin(a)*rr); } g.fill(); }
   // crown + "STREET" piece
   for(const [cx,cy] of [[W*0.07,W*0.42],[W*0.93,W*0.42]]){ g.fillStyle='#ffd400'; g.strokeStyle='#111'; g.lineWidth=4; g.beginPath();   // crowns either side of the backboard
     g.moveTo(cx-18,cy); g.lineTo(cx-21,cy-18); g.lineTo(cx-9,cy-9); g.lineTo(cx,cy-22); g.lineTo(cx+9,cy-9); g.lineTo(cx+21,cy-18); g.lineTo(cx+18,cy); g.closePath(); g.fill(); g.stroke(); }
   // wordless piece low on the wall (the backboard hides the middle): interlocking bubbles, arrows, a flying ball, splatter
-  sprayBlob(g,W*0.2,W*0.8,W*0.15,W*0.1,'#20d0ff','#0a4a8a'); sprayBlob(g,W*0.8,W*0.8,W*0.15,W*0.1,'#ff2e88','#7a0a44');
+  sprayBlob(g,W*0.2,W*0.8,W*0.15,W*0.1,'#20d0ff','#0a4a8a'); sprayBlob(g,W*0.8,W*0.8,W*0.15,W*0.1,'#e8402a','#6a1608');
   sprayBlob(g,W*0.42,W*0.86,W*0.13,W*0.08,'#ffd400','#a05a00'); sprayBlob(g,W*0.62,W*0.74,W*0.11,W*0.08,'#7cff3a','#2a7a10');
   sprayArrow(g,W*0.06,W*0.95,W*0.36,W*0.66,W*0.02,-W*0.12,'#ff6a1a',W*0.025); sprayArrow(g,W*0.96,W*0.66,W*0.7,W*0.95,W*0.06,W*0.02,'#b05cff',W*0.022);
   sprayBall(g,W*0.5,W*0.7,W*0.055);
@@ -1213,7 +1213,7 @@ function marqueeBase(t,canvas){
     g.drawImage(brickTex(512,256,64,24).color,0,0,W,H); g.fillStyle='rgba(10,8,20,.35)'; g.fillRect(0,0,W,H);
     for(let i=0;i<5;i++) splatter(g,W*(0.08+i*0.21),H*(0.2+(i&1)*0.6),60,SPRAY[i]);
     g.strokeStyle='#2a2a2e'; g.lineWidth=22; g.strokeRect(11,11,W-22,H-22);
-    sprayTag(g,'JUST HOOP',W/2,H*0.43,128,SPRAY[0],{col2:'#7a0a44',drips:10});
+    sprayTag(g,'JUST HOOP',W/2,H*0.43,128,SPRAY[0],{col2:'#6a1608',drips:10});
     g.save(); g.translate(W/2,H*0.82); g.font='900 40px "Arial Black",Impact,sans-serif'; g.textAlign='center'; g.textBaseline='middle';
     g.fillStyle='#ffd400'; g.shadowColor='#000'; g.shadowBlur=8; g.fillText('SHOOT · SWISH · SCORE',0,0); g.restore();
   } else if(t.marquee==='spooky'){
@@ -1280,7 +1280,7 @@ function drawMarquee(){
     if(marqFlash>0&&(marqPhase&1)){ g.fillStyle='rgba(212,175,55,.35)'; g.fillRect(20,20,W-40,H-40); }
   } else if(t.marquee==='street'){         // flickering neon tube round the sign 
     const W=1024, H=512;
-    const fl=marqFlash>0?((marqPhase&1)?1:0.25):(Math.random()<0.06?0.3:1), col=marqFlash>0&&(marqPhase&2)?'#20d0ff':'#ff2e88';
+    const fl=marqFlash>0?((marqPhase&1)?1:0.25):(Math.random()<0.06?0.3:1), col=marqFlash>0&&(marqPhase&2)?'#20d0ff':'#e8402a';
     g.save(); g.globalAlpha=fl; g.strokeStyle=col; g.shadowColor=col; g.shadowBlur=26; g.lineWidth=9; if(g.roundRect){ g.beginPath(); g.roundRect(34,34,W-68,H-68,30); g.stroke(); } else g.strokeRect(34,34,W-68,H-68);
     g.shadowBlur=0; g.strokeStyle='rgba(255,255,255,.8)'; g.lineWidth=3; if(g.roundRect){ g.beginPath(); g.roundRect(34,34,W-68,H-68,30); g.stroke(); } g.restore();
   } else if(t.marquee==='spooky'){         // candle-flicker jack-o'-lantern lights
